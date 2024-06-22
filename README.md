@@ -1,2 +1,2 @@
-# lessgo-website
+# Lessgo-Homepage
 The homepage for lessgo website
