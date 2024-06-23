@@ -57,7 +57,9 @@
       overflow: hidden;
     }
     header#header {
-      margin-bottom: 70px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
     .main-content {
       color: #fff;
@@ -152,6 +154,12 @@
       color: #626262;
     }
 
+    .logo {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
     @media (max-width: 999px) {
       .container {
         padding-left: 70px;
@@ -215,13 +223,7 @@
                 <img
                   src="images/logo.png"
                   alt="logo"
-                  style="
-                    width: 250px;
-                    height: 100px;
-                    align-self: center;
-                    margin-top: -20%;
-                    margin-left: 20%;
-                  "
+                  style="width: 250px; height: 100px"
                 />
               </div>
             </header>
@@ -293,7 +295,12 @@
               <div class="copyright">
                 <p>
                   Copyright &copy;
-                  <a href="https://priytosh.in" target="_blank">Lessgo</a>
+                  <a
+                    href="https://priytosh.in"
+                    target="_blank"
+                    style="color: blue"
+                    >Lessgo</a
+                  >
                   2024
                 </p>
               </div>
