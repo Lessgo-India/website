@@ -24,7 +24,7 @@ Lessgo is a modern web application designed to help users manage their trips, pl
 
 ## 📷 Screenshots
 
-![Home Page](https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=800&q=80)
+![Home Page](https://lessgo-asset.s3.ap-south-1.amazonaws.com/images/splash_event.jpg)
 *Home page showcasing the app's features*
 
 ## 🚀 Getting Started
