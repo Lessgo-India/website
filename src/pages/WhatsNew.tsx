@@ -28,12 +28,12 @@ function WhatsNew() {
             date: "January 2025"
           }
         ].map((feature, index) => (
-          <div key={index} className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-            <div className="bg-blue-50 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+          <div key={index} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+            <div className="bg-blue-50 dark:bg-gray-700 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
               {feature.icon}
             </div>
             <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-            <p className="text-gray-600 mb-4">{feature.description}</p>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">{feature.description}</p>
             <p className="text-sm text-blue-500">{feature.date}</p>
           </div>
         ))}

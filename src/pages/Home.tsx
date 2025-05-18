@@ -5,7 +5,7 @@ function Home() {
     <main className="container mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 py-12 items-center"> {/* items-center helps vertically align grid items */}
       {/* Left Column - justify-center handles vertical centering */}
       <div className="flex flex-col justify-center min-h-[650px]"> 
-        <h1 className="text-6xl font-bold text-gray-900 mb-2">
+        <h1 className="text-6xl font-bold text-gray-900 dark:text-white mb-2">
           Hangouts
         </h1>
         <h2 className="text-6xl font-bold mb-6">
@@ -14,7 +14,7 @@ function Home() {
           </span>
           <span className="text-blue-500">!</span>
         </h2>
-        <p className="text-xl text-gray-600 mb-8 max-w-lg">
+        <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-lg">
           Manage your Trips, Plans and Hangouts at ease. <br />Detail's on us, Fun's on you!
         </p>
         <div className="flex flex-col sm:flex-row gap-4">
@@ -86,7 +86,7 @@ function Home() {
         <div className="relative p-4 w-full max-w-sm z-10"> 
           <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl overflow-hidden transform rotate-3 h-[600px] flex items-center justify-center">
             <img
-              src="https://lessgo-asset.s3.ap-south-1.amazonaws.com/images/splash_event.jpg"
+              src="https://lessgo-asset.s3.ap-south-1.amazonaws.com/images/event_screen.jpg"
               alt="Hangout illustration"
               className="w-full h-full object-contain" 
             />
