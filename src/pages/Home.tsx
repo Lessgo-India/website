@@ -38,28 +38,41 @@ function Home() {
       {/* Right Column */}
       <div className="relative flex items-center justify-center min-h-[650px]"> 
         
-        {/* Decorative Background Elements */}
-        {/* Gradient Circle 1 */}
-        <div className="absolute top-10 left-10 w-32 h-32 bg-gradient-to-br from-pink-300 to-purple-300 rounded-full opacity-50 blur-xl"></div>
-        {/* Gradient Circle 2 */}
-        <div className="absolute bottom-10 right-10 w-40 h-40 bg-gradient-to-tl from-teal-200 to-lime-200 rounded-full opacity-40 blur-lg"></div>
-        {/* Small Shape 1 */}
-        <div className="absolute top-1/4 right-5 w-8 h-8 bg-yellow-300 rounded-md transform rotate-12 opacity-70"></div>
-        {/* Small Shape 2 */}
-        <div className="absolute bottom-1/4 left-5 w-10 h-10 bg-orange-300 rounded-full opacity-60"></div>
+        {/* Decorative Background Elements for Light Mode */}
+        <div className="absolute top-10 left-10 w-32 h-32 bg-gradient-to-br from-pink-300 to-purple-300 rounded-full opacity-50 blur-xl dark:hidden"></div>
+        <div className="absolute bottom-10 right-10 w-40 h-40 bg-gradient-to-tl from-teal-200 to-lime-200 rounded-full opacity-40 blur-lg dark:hidden"></div>
+        <div className="absolute top-1/4 right-5 w-8 h-8 bg-yellow-300 rounded-md transform rotate-12 opacity-70 dark:hidden"></div>
+        <div className="absolute bottom-1/4 left-5 w-10 h-10 bg-orange-300 rounded-full opacity-60 dark:hidden"></div>
+
+        {/* Decorative Background Elements for Dark Mode */}
+        <div className="absolute top-10 left-10 w-32 h-32 bg-gradient-to-br from-purple-700 to-indigo-800 rounded-full opacity-50 blur-xl hidden dark:block"></div>
+        <div className="absolute bottom-10 right-10 w-40 h-40 bg-gradient-to-tl from-teal-800 to-green-900 rounded-full opacity-40 blur-lg hidden dark:block"></div>
+        <div className="absolute top-1/4 right-5 w-8 h-8 bg-yellow-600 rounded-md transform rotate-12 opacity-70 hidden dark:block"></div>
+        <div className="absolute bottom-1/4 left-5 w-10 h-10 bg-orange-700 rounded-full opacity-60 hidden dark:block"></div>
         
-        {/* Emojis */}
-        {/* Outer Ring */}
-        <span className="absolute top-16 right-20 text-4xl opacity-80 transform -rotate-12">🎉</span>
-        <span className="absolute bottom-16 left-20 text-4xl opacity-80 transform rotate-12">☀️</span>
-        <span className="absolute bottom-32 right-1/4 text-3xl opacity-70">🚀</span>
-        <span className="absolute top-1/3 left-1/4 text-3xl opacity-70">✨</span>
-        <span className="absolute top-5 left-1/2 text-3xl opacity-70 transform -translate-x-1/2">🎈</span>
-        <span className="absolute bottom-5 right-1/2 text-3xl opacity-70 transform translate-x-1/2 rotate-6">🍕</span>
-        <span className="absolute top-1/2 -left-5 text-4xl opacity-80 transform -translate-y-1/2 -rotate-15">🏖️</span>
-        <span className="absolute top-1/2 -right-5 text-4xl opacity-80 transform -translate-y-1/2 rotate-15">🎵</span>
-        <span className="absolute top-3/4 left-10 text-3xl opacity-70">🗺️</span>
-        <span className="absolute bottom-1/3 right-10 text-3xl opacity-70">📸</span>
+        {/* Emojis for Light Mode */}
+        <span className="absolute top-16 right-20 text-4xl opacity-80 transform -rotate-12 dark:hidden">🎉</span>
+        <span className="absolute bottom-16 left-20 text-4xl opacity-80 transform rotate-12 dark:hidden">☀️</span>
+        <span className="absolute bottom-32 right-1/4 text-3xl opacity-70 dark:hidden">🚀</span>
+        <span className="absolute top-1/3 left-1/4 text-3xl opacity-70 dark:hidden">✨</span>
+        <span className="absolute top-5 left-1/2 text-3xl opacity-70 transform -translate-x-1/2 dark:hidden">🎈</span>
+        <span className="absolute bottom-5 right-1/2 text-3xl opacity-70 transform translate-x-1/2 rotate-6 dark:hidden">🍕</span>
+        <span className="absolute top-1/2 -left-5 text-4xl opacity-80 transform -translate-y-1/2 -rotate-15 dark:hidden">🏖️</span>
+        <span className="absolute top-1/2 -right-5 text-4xl opacity-80 transform -translate-y-1/2 rotate-15 dark:hidden">🎵</span>
+        <span className="absolute top-3/4 left-10 text-3xl opacity-70 dark:hidden">🗺️</span>
+        <span className="absolute bottom-1/3 right-10 text-3xl opacity-70 dark:hidden">📸</span>
+
+        {/* Emojis for Dark Mode */}
+        <span className="absolute top-16 right-20 text-4xl opacity-80 transform -rotate-12 hidden dark:block">🌌</span>
+        <span className="absolute bottom-16 left-20 text-4xl opacity-80 transform rotate-12 hidden dark:block">🌙</span>
+        <span className="absolute bottom-32 right-1/4 text-3xl opacity-70 hidden dark:block">🌟</span>
+        <span className="absolute top-1/3 left-1/4 text-3xl opacity-70 hidden dark:block">💫</span>
+        <span className="absolute top-5 left-1/2 text-3xl opacity-70 transform -translate-x-1/2 hidden dark:block">🌠</span>
+        <span className="absolute bottom-5 right-1/2 text-3xl opacity-70 transform translate-x-1/2 rotate-6 hidden dark:block">🌌</span>
+        <span className="absolute top-1/2 -left-5 text-4xl opacity-80 transform -translate-y-1/2 -rotate-15 hidden dark:block">🌃</span>
+        <span className="absolute top-1/2 -right-5 text-4xl opacity-80 transform -translate-y-1/2 rotate-15 hidden dark:block">🎶</span>
+        <span className="absolute top-3/4 left-10 text-3xl opacity-70 hidden dark:block">🌉</span>
+        <span className="absolute bottom-1/3 right-10 text-3xl opacity-70 hidden dark:block">📷</span>
 
         {/* Inner Ring - New Emojis */}
         <span className="absolute top-1/3 right-1/4 text-3xl opacity-70 transform translate-x-4 -translate-y-4 rotate-10">😊</span>
@@ -71,7 +84,7 @@ function Home() {
 
         {/* Image Card Container */}
         <div className="relative p-4 w-full max-w-sm z-10"> 
-          <div className="bg-white rounded-3xl shadow-xl overflow-hidden transform rotate-3 h-[600px] flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl overflow-hidden transform rotate-3 h-[600px] flex items-center justify-center">
             <img
               src="https://lessgo-asset.s3.ap-south-1.amazonaws.com/images/splash_event.jpg"
               alt="Hangout illustration"
