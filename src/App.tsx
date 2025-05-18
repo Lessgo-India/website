@@ -42,18 +42,20 @@ function App() {
     <Router>
       <div className={`min-h-screen ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gradient-to-br from-blue-50 via-white to-blue-50'} flex flex-col`}>
         {/* Header */}
-        <header className="container mx-auto px-6 py-6 flex flex-wrap justify-between items-center gap-4">
+        <header className="container mx-auto px-6 py-6 flex flex-wrap justify-between items-center">
           <Link to="/" className="flex items-center">
             <img src="https://lessgo-asset.s3.ap-south-1.amazonaws.com/images/logo.png" alt="Lessgo Logo" className="h-8 mr-2" />
             <span className="text-2xl font-bold">Lessgo</span>
             <sup className="text-blue-500 ml-1">®</sup>
           </Link>
-          <nav className="flex items-center space-x-4 sm:space-x-8 mt-4 sm:mt-0">
-            <span className={`hidden sm:inline ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>{time}</span>
+
+          <nav className="hidden sm:flex items-center justify-center flex-grow order-last sm:order-none mt-4 sm:mt-0">
+            <span className={`text-center ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>{time}</span>
           </nav>
+
           <button
             onClick={toggleTheme}
-            className="px-4 py-2 rounded-full border border-gray-200 hover:border-gray-300 transition-colors ml-auto mt-4 sm:mt-0"
+            className="px-4 py-2 rounded-full border border-gray-200 hover:border-gray-300 transition-colors"
           >
             {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
           </button>
