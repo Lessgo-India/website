@@ -53,7 +53,7 @@ function App() {
             <sup className="text-blue-500 ml-1">®</sup>
           </Link>
           <nav className="flex items-center space-x-8">
-            <span className="hidden sm:inline text-gray-600">{time}</span> {/* Hide on small screens */}
+            <span className={`hidden sm:inline ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>{time}</span> {/* Hide on small screens */}
           </nav>
           <button
             onClick={toggleTheme}
