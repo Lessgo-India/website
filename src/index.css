@@ -33,6 +33,12 @@
   --border-color: var(--border-light);
   --bg-secondary-color: var(--bg-light-secondary);
   --primary-accent-shadow: rgba(16, 185, 129, 0.5);
+
+  /* RGB Color Variables for Glow Effect */
+  --primary-accent-rgb: 16, 185, 129;
+  --secondary-accent-rgb: 59, 130, 246;
+  --primary-accent-hover-rgb: 52, 211, 153;
+  --secondary-accent-hover-rgb: 96, 165, 250;
 }
 
 .dark {
@@ -62,6 +68,34 @@ h1, h2, h3, h4, h5, h6 {
 @keyframes slideInFromBottom {
   from { transform: translateY(20px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes pulse-subtle {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+.card-hover-glow {
+  transition: box-shadow 0.3s ease-in-out, transform 0.3s ease-in-out; /* Added transform here */
+}
+.card-hover-glow:hover {
+  box-shadow: 0 0 25px rgba(var(--primary-accent-hover-rgb), 0.5), 0 0 15px rgba(var(--secondary-accent-hover-rgb), 0.3);
+  /* transform: scale(1.05); /* This is already applied by Tailwind's hover:scale-105 */
+}
+
+.hover-gradient-glow {
+  transition: background-image 0.3s ease-in-out, color 0.3s ease-in-out, box-shadow 0.3s ease-in-out, transform 0.3s ease-in-out !important;
+}
+
+.hover-gradient-glow:hover {
+  background-image: linear-gradient(to right top, var(--primary-accent-hover), var(--secondary-accent-hover)) !important;
+  color: var(--text-on-primary) !important;
+  box-shadow: 0 0 20px rgba(var(--primary-accent-hover-rgb), 0.6), 0 0 20px rgba(var(--secondary-accent-hover-rgb), 0.4), 0 2px 4px rgba(0,0,0,0.1);
+  transform: scale(1.05);
 }
 
 @keyframes fadeIn {

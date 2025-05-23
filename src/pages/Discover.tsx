@@ -34,7 +34,7 @@ function Discover() {
         {events.map((event, index) => (
           <div 
             key={index} 
-            className="rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out backdrop-blur-md bg-bg-light-secondary/75 border border-border-light/50 dark:bg-bg-dark-secondary/75 dark:border dark:border-border-dark/50 animate-scale-up-fade-in-card hover:scale-105"
+            className="rounded-xl overflow-hidden shadow-lg transition-all duration-300 ease-in-out backdrop-blur-md bg-bg-light-secondary/75 border border-border-light/50 dark:bg-bg-dark-secondary/75 dark:border dark:border-border-dark/50 animate-scale-up-fade-in-card hover:scale-105 card-hover-glow"
             style={{ animationDelay: `${index * 100}ms` }}
           >
             <img src={event.image} alt={event.title} className="w-full h-48 object-cover" />
