@@ -27,26 +27,30 @@ function Discover() {
 
   return (
     <main className="container mx-auto px-6 py-12">
-      <h1 className="text-4xl font-bold mb-2">Discover Events</h1>
-      <div className="h-1 w-20 bg-blue-500 mb-8"></div>
+      <h1 className="text-4xl font-bold mb-2 animate-slide-in-top">Discover Events</h1>
+      <div className="h-1 w-20 bg-primary-accent mb-8 animate-slide-in-left-medium"></div>
 
       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
         {events.map((event, index) => (
-          <div key={index} className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+          <div 
+            key={index} 
+            className="rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out backdrop-blur-md bg-bg-light-secondary/75 border border-border-light/50 dark:bg-bg-dark-secondary/75 dark:border dark:border-border-dark/50 animate-scale-up-fade-in-card hover:scale-105"
+            style={{ animationDelay: `${index * 100}ms` }}
+          >
             <img src={event.image} alt={event.title} className="w-full h-48 object-cover" />
             <div className="p-6">
               <h3 className="text-xl font-semibold mb-4">{event.title}</h3>
-              <div className="flex items-center space-x-4 text-gray-600">
+              <div className="flex items-center space-x-4 text-text-light-secondary dark:text-text-dark-secondary">
                 <div className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-2 text-blue-500" />
+                  <Calendar className="h-4 w-4 mr-2 text-secondary-accent" />
                   {event.date}
                 </div>
                 <div className="flex items-center">
-                  <MapPin className="h-4 w-4 mr-2 text-blue-500" />
+                  <MapPin className="h-4 w-4 mr-2 text-secondary-accent" />
                   {event.location}
                 </div>
                 <div className="flex items-center">
-                  <Users className="h-4 w-4 mr-2 text-blue-500" />
+                  <Users className="h-4 w-4 mr-2 text-secondary-accent" />
                   {event.attendees}
                 </div>
               </div>
