@@ -28,16 +28,16 @@ function Blog() {
 
   return (
     <main className="container mx-auto px-6 py-12">
-      <h1 className="text-4xl font-bold mb-2">Lessgo Blog</h1>
-      <div className="h-1 w-20 bg-blue-500 mb-8"></div>
+      <h1 className="text-4xl font-bold mb-2 text-text-light-primary dark:text-text-dark-primary">Lessgo Blog</h1>
+      <div className="h-1 w-20 bg-secondary-accent mb-8"></div>
 
       <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-3">
         {posts.map((post, index) => (
-          <div key={index} className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col">
+          <div key={index} className="bg-bg-light-secondary dark:bg-bg-dark-secondary rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col">
             <img src={post.image} alt={post.title} className="w-full h-48 object-cover" />
             <div className="p-6 flex flex-col flex-grow">
-              <h3 className="text-xl font-semibold mb-3">{post.title}</h3>
-              <div className="flex items-center space-x-4 text-sm text-gray-500 mb-4">
+              <h3 className="text-xl font-semibold mb-3 text-text-light-primary dark:text-text-dark-primary">{post.title}</h3>
+              <div className="flex items-center space-x-4 text-sm text-text-light-secondary dark:text-text-dark-secondary mb-4">
                 <div className="flex items-center">
                   <Calendar className="h-4 w-4 mr-1.5" />
                   {post.date}
@@ -47,8 +47,8 @@ function Blog() {
                   {post.author}
                 </div>
               </div>
-              <p className="text-gray-600 mb-4 flex-grow">{post.excerpt}</p>
-              <a href="#" className="text-blue-500 hover:text-blue-600 font-medium self-start">Read More →</a>
+              <p className="text-text-light-secondary dark:text-text-dark-secondary mb-4 flex-grow">{post.excerpt}</p>
+              <a href="#" className="px-4 py-2 rounded-lg bg-secondary-accent text-text-on-secondary hover-gradient-glow font-medium self-start">Read More →</a>
             </div>
           </div>
         ))}

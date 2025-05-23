@@ -44,6 +44,8 @@ export default {
         'fade-in-delay-1s': 'fadeIn 0.7s ease-out 1s forwards',
         'slide-in-top': 'slideInFromTop 0.5s ease-out forwards',
         'scale-up-fade-in-card': 'scaleUpFadeIn 0.4s ease-out forwards',
+        'float': 'float 4s ease-in-out infinite',
+        'pulse-subtle': 'pulse-subtle 3s ease-in-out infinite',
       },
       transitionProperty: {
         'DEFAULT': 'color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter',

@@ -42,11 +42,11 @@ function App() {
     <Router>
       <div className={`min-h-screen ${theme === 'dark' ? 'bg-bg-dark-primary text-text-dark-primary' : 'bg-bg-light-primary text-text-light-primary'} flex flex-col`}>
         {/* Header */}
-        <header className={`container mx-auto px-6 py-6 flex flex-wrap justify-between items-center backdrop-blur-lg border-b ${theme === 'dark' ? 'bg-bg-dark-secondary/75 border-border-dark/80' : 'bg-bg-light-secondary/75 border-border-light/80'} shadow-md`}>
+        <header className={`container mx-auto px-4 sm:px-6 py-6 flex flex-wrap justify-between items-center backdrop-blur-lg border-b ${theme === 'dark' ? 'bg-bg-dark-secondary/75 border-border-dark/80' : 'bg-bg-light-primary/90 border-border-light'} shadow-md`}>
           <Link to="/" className="flex items-center">
             <img src="https://lessgo-asset.s3.ap-south-1.amazonaws.com/images/logo.png" alt="Lessgo Logo" className="h-8 mr-2" />
-            <span className="text-2xl font-bold text-primary-accent">Lessgo</span>
-            <sup className="text-primary-accent ml-1">®</sup>
+            <span className="text-xl sm:text-2xl font-bold text-secondary-accent">Lessgo</span>
+            <sup className="text-secondary-accent ml-1">®</sup>
           </Link>
 
           <nav className="hidden sm:flex items-center justify-center flex-grow order-last sm:order-none mt-4 sm:mt-0">
@@ -55,7 +55,7 @@ function App() {
 
           <button
             onClick={toggleTheme}
-            className="px-4 py-2 rounded-full border border-gray-200 hover:border-gray-300 transition-all duration-300 ease-in-out"
+            className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border border-gray-200 hover:border-gray-300 transition-all duration-300 ease-in-out"
           >
             {theme === 'light' ? <Moon className="h-5 w-5 text-primary-accent" /> : <Sun className="h-5 w-5 text-primary-accent" />}
           </button>
@@ -75,11 +75,11 @@ function App() {
 
         {/* Footer */}
         <footer className={`mt-auto ${theme === 'dark' ? 'bg-bg-dark-secondary text-text-dark-secondary border-t border-border-dark' : 'bg-bg-light-secondary text-text-light-secondary border-t border-border-light'}`}>
-          <div className="container mx-auto px-6 py-12">
+          <div className="container mx-auto px-4 sm:px-6 py-12">
             <div className="flex flex-col md:flex-row justify-between items-center mb-8">
               <Link to="/" className="flex items-center mb-4 md:mb-0">
-                <span className="text-xl font-bold text-primary-accent">Lessgo</span>
-                <sup className="text-primary-accent ml-1">®</sup>
+                <span className="text-xl font-bold text-secondary-accent">Lessgo</span>
+                <sup className="text-secondary-accent ml-1">®</sup>
               </Link>
               <div className="flex space-x-4 md:space-x-6">
                 <Twitter className={`h-5 w-5 ${theme === 'dark' ? 'text-text-dark-secondary hover:text-primary-accent-hover' : 'text-text-light-secondary hover:text-primary-accent-hover'} cursor-pointer transition-all duration-300 ease-in-out`} />
