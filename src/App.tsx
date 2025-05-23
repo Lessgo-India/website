@@ -40,24 +40,24 @@ function App() {
 
   return (
     <Router>
-      <div className={`min-h-screen ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gradient-to-br from-blue-50 via-white to-blue-50'} flex flex-col`}>
+      <div className={`min-h-screen ${theme === 'dark' ? 'bg-bg-dark-primary text-text-dark-primary' : 'bg-bg-light-primary text-text-light-primary'} flex flex-col`}>
         {/* Header */}
-        <header className="container mx-auto px-6 py-6 flex flex-wrap justify-between items-center">
+        <header className={`container mx-auto px-6 py-6 flex flex-wrap justify-between items-center backdrop-blur-lg border-b ${theme === 'dark' ? 'bg-bg-dark-secondary/75 border-border-dark/80' : 'bg-bg-light-secondary/75 border-border-light/80'} shadow-md`}>
           <Link to="/" className="flex items-center">
             <img src="https://lessgo-asset.s3.ap-south-1.amazonaws.com/images/logo.png" alt="Lessgo Logo" className="h-8 mr-2" />
-            <span className="text-2xl font-bold">Lessgo</span>
-            <sup className="text-blue-500 ml-1">®</sup>
+            <span className="text-2xl font-bold text-primary-accent">Lessgo</span>
+            <sup className="text-primary-accent ml-1">®</sup>
           </Link>
 
           <nav className="hidden sm:flex items-center justify-center flex-grow order-last sm:order-none mt-4 sm:mt-0">
-            <span className={`text-center ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>{time}</span>
+            <span className={`text-center ${theme === 'dark' ? 'text-text-dark-secondary' : 'text-text-light-secondary'}`}>{time}</span>
           </nav>
 
           <button
             onClick={toggleTheme}
-            className="px-4 py-2 rounded-full border border-gray-200 hover:border-gray-300 transition-colors"
+            className="px-4 py-2 rounded-full border border-gray-200 hover:border-gray-300 transition-all duration-300 ease-in-out"
           >
-            {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+            {theme === 'light' ? <Moon className="h-5 w-5 text-primary-accent" /> : <Sun className="h-5 w-5 text-primary-accent" />}
           </button>
         </header>
 
@@ -74,33 +74,33 @@ function App() {
         </main>
 
         {/* Footer */}
-        <footer className={`mt-auto ${theme === 'dark' ? 'bg-gray-800 text-gray-300 border-gray-700' : 'bg-white text-gray-600 border-gray-100'}`}>
+        <footer className={`mt-auto ${theme === 'dark' ? 'bg-bg-dark-secondary text-text-dark-secondary border-t border-border-dark' : 'bg-bg-light-secondary text-text-light-secondary border-t border-border-light'}`}>
           <div className="container mx-auto px-6 py-12">
             <div className="flex flex-col md:flex-row justify-between items-center mb-8">
               <Link to="/" className="flex items-center mb-4 md:mb-0">
-                <span className="text-xl font-bold">Lessgo</span>
-                <sup className="text-blue-500 ml-1">®</sup>
+                <span className="text-xl font-bold text-primary-accent">Lessgo</span>
+                <sup className="text-primary-accent ml-1">®</sup>
               </Link>
               <div className="flex space-x-4 md:space-x-6">
-                <Twitter className={`h-5 w-5 ${theme === 'dark' ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-gray-600'} cursor-pointer`} />
-                <Facebook className={`h-5 w-5 ${theme === 'dark' ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-gray-600'} cursor-pointer`} />
-                <Instagram className={`h-5 w-5 ${theme === 'dark' ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-gray-600'} cursor-pointer`} />
-                <Github className={`h-5 w-5 ${theme === 'dark' ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-gray-600'} cursor-pointer`} />
+                <Twitter className={`h-5 w-5 ${theme === 'dark' ? 'text-text-dark-secondary hover:text-primary-accent-hover' : 'text-text-light-secondary hover:text-primary-accent-hover'} cursor-pointer transition-all duration-300 ease-in-out`} />
+                <Facebook className={`h-5 w-5 ${theme === 'dark' ? 'text-text-dark-secondary hover:text-primary-accent-hover' : 'text-text-light-secondary hover:text-primary-accent-hover'} cursor-pointer transition-all duration-300 ease-in-out`} />
+                <Instagram className={`h-5 w-5 ${theme === 'dark' ? 'text-text-dark-secondary hover:text-primary-accent-hover' : 'text-text-light-secondary hover:text-primary-accent-hover'} cursor-pointer transition-all duration-300 ease-in-out`} />
+                <Github className={`h-5 w-5 ${theme === 'dark' ? 'text-text-dark-secondary hover:text-primary-accent-hover' : 'text-text-light-secondary hover:text-primary-accent-hover'} cursor-pointer transition-all duration-300 ease-in-out`} />
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 mb-8">
-              <Link to="/whats-new" className={`${theme === 'dark' ? 'hover:text-white' : 'hover:text-gray-900'}`}>What's New</Link>
-              <Link to="/discover" className={`${theme === 'dark' ? 'hover:text-white' : 'hover:text-gray-900'}`}>Discover</Link>
-              <Link to="/blog" className={`${theme === 'dark' ? 'hover:text-white' : 'hover:text-gray-900'}`}>Blog</Link>
-              <Link to="/help" className={`${theme === 'dark' ? 'hover:text-white' : 'hover:text-gray-900'}`}>Help</Link>
+              <Link to="/whats-new" className={`${theme === 'dark' ? 'hover:text-primary-accent' : 'hover:text-primary-accent'} transition-all duration-300 ease-in-out`}>What's New</Link>
+              <Link to="/discover" className={`${theme === 'dark' ? 'hover:text-primary-accent' : 'hover:text-primary-accent'} transition-all duration-300 ease-in-out`}>Discover</Link>
+              <Link to="/blog" className={`${theme === 'dark' ? 'hover:text-primary-accent' : 'hover:text-primary-accent'} transition-all duration-300 ease-in-out`}>Blog</Link>
+              <Link to="/help" className={`${theme === 'dark' ? 'hover:text-primary-accent' : 'hover:text-primary-accent'} transition-all duration-300 ease-in-out`}>Help</Link>
             </div>
             <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t">
               <div className="flex space-x-4 md:space-x-6 mb-4 md:mb-0">
-                <Link to="/legal#terms" className={`text-sm ${theme === 'dark' ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700'}`}>Terms</Link>
-                <Link to="/legal#privacy" className={`text-sm ${theme === 'dark' ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700'}`}>Privacy</Link>
-                <Link to="/legal#security" className={`text-sm ${theme === 'dark' ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700'}`}>Security</Link>
+                <Link to="/legal#terms" className={`text-sm ${theme === 'dark' ? 'text-text-dark-secondary hover:text-primary-accent' : 'text-text-light-secondary hover:text-primary-accent'} transition-all duration-300 ease-in-out`}>Terms</Link>
+                <Link to="/legal#privacy" className={`text-sm ${theme === 'dark' ? 'text-text-dark-secondary hover:text-primary-accent' : 'text-text-light-secondary hover:text-primary-accent'} transition-all duration-300 ease-in-out`}>Privacy</Link>
+                <Link to="/legal#security" className={`text-sm ${theme === 'dark' ? 'text-text-dark-secondary hover:text-primary-accent' : 'text-text-light-secondary hover:text-primary-accent'} transition-all duration-300 ease-in-out`}>Security</Link>
               </div>
-              <p className={`text-sm mt-4 md:mt-0 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>© 2025 Lessgo. All rights reserved.</p>
+              <p className={`text-sm mt-4 md:mt-0 ${theme === 'dark' ? 'text-text-dark-secondary' : 'text-text-light-secondary'}`}>© 2025 Lessgo. All rights reserved.</p>
             </div>
           </div>
         </footer>
