@@ -27,6 +27,10 @@ export default {
         'text-dark-primary': 'var(--text-dark-primary)',
         'text-dark-secondary': 'var(--text-dark-secondary)',
         'border-dark': 'var(--border-dark)',
+        'decorative-accent-1': 'rgb(var(--decorative-accent-1-rgb) / <alpha-value>)',
+        'decorative-accent-2': 'rgb(var(--decorative-accent-2-rgb) / <alpha-value>)',
+        'decorative-accent-3': 'rgb(var(--decorative-accent-3-rgb) / <alpha-value>)',
+        'decorative-accent-4': 'rgb(var(--decorative-accent-4-rgb) / <alpha-value>)',
       },
       animation: {
         'slide-in-left-fast': 'slideInFromLeft 0.5s ease-out forwards',

@@ -39,6 +39,12 @@
   --secondary-accent-rgb: 59, 130, 246;
   --primary-accent-hover-rgb: 52, 211, 153;
   --secondary-accent-hover-rgb: 96, 165, 250;
+
+  /* New Decorative Accent RGB Variables */
+  --decorative-accent-1-rgb: 249, 115, 22;  /* Orange 500 - #F97316 */
+  --decorative-accent-2-rgb: 236, 72, 153; /* Pink 500 - #EC4899 */
+  --decorative-accent-3-rgb: 163, 230, 53;  /* Lime 400 - #A3E635 */
+  --decorative-accent-4-rgb: 168, 85, 247;  /* Purple 500 - #A855F7 */
 }
 
 .dark {
@@ -87,6 +93,7 @@ h1, h2, h3, h4, h5, h6 {
   /* transform: scale(1.05); /* This is already applied by Tailwind's hover:scale-105 */
 }
 
+/*
 .hover-gradient-glow {
   transition: background-image 0.3s ease-in-out, color 0.3s ease-in-out, box-shadow 0.3s ease-in-out, transform 0.3s ease-in-out !important;
 }
@@ -96,6 +103,31 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-on-primary) !important;
   box-shadow: 0 0 20px rgba(var(--primary-accent-hover-rgb), 0.6), 0 0 20px rgba(var(--secondary-accent-hover-rgb), 0.4), 0 2px 4px rgba(0,0,0,0.1);
   transform: scale(1.05);
+}
+*/
+
+.btn-animated-fill {
+  background-color: var(--secondary-accent);
+  color: var(--text-on-secondary);
+  border: 2px solid var(--secondary-accent);
+  padding: 0.75rem 1.5rem; /* Tailwind's py-3 px-6 equivalent */
+  border-radius: 9999px; /* pill shape */
+  text-align: center;
+  font-weight: 500; /* Tailwind's font-medium */
+  line-height: 1.25rem; /* Tailwind's text-lg line height, adjust if only text-base */
+  transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out, box-shadow 0.3s ease-in-out, transform 0.3s ease-in-out, border-color 0.3s ease-in-out;
+  transform: scale(1);
+  text-decoration: none; /* Ensure links don't have underlines */
+  display: inline-block; /* For proper padding on <a> tags */
+}
+
+.btn-animated-fill:hover {
+  background-color: transparent;
+  color: var(--secondary-accent);
+  border-color: var(--secondary-accent);
+  box-shadow: 0 0 25px rgba(var(--secondary-accent-rgb), 0.6), 0 0 35px rgba(var(--secondary-accent-rgb), 0.4); /* Enhanced glow */
+  transform: scale(1.05);
+  text-decoration: none;
 }
 
 @keyframes fadeIn {

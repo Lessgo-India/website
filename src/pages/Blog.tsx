@@ -48,7 +48,7 @@ function Blog() {
                 </div>
               </div>
               <p className="text-text-light-secondary dark:text-text-dark-secondary mb-4 flex-grow">{post.excerpt}</p>
-              <a href="#" className="px-4 py-2 rounded-lg bg-secondary-accent text-text-on-secondary hover-gradient-glow font-medium self-start">Read More →</a>
+              <a href="#" className="btn-animated-fill self-start">Read More →</a>
             </div>
           </div>
         ))}
