@@ -23,21 +23,21 @@ function Help() {
           <Book className="h-8 w-8 text-secondary-accent mb-4" />
           <h3 className="text-xl font-semibold mb-2 text-text-light-primary dark:text-text-dark-primary">Documentation</h3>
           <p className="text-text-light-secondary dark:text-text-dark-secondary mb-4">Comprehensive guides and tutorials to help you get started.</p>
-          <a href="#" className="px-4 py-2 rounded-lg bg-secondary-accent text-text-on-secondary hover-gradient-glow font-medium">Browse docs →</a>
+          <a href="#" className="btn-animated-fill">Browse docs →</a>
         </div>
 
         <div className="bg-bg-light-secondary dark:bg-bg-dark-secondary p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
           <MessageCircle className="h-8 w-8 text-secondary-accent mb-4" />
           <h3 className="text-xl font-semibold mb-2 text-text-light-primary dark:text-text-dark-primary">Community</h3>
           <p className="text-text-light-secondary dark:text-text-dark-secondary mb-4">Join our community forum to get help from other users.</p>
-          <a href="#" className="px-4 py-2 rounded-lg bg-secondary-accent text-text-on-secondary hover-gradient-glow font-medium">Visit forum →</a>
+          <a href="#" className="btn-animated-fill">Visit forum →</a>
         </div>
 
         <div className="bg-bg-light-secondary dark:bg-bg-dark-secondary p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
           <Phone className="h-8 w-8 text-secondary-accent mb-4" />
           <h3 className="text-xl font-semibold mb-2 text-text-light-primary dark:text-text-dark-primary">Contact Support</h3>
           <p className="text-text-light-secondary dark:text-text-dark-secondary mb-4">Get in touch with our support team for direct assistance.</p>
-          <a href="#" className="px-4 py-2 rounded-lg bg-secondary-accent text-text-on-secondary hover-gradient-glow font-medium">Contact us →</a>
+          <a href="#" className="btn-animated-fill">Contact us →</a>
         </div>
       </div>
     </main>
