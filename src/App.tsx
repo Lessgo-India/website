@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { ArrowRight, Calendar, Facebook, Github, Instagram, Twitter, Sun, Moon } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Facebook, Github, Instagram, Twitter, Sun, Moon } from 'lucide-react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import WhatsNew from './pages/WhatsNew';
 import Discover from './pages/Discover';
