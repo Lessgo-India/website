@@ -1,113 +1,229 @@
-import { Calendar } from 'lucide-react';
+import { Calendar, Users, MapPin, Clock, Sparkles } from 'lucide-react';
 
 function Home() {
   return (
-    <main className="container mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 py-8 lg:py-12 items-center"> {/* items-center helps vertically align grid items */}
-      {/* Left Column - justify-center handles vertical centering */}
-      <div className="flex flex-col justify-center lg:min-h-[650px]"> 
-        <h1 className="text-3xl xs:text-4xl sm:text-5xl lg:text-6xl font-bold text-text-light-primary dark:text-text-dark-primary mb-2 animate-slide-in-left-fast">
-          Hangouts
-        </h1>
-        <h2 className="text-3xl xs:text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 animate-slide-in-left-medium">
-          <span className="bg-gradient-to-r from-secondary-accent to-blue-600 bg-clip-text text-transparent">
-            made easy
-          </span>
-          <span className="text-secondary-accent">!</span>
-        </h2>
-        <p className="text-lg sm:text-xl leading-relaxed text-text-light-secondary dark:text-text-dark-secondary mb-8 max-w-lg animate-slide-in-left-slow">
-          Manage your Trips, Plans and Hangouts at ease. <br />Detail's on us, Fun's on you!
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4 animate-slide-in-bottom-buttons w-full sm:w-auto">
-          <button className="relative btn-animated-fill text-lg w-full sm:w-auto">
-            <div className="relative flex items-center justify-center">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/6/67/App_Store_%28iOS%29.svg" alt="App Store" className="w-6 h-6 mr-3" />
-              <span>Download on App Store</span>
+    <div className="min-h-screen">
+      {/* Hero Section */}
+      <section className="hero-gradient relative py-20 lg:py-32 px-6">
+        <div className="container mx-auto max-w-6xl">
+          <div className="text-center space-y-8 animate-fade-in-up">
+            {/* Hero Badge */}
+            <div className="inline-flex items-center space-x-2 event-badge">
+              <Sparkles className="h-4 w-4" />
+              <span>Hangouts made easy!</span>
             </div>
-          </button>
-          <button className="relative btn-animated-fill text-lg w-full sm:w-auto">
-            <div className="relative flex items-center justify-center">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/d/d0/Google_Play_Arrow_logo.svg" alt="Play Store" className="w-6 h-6 mr-3" />
-              <span>Get it on Play Store</span>
+
+            {/* Main Heading */}
+            <div className="space-y-6">
+              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-tight">
+                <span className="text-gradient">Party is on you</span>
+                <br />
+                <span className="text-primary">managing is on us</span>
+              </h1>
+              
+              <p className="text-xl sm:text-2xl leading-relaxed max-w-3xl mx-auto text-secondary">
+                Connect with your community through meaningful experiences. 
+                From workshops to concerts, find events that inspire you.
+              </p>
             </div>
-          </button>
-        </div>
-      </div>
 
-      {/* Right Column */}
-      <div className="relative flex items-center justify-center lg:min-h-[650px]"> 
-        
-        {/* Decorative Background Elements - Updated and New */}
-        {/* Existing Light Mode - changed to new decorative color */}
-        <div className="absolute top-10 left-10 w-32 h-32 bg-decorative-accent-4/30 rounded-full blur-xl animate-fade-in-delay-0_2s animate-float"></div>
-        {/* Existing Light Mode - no change to color, only ensuring it's there */}
-        <div className="absolute bottom-10 right-10 w-40 h-40 bg-gradient-to-tl from-teal-200 to-lime-200 rounded-full opacity-30 blur-lg dark:hidden animate-fade-in-delay-0_4s animate-pulse-subtle"></div>
-        {/* Existing Solid color elements */}
-        <div className="absolute top-1/4 right-5 w-8 h-8 bg-yellow-300 rounded-md transform rotate-12 opacity-40 dark:hidden animate-fade-in-delay-0_6s animate-float hidden sm:block"></div>
-        <div className="absolute bottom-1/4 left-5 w-10 h-10 bg-orange-300 rounded-full opacity-40 dark:hidden animate-fade-in-delay-0_8s animate-pulse-subtle"></div>
-
-        {/* Existing Dark Mode - changed to new decorative color (same as light mode change for consistency) */}
-        <div className="absolute top-10 left-10 w-32 h-32 bg-decorative-accent-4/30 rounded-full blur-xl hidden dark:block animate-fade-in-delay-0_2s animate-float"></div>
-         {/* Existing Dark Mode - no change to color, only ensuring it's there */}
-        <div className="absolute bottom-10 right-10 w-40 h-40 bg-gradient-to-tl from-teal-800 to-green-900 rounded-full opacity-30 blur-lg hidden dark:block animate-fade-in-delay-0_4s animate-pulse-subtle"></div>
-        {/* Existing Solid color elements */}
-        <div className="absolute top-1/4 right-5 w-8 h-8 bg-yellow-600 rounded-md transform rotate-12 opacity-40 hidden dark:block animate-fade-in-delay-0_6s animate-float hidden sm:block"></div>
-        <div className="absolute bottom-1/4 left-5 w-10 h-10 bg-orange-700 rounded-full opacity-40 hidden dark:block animate-fade-in-delay-0_8s animate-pulse-subtle"></div>
-
-        {/* New Decorative Circles - Visible in both light and dark modes */}
-        <div className="absolute top-1/2 left-1/4 w-20 h-20 bg-decorative-accent-1/30 rounded-full blur-2xl animate-fade-in-delay-0_3s animate-pulse-subtle hidden sm:block"></div>
-        <div className="absolute bottom-1/3 right-1/3 w-28 h-28 bg-decorative-accent-2/40 rounded-full blur-xl animate-fade-in-delay-0_5s animate-float"></div>
-        <div className="absolute top-20 right-1/3 w-24 h-24 bg-decorative-accent-3/30 rounded-full blur-2xl animate-fade-in-delay-0_7s animate-pulse-subtle"></div>
-        
-        {/* Emojis for Light Mode */}
-        <span className="absolute top-16 right-20 text-4xl opacity-80 transform -rotate-12 dark:hidden animate-fade-in-delay-0s animate-float">🎉</span>
-        <span className="absolute bottom-16 left-20 text-4xl opacity-80 transform rotate-12 dark:hidden animate-fade-in-delay-0_2s animate-pulse-subtle">☀️</span>
-        <span className="absolute bottom-32 right-1/4 text-3xl opacity-70 dark:hidden animate-fade-in-delay-0_4s animate-float">🚀</span>
-        <span className="absolute top-1/3 left-1/4 text-3xl opacity-70 dark:hidden animate-fade-in-delay-0_6s">✨</span>
-        <span className="absolute top-5 left-1/2 text-3xl opacity-70 transform -translate-x-1/2 dark:hidden animate-fade-in-delay-0_8s animate-pulse-subtle">🎈</span>
-        {/* Pizza emoji removed as per implied instruction to make space for new emojis */}
-        <span className="absolute top-1/2 -left-5 text-4xl opacity-80 transform -translate-y-1/2 -rotate-15 dark:hidden animate-fade-in-delay-0_4s animate-float">🏖️</span>
-        <span className="absolute top-1/2 -right-5 text-4xl opacity-80 transform -translate-y-1/2 rotate-15 dark:hidden animate-fade-in-delay-0_6s animate-pulse-subtle">🎵</span>
-        <span className="absolute top-3/4 left-10 text-3xl opacity-70 dark:hidden animate-fade-in-delay-0_8s">🗺️</span>
-        <span className="absolute bottom-1/3 right-10 text-3xl opacity-70 dark:hidden animate-fade-in-delay-1s animate-float">📸</span>
-
-        {/* Emojis for Dark Mode */}
-        <span className="absolute top-16 right-20 text-4xl opacity-80 transform -rotate-12 hidden dark:block animate-fade-in-delay-0s animate-float">🌌</span>
-        <span className="absolute bottom-16 left-20 text-4xl opacity-80 transform rotate-12 hidden dark:block animate-fade-in-delay-0_2s animate-pulse-subtle">🌙</span>
-        <span className="absolute bottom-32 right-1/4 text-3xl opacity-70 hidden dark:block animate-fade-in-delay-0_4s animate-float">🌟</span>
-        <span className="absolute top-1/3 left-1/4 text-3xl opacity-70 hidden dark:block animate-fade-in-delay-0_6s">💫</span>
-        <span className="absolute top-5 left-1/2 text-3xl opacity-70 transform -translate-x-1/2 hidden dark:block animate-fade-in-delay-0_8s animate-pulse-subtle">🌠</span>
-        {/* Second dark mode Pizza equivalent (🌌) removed */}
-        <span className="absolute top-1/2 -left-5 text-4xl opacity-80 transform -translate-y-1/2 -rotate-15 hidden dark:block animate-fade-in-delay-0_4s animate-float">🌃</span>
-        <span className="absolute top-1/2 -right-5 text-4xl opacity-80 transform -translate-y-1/2 rotate-15 hidden dark:block animate-fade-in-delay-0_6s animate-pulse-subtle">🎶</span>
-        <span className="absolute top-3/4 left-10 text-3xl opacity-70 hidden dark:block animate-fade-in-delay-0_8s">🌉</span>
-        <span className="absolute bottom-1/3 right-10 text-3xl opacity-70 hidden dark:block animate-fade-in-delay-1s animate-float">📷</span>
-
-        {/* Inner Ring - New Emojis */}
-        <span className="absolute top-1/3 right-1/4 text-3xl opacity-70 transform translate-x-4 -translate-y-4 rotate-10 animate-fade-in-delay-0_2s animate-pulse-subtle">😊</span>
-        <span className="absolute bottom-1/3 left-1/4 text-3xl opacity-70 transform -translate-x-4 translate-y-4 -rotate-10 animate-fade-in-delay-0_4s animate-float">🚗</span>
-        <span className="absolute top-2/3 left-1/3 text-3xl opacity-70 transform -translate-x-4 -translate-y-4 animate-fade-in-delay-0_6s animate-pulse-subtle">🐶</span>
-        <span className="absolute bottom-2/3 right-1/3 text-3xl opacity-70 transform translate-x-4 translate-y-4 rotate-12 animate-fade-in-delay-0_8s hidden sm:inline-block">🥳</span>
-        <span className="absolute top-1/4 left-1/3 text-2xl opacity-60 animate-fade-in-delay-1s animate-float">⭐</span>
-        <span className="absolute bottom-1/4 right-1/3 text-2xl opacity-60 animate-fade-in-delay-0_2s">🍔</span>
-        
-        {/* New Emojis - Visible in both light and dark modes */}
-        <span className="absolute bottom-5 right-1/2 text-4xl opacity-75 transform translate-x-3/4 rotate-12 animate-fade-in-delay-0_9s animate-float">💖</span>
-        <span className="absolute top-1/3 right-10 text-3xl opacity-70 transform -translate-y-1/2 animate-fade-in-delay-0_7s animate-pulse-subtle">💡</span>
-        <span className="absolute bottom-1/4 left-10 text-4xl opacity-75 transform -rotate-6 animate-fade-in-delay-0_5s animate-float hidden sm:inline-block">🧭</span>
-
-
-        {/* Image Card Container */}
-        <div className="relative p-4 w-full max-w-sm z-10 animate-scale-up-fade-in-delayed"> 
-          <div className="rounded-3xl shadow-2xl backdrop-blur-xl bg-bg-light-secondary/75 dark:bg-bg-dark-secondary/75 overflow-hidden transform rotate-3 h-[400px] xs:h-[450px] sm:h-[500px] lg:h-[600px] flex items-center justify-center">
-            <img
-              src="https://lessgo-asset.s3.ap-south-1.amazonaws.com/images/event_screen.jpg"
-              alt="Hangout illustration"
-              className="w-full h-full object-contain" 
-            />
+            {/* CTA Section */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-8">
+              <a 
+                href="https://play.google.com/store/apps/details?id=com.lessgo.app" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="store-button store-button-playstore flex items-center space-x-3 px-8 py-4 text-lg no-underline"
+              >
+                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.61 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.92 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z"/>
+                </svg>
+                <span>Get it from Play Store</span>
+              </a>
+              
+              <a 
+                href="https://apps.apple.com/app/lessgo/id123456789" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="store-button store-button-appstore flex items-center space-x-3 px-8 py-4 text-lg no-underline"
+              >
+                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18.71,19.5C17.88,20.74 17,21.95 15.66,21.97C14.32,22 13.89,21.18 12.37,21.18C10.84,21.18 10.37,21.95 9.1,22C7.79,22.05 6.8,20.68 5.96,19.47C4.25,17 2.94,12.45 4.7,9.39C5.57,7.87 7.13,6.91 8.82,6.88C10.1,6.86 11.32,7.75 12.11,7.75C12.89,7.75 14.37,6.68 15.92,6.84C16.57,6.87 18.39,7.1 19.56,8.82C19.47,8.88 17.39,10.1 17.41,12.63C17.44,15.65 20.06,16.66 20.09,16.67C20.06,16.74 19.67,18.11 18.71,19.5M13,3.5C13.73,2.67 14.94,2.04 15.94,2C16.07,3.17 15.6,4.35 14.9,5.19C14.21,6.04 13.07,6.7 11.95,6.61C11.8,5.46 12.36,4.26 13,3.5Z"/>
+                </svg>
+                <span>Get it from App Store</span>
+              </a>
+            </div>
           </div>
         </div>
-      </div>
-    </main>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-20 px-6 bg-secondary">
+        <div className="container mx-auto max-w-6xl">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl lg:text-4xl font-bold mb-4 text-primary">
+              Everything you need for great events
+            </h2>
+            <p className="text-lg max-w-2xl mx-auto text-secondary">
+              From discovery to management, we've got you covered with powerful tools
+              that make event planning delightful.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="luma-card text-center space-y-4 animate-scale-in">
+              <div className="feature-icon-bg-location w-16 h-16 mx-auto rounded-full flex items-center justify-center">
+                <MapPin className="h-8 w-8 icon-location" />
+              </div>
+              <h3 className="text-xl font-semibold text-primary">
+                Location Discovery
+              </h3>
+              <p className="text-secondary">
+                Find events happening near you with intelligent location-based recommendations.
+              </p>
+            </div>
+
+            <div className="luma-card text-center space-y-4 animate-scale-in animation-delay-100">
+              <div className="feature-icon-bg-community w-16 h-16 mx-auto rounded-full flex items-center justify-center">
+                <Users className="h-8 w-8 icon-community" />
+              </div>
+              <h3 className="text-xl font-semibold text-primary">
+                Community Building
+              </h3>
+              <p className="text-secondary">
+                Connect with like-minded people and build lasting relationships through shared experiences.
+              </p>
+            </div>
+
+            <div className="luma-card text-center space-y-4 animate-scale-in animation-delay-200">
+              <div className="feature-icon-bg-scheduling w-16 h-16 mx-auto rounded-full flex items-center justify-center">
+                <Clock className="h-8 w-8 icon-scheduling" />
+              </div>
+              <h3 className="text-xl font-semibold text-primary">
+                Smart Scheduling
+              </h3>
+              <p className="text-secondary">
+                AI-powered scheduling that finds the perfect time for everyone to attend.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Featured Events Section */}
+      <section className="py-20 px-6">
+        <div className="container mx-auto max-w-6xl">
+          <div className="flex items-center justify-between mb-12">
+            <div>
+              <h2 className="text-3xl lg:text-4xl font-bold mb-2 text-primary">
+                Featured Events
+              </h2>
+              <p className="text-lg text-secondary">
+                Don't miss these amazing upcoming events
+              </p>
+            </div>
+            <button className="luma-button luma-button-secondary">
+              View All Events
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Event Card 1 */}
+            <div className="event-card animate-fade-in-up">
+              <div className="event-card-image event-card-tech">
+                <div className="flex items-center justify-center h-full">
+                  <Calendar className="h-12 w-12 text-white" />
+                </div>
+              </div>
+              <div className="event-card-content">
+                <div className="event-badge mb-3">Tech Meetup</div>
+                <h3 className="text-lg font-semibold mb-2 text-primary">
+                  React Developer Meetup
+                </h3>
+                <p className="text-sm mb-4 text-secondary">
+                  Join fellow developers for an evening of React best practices and networking.
+                </p>
+                <div className="flex items-center justify-between text-sm text-muted">
+                  <span>Dec 15, 2024</span>
+                  <span>32 attending</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Event Card 2 */}
+            <div className="event-card animate-fade-in-up animation-delay-100">
+              <div className="event-card-image event-card-workshop">
+                <div className="flex items-center justify-center h-full">
+                  <Users className="h-12 w-12 text-white" />
+                </div>
+              </div>
+              <div className="event-card-content">
+                <div className="event-badge mb-3">Workshop</div>
+                <h3 className="text-lg font-semibold mb-2 text-primary">
+                  Design Thinking Workshop
+                </h3>
+                <p className="text-sm mb-4 text-secondary">
+                  Learn the fundamentals of design thinking and apply them to real projects.
+                </p>
+                <div className="flex items-center justify-between text-sm text-muted">
+                  <span>Dec 18, 2024</span>
+                  <span>18 attending</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Event Card 3 */}
+            <div className="event-card animate-fade-in-up animation-delay-200">
+              <div className="event-card-image event-card-social">
+                <div className="flex items-center justify-center h-full">
+                  <MapPin className="h-12 w-12 text-white" />
+                </div>
+              </div>
+              <div className="event-card-content">
+                <div className="event-badge mb-3">Social</div>
+                <h3 className="text-lg font-semibold mb-2 text-primary">
+                  Coffee & Networking
+                </h3>
+                <p className="text-sm mb-4 text-secondary">
+                  Casual networking event over coffee for local entrepreneurs and freelancers.
+                </p>
+                <div className="flex items-center justify-between text-sm text-muted">
+                  <span>Dec 20, 2024</span>
+                  <span>24 attending</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 px-6 bg-secondary">
+        <div className="container mx-auto max-w-4xl text-center">
+          <div className="luma-card luma-card-elevated space-y-8">
+            <div className="space-y-4">
+              <h2 className="text-3xl lg:text-4xl font-bold text-primary">
+                Ready to create your next event?
+              </h2>
+              <p className="text-lg max-w-2xl mx-auto text-secondary">
+                Join thousands of event organizers who trust Lessgo to bring their communities together.
+              </p>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button className="luma-button luma-button-primary flex items-center space-x-2 px-8 py-4">
+                <Calendar className="h-5 w-5" />
+                <span>Create Your First Event</span>
+              </button>
+              
+              <button className="luma-button luma-button-secondary px-8 py-4">
+                Learn More
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
 
