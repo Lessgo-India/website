@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 /* Light and Dark Mode Color System */
-:root {
+:root,
+html[data-theme="light"] { /* Explicit light theme to mirror dark for easier override */
   /* Primary Gradient Colors (Purple, Pink, Blue) */
   --primary-gradient: linear-gradient(135deg, #6366f1, #ec4899, #3b82f6);
   --primary-gradient-hover: linear-gradient(135deg, #4f46e5, #db2777, #2563eb);
@@ -15,8 +16,10 @@
   --text-secondary: #6b7280;
   --text-muted: #9ca3af;
   --bg-primary: #ffffff;
-  --bg-secondary: #f9fafb;
-  --bg-tertiary: #f3f4f6;
+  --bg-secondary: #f9fafb; /* subtle gray */
+  --bg-tertiary: #f1f5f9; /* slightly stronger for section separation */
+  --surface-card: #ffffff; /* elevated card surface */
+  --surface-alt: #f8fafc; /* alternate muted surface */
   --border-light: #e5e7eb;
   --border-medium: #d1d5db;
   
@@ -36,7 +39,9 @@
   
   /* Active States */
   --active-bg: rgba(99, 102, 241, 0.1);
-  --hero-gradient-bg: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(236, 72, 153, 0.05) 50%, rgba(59, 130, 246, 0.05) 100%);
+  --hero-gradient-bg: radial-gradient(circle at 20% 20%, rgba(99,102,241,0.08), transparent 60%),
+                       radial-gradient(circle at 80% 40%, rgba(236,72,153,0.08), transparent 65%),
+                       linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
   --selection-bg: rgba(99, 102, 241, 0.2);
   
   /* Shadows */
@@ -53,6 +58,8 @@ html[data-theme="dark"] {
   --bg-primary: #000000;
   --bg-secondary: #0a0a0a;
   --bg-tertiary: #111111;
+  --surface-card: #0f0f0f;
+  --surface-alt: #141414;
   --border-light: #1a1a1a;
   --border-medium: #2a2a2a;
   
@@ -321,25 +328,42 @@ html[data-theme="dark"] #root {
 }
 
 /* Glass Card Styles */
+/* Card base (light uses subtle border+solid, dark keeps glass) */
 .luma-card {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
+  background: var(--surface-card);
+  border: 1px solid var(--border-light);
   border-radius: 16px;
   padding: 24px;
-  box-shadow: var(--glass-shadow);
+  box-shadow: var(--shadow-sm);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html[data-theme="dark"] .luma-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
 }
 
 .luma-card:hover {
+  background: var(--surface-card);
+  box-shadow: var(--shadow-md), var(--glow-primary);
+  border-color: var(--primary-accent);
+  transform: translateY(-2px);
+}
+html[data-theme="dark"] .luma-card:hover {
   background: var(--glass-bg);
   box-shadow: var(--glass-shadow), var(--glow-primary);
   border-color: var(--glass-border);
-  transform: translateY(-2px);
 }
 
 .luma-card-elevated {
+  background: var(--surface-card);
+  box-shadow: var(--shadow-lg), var(--glow-gradient);
+  border: 1px solid var(--border-light);
+}
+html[data-theme="dark"] .luma-card-elevated {
   background: var(--glass-bg);
   box-shadow: var(--glass-shadow), var(--glow-gradient);
   border: 1px solid var(--glass-border);
@@ -347,13 +371,14 @@ html[data-theme="dark"] #root {
 
 /* Event Card Styles */
 .event-card {
-  background: var(--bg-primary);
+  background: var(--surface-card);
   border: 1px solid var(--border-light);
   border-radius: 16px;
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
 }
+html[data-theme="dark"] .event-card { background: var(--glass-bg); border: 1px solid var(--glass-border); }
 
 .event-card:hover {
   transform: translateY(-4px);
@@ -389,6 +414,13 @@ html[data-theme="dark"] #root {
 
 /* Header Styles */
 .luma-header {
+  background: var(--bg-primary); /* solid in light for clarity */
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-bottom: 1px solid var(--border-light);
+  box-shadow: var(--shadow-sm);
+}
+html[data-theme="dark"] .luma-header {
   background: var(--glass-bg);
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
@@ -693,6 +725,11 @@ footer {
   background-color: var(--bg-primary);
   border-top: 1px solid var(--border-light);
 }
+html[data-theme="dark"] footer { border-top: 1px solid var(--glass-border); }
+
+/* Utility surfaces */
+.surface-alt { background-color: var(--surface-alt); }
+.surface-card { background-color: var(--surface-card); }
 
 /* App Store Button Styling */
 .no-underline {

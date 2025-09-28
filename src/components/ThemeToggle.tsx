@@ -12,16 +12,10 @@ const ThemeToggle: React.FC = () => {
   });
 
   useEffect(() => {
-    // Apply theme to document
-    if (isDark) {
-      document.documentElement.setAttribute('data-theme', 'dark');
-      localStorage.setItem('theme', 'dark');
-      console.log('Theme set to dark');
-    } else {
-      document.documentElement.removeAttribute('data-theme');
-      localStorage.setItem('theme', 'light');
-      console.log('Theme set to light');
-    }
+    // Apply theme to document (set explicit attribute for both to allow targeted styling)
+    const theme = isDark ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
   }, [isDark]);
 
   const toggleTheme = () => {

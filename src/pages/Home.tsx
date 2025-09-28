@@ -4,7 +4,7 @@ function Home() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="hero-gradient relative py-20 lg:py-32 px-6">
+  <section className="hero-gradient relative py-20 lg:py-32 px-6">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center space-y-8 animate-fade-in-up">
             {/* Hero Badge */}
@@ -58,7 +58,7 @@ function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 px-6 bg-secondary">
+  <section className="py-20 px-6 bg-secondary">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-16">
             <h2 className="text-3xl lg:text-4xl font-bold mb-4 text-primary">
@@ -111,7 +111,7 @@ function Home() {
       </section>
 
       {/* Featured Events Section */}
-      <section className="py-20 px-6">
+  <section className="py-20 px-6">
         <div className="container mx-auto max-w-6xl">
           <div className="flex items-center justify-between mb-12">
             <div>
@@ -198,7 +198,7 @@ function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-6 bg-secondary">
+  <section className="py-20 px-6 bg-secondary">
         <div className="container mx-auto max-w-4xl text-center">
           <div className="luma-card luma-card-elevated space-y-8">
             <div className="space-y-4">
