@@ -90,6 +90,28 @@ html {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Mobile touch improvements */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  /* Ensure text is readable on mobile */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Safe area insets for notched devices */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  
+  .luma-header {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  footer {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 
 body {
@@ -640,9 +662,114 @@ html[data-theme="dark"] .luma-header {
 }
 
 /* Responsive Design */
-@media (max-width: 768px) {
+
+/* Mobile First Approach - Small devices (phones, 576px and down) */
+@media (max-width: 576px) {
+  .container {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
   .luma-card {
     padding: 16px;
+    border-radius: 12px;
+  }
+  
+  .event-card-content {
+    padding: 14px;
+  }
+  
+  .luma-button {
+    padding: 10px 18px;
+    font-size: 14px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Hero Section Mobile */
+  .hero-gradient {
+    padding-top: 2.5rem !important;
+    padding-bottom: 2.5rem !important;
+  }
+
+  h1 {
+    font-size: 2rem !important;
+    line-height: 1.2 !important;
+  }
+
+  h2 {
+    font-size: 1.5rem !important;
+  }
+
+  h3 {
+    font-size: 1.125rem !important;
+  }
+
+  /* Store buttons mobile */
+  .store-button {
+    width: 100%;
+    justify-content: center;
+    padding: 14px 20px;
+  }
+
+  /* Event card image height on mobile */
+  .event-card-image {
+    height: 160px;
+  }
+
+  /* Feature icons smaller on mobile */
+  .feature-icon-bg-location,
+  .feature-icon-bg-community,
+  .feature-icon-bg-scheduling {
+    width: 48px;
+    height: 48px;
+  }
+
+  .feature-icon-bg-location svg,
+  .feature-icon-bg-community svg,
+  .feature-icon-bg-scheduling svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* Mobile Navigation improvements */
+  .nav-link {
+    padding: 12px 16px;
+    font-size: 16px;
+  }
+
+  /* Input fields mobile */
+  .luma-input {
+    padding: 14px 16px;
+    font-size: 16px; /* Prevents iOS zoom on focus */
+  }
+
+  /* Theme toggle */
+  .theme-toggle-track {
+    width: 44px;
+    height: 22px;
+  }
+
+  .theme-toggle-thumb {
+    width: 18px;
+    height: 18px;
+  }
+
+  .theme-toggle-thumb-dark {
+    transform: translateX(22px);
+  }
+
+  /* Footer mobile */
+  footer {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
+}
+
+/* Medium devices (tablets, 768px and down) */
+@media (max-width: 768px) {
+  .luma-card {
+    padding: 18px;
   }
   
   .event-card-content {
@@ -652,6 +779,29 @@ html[data-theme="dark"] .luma-header {
   .luma-button {
     padding: 10px 20px;
     font-size: 14px;
+  }
+
+  h1 {
+    font-size: 2.5rem;
+  }
+
+  /* Stack sections on mobile */
+  section {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* Tablets (769px to 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .container {
+    max-width: 100%;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  h1 {
+    font-size: 3rem;
   }
 }
 
@@ -762,17 +912,18 @@ html[data-theme="dark"] footer { border-top: 1px solid var(--glass-border); }
   background: linear-gradient(var(--bg-primary), var(--bg-primary)) padding-box,
               linear-gradient(135deg, #4285f4, #ea4335, #fbbc05, #34a853, #4285f4) border-box;
   box-shadow: 0 0 20px rgba(66, 133, 244, 0.4), 
-              0 0 30px rgba(234, 67, 53, 0.3),
-              0 0 40px rgba(251, 188, 5, 0.3),
-              0 0 50px rgba(52, 168, 83, 0.3);
+              0 0 30px rgba(234, 67, 53, 0.4),
+              0 0 40px rgba(251, 188, 5, 0.4),
+              0 0 50px rgba(52, 168, 83, 0.4);
   transform: translateY(-2px);
 }
 
 .store-button-playstore:active {
   transform: translateY(0);
   box-shadow: 0 0 15px rgba(66, 133, 244, 0.3),
-              0 0 25px rgba(234, 67, 53, 0.2),
-              0 0 30px rgba(52, 168, 83, 0.2);
+              0 0 25px rgba(234, 67, 53, 0.3),
+              0 0 30px rgba(251, 188, 5, 0.3),
+              0 0 35px rgba(52, 168, 83, 0.3);
 }
 
 /* App Store Button - Blue Gradient Colors */
@@ -820,8 +971,8 @@ html[data-theme="dark"] .store-button-playstore:hover {
               linear-gradient(135deg, #4285f4, #ea4335, #fbbc05, #34a853, #4285f4) border-box;
   box-shadow: 0 0 30px rgba(66, 133, 244, 0.6), 
               0 0 40px rgba(234, 67, 53, 0.5),
-              0 0 50px rgba(251, 188, 5, 0.4),
-              0 0 60px rgba(52, 168, 83, 0.4);
+              0 0 50px rgba(251, 188, 5, 0.5),
+              0 0 60px rgba(52, 168, 83, 0.5);
 }
 
 html[data-theme="dark"] .store-button-appstore {
@@ -840,4 +991,74 @@ html[data-theme="dark"] .store-button-appstore:hover {
 
 html[data-theme="dark"] .store-button svg {
   filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.3));
+}
+
+/* Line Clamp Utilities for Text Truncation */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Touch-friendly tap targets */
+@media (pointer: coarse) {
+  .nav-link,
+  .luma-button,
+  .store-button,
+  a[href] {
+    min-height: 44px;
+  }
+  
+  .nav-link {
+    padding: 12px 16px;
+  }
+}
+
+/* Prevent text selection on interactive elements */
+.luma-button,
+.store-button,
+.nav-link,
+.theme-toggle-button {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Overflow management for mobile */
+body {
+  overflow-x: hidden;
+}
+
+/* Container adjustments for very small screens */
+@media (max-width: 360px) {
+  .container {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  
+  h1 {
+    font-size: 1.75rem !important;
+  }
+  
+  .store-button {
+    font-size: 0.875rem;
+    padding: 12px 16px;
+  }
+  
+  .store-button svg {
+    width: 18px;
+    height: 18px;
+  }
 }

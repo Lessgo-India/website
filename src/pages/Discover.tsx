@@ -26,32 +26,32 @@ function Discover() {
   ];
 
   return (
-    <main className="container mx-auto px-6 py-12">
-      <h1 className="text-4xl font-bold mb-2 animate-slide-in-top">Discover Events</h1>
-      <div className="h-1 w-20 bg-primary-accent mb-8 animate-slide-in-left-medium"></div>
+    <main className="container mx-auto px-4 sm:px-6 py-8 sm:py-12">
+      <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 animate-slide-in-top">Discover Events</h1>
+      <div className="h-1 w-16 sm:w-20 bg-primary-accent mb-6 sm:mb-8 animate-slide-in-left-medium"></div>
 
-      <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 md:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {events.map((event, index) => (
           <div 
             key={index} 
-            className="rounded-xl overflow-hidden shadow-lg transition-all duration-300 ease-in-out backdrop-blur-md bg-bg-light-secondary/75 border border-border-light/50 dark:bg-bg-dark-secondary/75 dark:border dark:border-border-dark/50 animate-scale-up-fade-in-card hover:scale-105 card-hover-glow"
+            className="rounded-xl overflow-hidden shadow-lg transition-all duration-300 ease-in-out backdrop-blur-md bg-bg-light-secondary/75 border border-border-light/50 dark:bg-bg-dark-secondary/75 dark:border dark:border-border-dark/50 animate-scale-up-fade-in-card hover:scale-[1.02] sm:hover:scale-105 card-hover-glow"
             style={{ animationDelay: `${index * 100}ms` }}
           >
-            <img src={event.image} alt={event.title} className="w-full h-48 object-cover" />
-            <div className="p-6">
-              <h3 className="text-xl font-semibold mb-4">{event.title}</h3>
-              <div className="flex items-center space-x-4 text-text-light-secondary dark:text-text-dark-secondary">
+            <img src={event.image} alt={event.title} className="w-full h-40 sm:h-48 object-cover" />
+            <div className="p-4 sm:p-6">
+              <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">{event.title}</h3>
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-text-light-secondary dark:text-text-dark-secondary">
                 <div className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-2 text-secondary-accent" />
-                  {event.date}
+                  <Calendar className="h-4 w-4 mr-1.5 sm:mr-2 text-secondary-accent flex-shrink-0" />
+                  <span>{event.date}</span>
                 </div>
                 <div className="flex items-center">
-                  <MapPin className="h-4 w-4 mr-2 text-secondary-accent" />
-                  {event.location}
+                  <MapPin className="h-4 w-4 mr-1.5 sm:mr-2 text-secondary-accent flex-shrink-0" />
+                  <span>{event.location}</span>
                 </div>
                 <div className="flex items-center">
-                  <Users className="h-4 w-4 mr-2 text-secondary-accent" />
-                  {event.attendees}
+                  <Users className="h-4 w-4 mr-1.5 sm:mr-2 text-secondary-accent flex-shrink-0" />
+                  <span>{event.attendees}</span>
                 </div>
               </div>
             </div>

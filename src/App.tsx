@@ -28,24 +28,29 @@ function Navigation() {
     { name: 'Help', path: '/help', icon: HelpCircle },
   ];
 
+  // Close menu when route changes
+  const handleNavClick = () => {
+    setIsMenuOpen(false);
+  };
+
   return (
-    <header className="luma-header border-b">
-      <nav className="container mx-auto px-6 py-4">
+    <header className="luma-header border-b sticky top-0 z-50">
+      <nav className="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-3 group">
+          <Link to="/" className="flex items-center space-x-2 sm:space-x-3 group" onClick={handleNavClick}>
             <div className="relative">
               <img 
                 src="https://lessgo-asset.s3.ap-south-1.amazonaws.com/images/logo.png" 
                 alt="Lessgo Logo" 
-                className="h-8 w-8 transition-transform duration-200 group-hover:scale-105" 
+                className="h-7 w-7 sm:h-8 sm:w-8 transition-transform duration-200 group-hover:scale-105" 
               />
             </div>
-            <span className="text-xl font-semibold text-primary">Lessgo</span>
+            <span className="text-lg sm:text-xl font-semibold text-primary">Lessgo</span>
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="hidden md:flex items-center space-x-6 lg:space-x-8">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
@@ -53,9 +58,7 @@ function Navigation() {
                 <Link
                   key={item.name}
                   to={item.path}
-                  className={`nav-link flex items-center space-x-2 ${
-                    isActive ? 'active' : ''
-                  }`}
+                  className={`nav-link flex items-center space-x-2 ${isActive ? 'active' : ''}`}
                 >
                   <Icon className="h-4 w-4" />
                   <span>{item.name}</span>
@@ -65,13 +68,15 @@ function Navigation() {
           </div>
 
           {/* Theme Toggle & Mobile Menu */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-4">
             <ThemeToggle />
 
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden luma-button-secondary p-2"
+              className="md:hidden luma-button-secondary p-2 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={isMenuOpen}
             >
               {isMenuOpen ? (
                 <X className="h-5 w-5" />
@@ -84,8 +89,8 @@ function Navigation() {
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className="md:hidden mt-4 py-4 border-t border-border-primary">
-            <div className="space-y-3">
+          <div className="md:hidden mt-4 py-4 border-t border-border-primary animate-fade-in-up">
+            <div className="space-y-2">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
@@ -93,13 +98,11 @@ function Navigation() {
                   <Link
                     key={item.name}
                     to={item.path}
-                    className={`nav-link flex items-center space-x-2 w-full ${
-                      isActive ? 'active' : ''
-                    }`}
-                    onClick={() => setIsMenuOpen(false)}
+                    className={`nav-link flex items-center space-x-3 w-full py-3 px-4 rounded-lg ${isActive ? 'active' : ''}`}
+                    onClick={handleNavClick}
                   >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.name}</span>
+                    <Icon className="h-5 w-5" />
+                    <span className="text-base">{item.name}</span>
                   </Link>
                 );
               })}
@@ -114,11 +117,11 @@ function Navigation() {
 // Footer Component
 function Footer() {
   return (
-    <footer className="luma-footer mt-16">
-      <div className="container mx-auto px-6 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+    <footer className="luma-footer mt-8 sm:mt-16">
+      <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-12">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
           {/* Company Info */}
-          <div className="space-y-4">
+          <div className="col-span-2 sm:col-span-2 md:col-span-1 space-y-4">
             <div className="flex items-center space-x-3">
               <img 
                 src="https://lessgo-asset.s3.ap-south-1.amazonaws.com/images/logo.png" 
@@ -133,46 +136,46 @@ function Footer() {
           </div>
 
           {/* Quick Links */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-primary">Quick Links</h3>
+          <div className="space-y-3 sm:space-y-4">
+            <h3 className="font-semibold text-primary text-sm sm:text-base">Quick Links</h3>
             <div className="space-y-2">
-              <Link to="/discover" className="block text-secondary hover:text-primary transition-colors">
+              <Link to="/discover" className="block text-secondary hover:text-primary transition-colors text-sm sm:text-base py-1">
                 Discover Events
               </Link>
-              <Link to="/create" className="block text-secondary hover:text-primary transition-colors">
+              <Link to="/create" className="block text-secondary hover:text-primary transition-colors text-sm sm:text-base py-1">
                 Create Event
               </Link>
-              <Link to="/help" className="block text-secondary hover:text-primary transition-colors">
+              <Link to="/help" className="block text-secondary hover:text-primary transition-colors text-sm sm:text-base py-1">
                 Help Center
               </Link>
             </div>
           </div>
 
           {/* Legal */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-primary">Legal</h3>
+          <div className="space-y-3 sm:space-y-4">
+            <h3 className="font-semibold text-primary text-sm sm:text-base">Legal</h3>
             <div className="space-y-2">
-              <Link to="/legal" className="block text-secondary hover:text-primary transition-colors">
+              <Link to="/legal" className="block text-secondary hover:text-primary transition-colors text-sm sm:text-base py-1">
                 Terms of Service
               </Link>
-              <Link to="/privacy" className="block text-secondary hover:text-primary transition-colors">
+              <Link to="/privacy" className="block text-secondary hover:text-primary transition-colors text-sm sm:text-base py-1">
                 Privacy Policy
               </Link>
-              <Link to="/security" className="block text-secondary hover:text-primary transition-colors">
+              <Link to="/security" className="block text-secondary hover:text-primary transition-colors text-sm sm:text-base py-1">
                 Security
               </Link>
             </div>
           </div>
 
           {/* Social Links */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-primary">Connect</h3>
+          <div className="col-span-2 sm:col-span-2 md:col-span-1 space-y-3 sm:space-y-4">
+            <h3 className="font-semibold text-primary text-sm sm:text-base">Connect</h3>
             <div className="flex space-x-4">
               <a
                 href="https://twitter.com/lessgo"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-secondary hover:text-accent transition-colors"
+                className="text-secondary hover:text-accent transition-colors p-2 -ml-2"
                 aria-label="Follow us on Twitter"
               >
                 <Twitter className="h-5 w-5" />
@@ -181,7 +184,7 @@ function Footer() {
                 href="https://instagram.com/lessgo"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-secondary hover:text-accent transition-colors"
+                className="text-secondary hover:text-accent transition-colors p-2"
                 aria-label="Follow us on Instagram"
               >
                 <Instagram className="h-5 w-5" />
@@ -190,7 +193,7 @@ function Footer() {
                 href="https://facebook.com/lessgo"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-secondary hover:text-accent transition-colors"
+                className="text-secondary hover:text-accent transition-colors p-2"
                 aria-label="Follow us on Facebook"
               >
                 <Facebook className="h-5 w-5" />
@@ -199,7 +202,7 @@ function Footer() {
                 href="https://github.com/lessgo"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-secondary hover:text-accent transition-colors"
+                className="text-secondary hover:text-accent transition-colors p-2"
                 aria-label="Visit our GitHub"
               >
                 <Github className="h-5 w-5" />
@@ -208,9 +211,9 @@ function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-light mt-8 pt-8 text-center">
-          <p className="text-secondary text-sm">
-            © 2024 Lessgo. All rights reserved.
+        <div className="border-t border-light mt-6 sm:mt-8 pt-6 sm:pt-8 text-center">
+          <p className="text-secondary text-xs sm:text-sm">
+            © 2026 Lessgo. All rights reserved.
           </p>
         </div>
       </div>
@@ -225,7 +228,7 @@ function App() {
       <div className="min-h-screen bg-primary">
         <Navigation />
         
-        <main className="pt-20">
+        <main>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/whats-new" element={<WhatsNew />} />
