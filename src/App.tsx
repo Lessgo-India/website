@@ -11,12 +11,12 @@ import {
 } from 'lucide-react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import ThemeToggle from './components/ThemeToggle';
-import WhatsNew from './pages/WhatsNew';
-import Discover from './pages/Discover';
-import Help from './pages/Help';
-import Legal from './pages/Legal';
-import Home from './pages/Home';
-import Blog from './pages/Blog';
+import WhatsNew from './marketing/WhatsNew';
+import Discover from './marketing/Discover';
+import Help from './marketing/Help';
+import Legal from './marketing/Legal';
+import Home from './marketing/Home';
+import Blog from './marketing/Blog';
 
 // Navigation Component
 function Navigation() {
