@@ -9,6 +9,7 @@ const EVENT_TYPE_LABEL: Record<string, string> = {
   DINNER: 'Dinner',
   CONFERENCE: 'Conference',
   EVENT: 'Event',
+  OTHER: 'Other',
 };
 
 export function eventTypeLabel(type?: string | null): string {
