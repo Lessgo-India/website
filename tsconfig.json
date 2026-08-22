@@ -16,7 +16,9 @@
     "forceConsistentCasingInFileNames": true,
     "plugins": [{ "name": "next" }],
     "paths": {
-      "@web/*": ["./web/*"]
+      "@web/*": ["./web/*"],
+      "@content/*": ["./content/*"],
+      "@ui/*": ["./components/*"]
     }
   },
   "include": [

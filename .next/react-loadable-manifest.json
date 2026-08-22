@@ -1,10 +1,1 @@
-{
-  "app/[[...slug]]/page.tsx -> ../../src/App": {
-    "id": 2358,
-    "files": [
-      "static/chunks/4b1a69f1.f3367e70d769d171.js",
-      "static/chunks/211.d11e869239f32ded.js",
-      "static/chunks/358.2ba391ff4dddfc00.js"
-    ]
-  }
-}
+{}

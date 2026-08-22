@@ -16,9 +16,12 @@ Before anything else, read the shared context and each persona definition:
 - [Lessgo product & brand context](./_context-lessgo.md)
 - [Product Manager](./product-manager.prompt.md)
 - [Brand Strategist](./brand-strategist.prompt.md)
+- [Art Director](./art-director.prompt.md)
 - [Content Strategist & Copywriter](./content-copywriter.prompt.md)
 - [UX/UI Designer](./ux-designer.prompt.md)
+- [Motion Designer](./motion-designer.prompt.md)
 - [SEO Specialist](./seo-specialist.prompt.md)
+- [Localization & i18n Specialist](./localization-i18n.prompt.md)
 - [Growth Marketer](./growth-marketer.prompt.md)
 - [CRO Specialist](./cro-specialist.prompt.md)
 - [Legal & Privacy Advisor](./legal-privacy-advisor.prompt.md)
@@ -41,10 +44,11 @@ per the context).
 **2. Opening positions (each persona, in this order).** Give every persona a
 short turn *in their own voice*. Order by dependency so later voices can react to
 earlier ones:
-1. Product Manager → 2. Brand Strategist → 3. Content Strategist & Copywriter →
-4. UX/UI Designer → 5. SEO Specialist → 6. Growth Marketer → 7. CRO Specialist →
-8. Legal & Privacy Advisor → 9. Accessibility Specialist →
-10. Frontend Web Engineer → 11. Analytics & Measurement Specialist.
+1. Product Manager → 2. Brand Strategist → 3. Art Director →
+4. Content Strategist & Copywriter → 5. UX/UI Designer → 6. Motion Designer →
+7. SEO Specialist → 8. Localization & i18n Specialist → 9. Growth Marketer →
+10. CRO Specialist → 11. Legal & Privacy Advisor → 12. Accessibility Specialist →
+13. Frontend Web Engineer → 14. Analytics & Measurement Specialist.
 
 Each turn is **3–6 crisp bullets** of that persona's most important input on the
 topic — concrete and specific to Lessgo, never generic. Label each turn with the

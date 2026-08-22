@@ -33,9 +33,12 @@ them all with the **facilitator**.
 | `/website-roundtable` | 🎯 Facilitator | Convening the swarm & synthesizing the brief |
 | `/product-manager` | 📋 Product Manager | Why the site exists, scope, priorities, success metrics |
 | `/brand-strategist` | ✨ Brand Strategist | Positioning, voice, identity, differentiation |
+| `/art-director` | 🖌️ Art Director | Visual concept, imagery, gradient & type craft |
 | `/content-copywriter` | ✍️ Content Strategist & Copywriter | Messaging architecture & page copy |
 | `/ux-designer` | 🎨 UX/UI Designer | Flows, wireframes, layout, design system |
+| `/motion-designer` | 🎞️ Motion Designer | Animation, transitions, micro-interactions |
 | `/seo-specialist` | 🔍 SEO Specialist | Discoverability & technical SEO |
+| `/localization-i18n` | 🌐 Localization & i18n | Multilingual reach, i18n readiness, hreflang |
 | `/growth-marketer` | 🚀 Growth Marketer | Acquisition, funnels, referral, installs |
 | `/cro-specialist` | 📈 CRO Specialist | Conversion optimization & A/B testing |
 | `/legal-privacy-advisor` | ⚖️ Legal & Privacy Advisor | Compliance, privacy, consent, disclaimers |

@@ -1,136 +1,132 @@
-Workspace: Collecting workspace information# Lessgo - Hangouts Made Easy
+Workspace: Collecting workspace information# Lessgo — Hangouts made easy
 
 ![Lessgo Logo](https://lessgo-asset.s3.ap-south-1.amazonaws.com/images/logo.png)
 
-Lessgo is a modern web application designed to help users manage their trips, plans, and hangouts with ease. This repository contains the frontend codebase built with React, TypeScript, and Tailwind CSS.
+The Lessgo website. It does two jobs:
 
-## ✨ Features
+1. **Marketing site** — static, server-rendered pages that explain the product and
+   drive app installs.
+2. **Web client** — shareable event deep links (`/e/:id`) so an invited guest can
+   RSVP in a browser without installing the app.
 
-- **Beautiful Modern UI**: Crafted with Tailwind CSS and smooth transitions
-- **Responsive Design**: Optimized for all device sizes
-- **Event Discovery**: Browse and find exciting events
-- **Blog Section**: Articles about travel and event planning
-- **Legal Information**: Comprehensive terms, privacy policy, and security details
-- **Help Center**: Documentation, community support, and contact information
+## ✨ What's here
 
-## 🛠️ Technologies
+- **Install-first marketing pages** built on the native app's real design
+  language — five domain accents (Events lime, Groups orange, Split emerald,
+  Vibes coral, Profile purple) over the `#F1EEFF` / `#0E0B24` bases.
+- **App mockups drawn in HTML/CSS**, not screenshots. Zero image weight, sharp at
+  any DPR, and they restyle with the theme.
+- **Light and dark themes**, applied before first paint so there is no flash.
+- **Consent-gated analytics** — PostHog only loads after opt-in.
+- **WCAG 2.2 AA baseline** — skip link, visible focus, keyboard-operable FAQ,
+  and a full `prefers-reduced-motion` fallback for every animation.
+- **SEO plumbing** — per-route metadata, `sitemap.xml`, `robots.txt` and JSON-LD
+  (`Organization`, `MobileApplication`, `FAQPage`, `BreadcrumbList`).
 
-- **React 18**: For building the user interface
-- **TypeScript**: For type safety and better developer experience
-- **Vite**: Fast and efficient build tool
-- **Tailwind CSS**: Utility-first CSS framework
-- **React Router**: For client-side routing
-- **Lucide React**: Lightweight and beautiful SVG icons
+## 🛠 Technologies
 
-## 📷 Screenshots
+- **Next.js 14** (App Router) — marketing routes are static, `/e/:id` is SSR
+- **React 18** and **TypeScript**
+- **Tailwind CSS** — tokens mirror the app's `constants/theme.ts`
+- **Firebase Web SDK** — phone/OTP auth for the web client
+- **Lucide React** — icons
+- **PostHog** — product analytics, loaded via snippet only after consent
 
-![Home Page](https://lessgo-asset.s3.ap-south-1.amazonaws.com/images/splash_event.jpg)
-*Home page showcasing the app's features*
+No animation library and no analytics SDK: entrances use a small
+IntersectionObserver hook, and everything else is CSS.
 
-## 🚀 Getting Started
+## 🚀 Getting started
 
 ### Prerequisites
 
-- Node.js (v16 or higher)
-- npm or yarn
+- Node.js 18 or newer
+- npm
 
 ### Installation
 
-1. Clone the repository
+1. Clone and install
    ```bash
    git clone https://github.com/yourusername/lessgo-website.git
    cd lessgo-website
-   ```
-
-2. Install dependencies
-   ```bash
    npm install
-   # or
-   yarn
    ```
 
-3. Start the development server
+2. Configure the environment
+   ```bash
+   cp .env.local.example .env.local
+   ```
+   The marketing pages render without any of it. The web client needs
+   `NEXT_PUBLIC_BACKEND_API` and the `NEXT_PUBLIC_FIREBASE_*` values; analytics
+   needs `NEXT_PUBLIC_POSTHOG_KEY`; the early-access form needs
+   `EARLY_ACCESS_WEBHOOK_URL`.
+
+3. Run it
    ```bash
    npm run dev
-   # or
-   yarn dev
    ```
 
-4. Open your browser and visit `http://localhost:5173`
+4. Open `http://localhost:3000`
 
-## 📦 Building for Production
+## 📦 Building for production
 
 ```bash
 npm run build
-# or
-yarn build
+npm run start   # respects $PORT
 ```
 
-The built files will be in the `dist` directory.
+`next/font` downloads the Outfit, Inter and Space Mono files at build time, so
+the build step needs network access.
 
-To preview the production build:
-
-```bash
-npm run preview
-# or
-yarn preview
-```
-
-## 🧪 Linting
-
-```bash
-npm run lint
-# or
-yarn lint
-```
-
-## 📂 Project Structure
+## 📂 Project structure
 
 ```
 lessgo-website/
-├── public/             # Static assets
-├── src/
-│   ├── pages/          # Page components
-│   │   ├── Blog.tsx
-│   │   ├── Discover.tsx
-│   │   ├── Help.tsx
-│   │   ├── Home.tsx
-│   │   ├── Legal.tsx
-│   │   └── WhatsNew.tsx
-│   ├── App.tsx         # Main app component
-│   ├── index.css       # Global styles (Tailwind)
-│   └── main.tsx        # Entry point
-├── index.html          # HTML template
-├── package.json        # Dependencies and scripts
-├── tailwind.config.js  # Tailwind configuration
-└── vite.config.ts      # Vite configuration
+├── app/
+│   ├── (marketing)/         # Static marketing pages
+│   │   ├── page.tsx         # Home
+│   │   ├── features/
+│   │   ├── download/
+│   │   ├── help/
+│   │   ├── whats-new/
+│   │   ├── privacy/
+│   │   └── terms/
+│   ├── api/early-access/    # Signup forwarder (no data stored here)
+│   ├── e/[id]/              # Event deep link (SSR, indexable)
+│   ├── onboarding/          # Phone + OTP
+│   ├── me/                  # Signed-in home
+│   ├── globals.css          # Design tokens, base styles, luma-* compat layer
+│   ├── layout.tsx           # Fonts, metadata, theme script, consent banner
+│   ├── sitemap.ts
+│   └── robots.ts
+├── components/              # Site UI (@ui/*)
+│   ├── phone/               # HTML/CSS recreations of the app screens
+│   └── sections/            # Homepage sections
+├── content/site.ts          # Every user-facing string (@content/*)
+├── web/                     # Event/OTP web-client lib + components (@web/*)
+└── src/                     # Archived pre-Next.js SPA — unused
 ```
 
-## 🔗 Links
+All marketing copy lives in `content/site.ts`. Nothing is hardcoded in
+components, so adding Hindi later is a config change rather than a rewrite.
 
-- Download on App Store
-- Get it on Play Store
-- Follow us on Twitter
-- Like us on Facebook
-- Follow us on Instagram
-- GitHub Repository
+## 🚩 Before public launch
+
+- [ ] Have counsel review `/privacy` and `/terms`, and confirm the Grievance
+      Officer contact.
+- [ ] Set `EARLY_ACCESS_WEBHOOK_URL`. Until it is set, the signup form honestly
+      tells visitors to email instead of silently dropping their address.
+- [ ] Flip `site.storesLive` to `true` in `content/site.ts` once the Play Store
+      and App Store listings are live, and set `NEXT_PUBLIC_IOS_APP_URL`.
+- [ ] Set `NEXT_PUBLIC_SITE_URL` so canonicals, OG tags and the sitemap resolve.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT — see the LICENSE file.
 
 ## 👥 Contributors
 
 - Priytosh Tripathi
 
-## 🙏 Acknowledgements
-
-- [Tailwind CSS](https://tailwindcss.com/)
-- [React](https://reactjs.org/)
-- [Vite](https://vitejs.dev/)
-- [Lucide Icons](https://lucide.dev/)
-- [Unsplash](https://unsplash.com/) for the images
-
 ---
 
-Made with ❤️ by the Lessgo Team
+Built with ❤️ in India

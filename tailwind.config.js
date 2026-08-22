@@ -1,76 +1,146 @@
 /** @type {import('tailwindcss').Config} */
+
+// Dark mode is driven by `data-theme="dark"` on <html>, set by the anti-flash
+// script in app/layout.tsx before first paint.
 export default {
-  darkMode: 'class',
+  darkMode: ['selector', '[data-theme="dark"]'],
   content: [
     './app/**/*.{js,ts,jsx,tsx}',
     './web/**/*.{js,ts,jsx,tsx}',
+    './components/**/*.{js,ts,jsx,tsx}',
+    './content/**/*.{js,ts,jsx,tsx}',
     './src/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'sans-serif'],
-        display: ['SF Pro Display', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        sans: ['var(--font-sans)', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['var(--font-display)', 'var(--font-sans)', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       colors: {
+        // ── Semantic surface/ink tokens (flip with the theme) ──────────────
+        bg: 'var(--bg)',
+        'bg-elev': 'var(--bg-elev)',
+        surface: 'var(--surface)',
+        'surface-2': 'var(--surface-2)',
+        ink: 'var(--ink)',
+        'ink-muted': 'var(--ink-muted)',
+        'ink-faint': 'var(--ink-faint)',
+        line: 'var(--line)',
+        'line-strong': 'var(--line-strong)',
+
+        // ── The five product domains, mirrored from the app's theme.ts ─────
+        events: {
+          DEFAULT: 'var(--events)',
+          fill: 'var(--events-fill)',
+          on: 'var(--events-on)',
+          tint: 'var(--events-tint)',
+        },
+        groups: {
+          DEFAULT: 'var(--groups)',
+          fill: 'var(--groups-fill)',
+          on: 'var(--groups-on)',
+          tint: 'var(--groups-tint)',
+        },
+        split: {
+          DEFAULT: 'var(--split)',
+          fill: 'var(--split-fill)',
+          on: 'var(--split-on)',
+          tint: 'var(--split-tint)',
+        },
+        vibes: {
+          DEFAULT: 'var(--vibes)',
+          fill: 'var(--vibes-fill)',
+          on: 'var(--vibes-on)',
+          tint: 'var(--vibes-tint)',
+        },
+        profile: {
+          DEFAULT: 'var(--profile)',
+          fill: 'var(--profile-fill)',
+          on: 'var(--profile-on)',
+          tint: 'var(--profile-tint)',
+        },
+
+        // ── Fixed brand stops for the signature aurora gradient ────────────
+        brand: {
+          teal: '#22D3C5',
+          blue: '#4776E6',
+          purple: '#8E54E9',
+          magenta: '#EC008C',
+          night: '#0E0B24',
+          dusk: '#1B1547',
+          mist: '#F1EEFF',
+        },
+
+        // ── Legacy keys kept so the archived src/ SPA still compiles ───────
         'luma-purple': '#6366f1',
         'luma-purple-hover': '#4f46e5',
         'luma-light-purple': '#8b5cf6',
         'luma-green': '#10b981',
         'luma-orange': '#f59e0b',
-        
-        'surface-primary': '#FFFFFF',
-        'surface-secondary': '#f8fafc',
-        'surface-elevated': '#FFFFFF',
-        
-        'text-primary': '#0f172a',
-        'text-secondary': '#64748b',
-        'text-tertiary': '#94a3b8',
-        
-        'border-primary': '#e2e8f0',
-        'border-secondary': '#cbd5e1',
-        
-        'bg-primary': '#FFFFFF',
-        'bg-secondary': '#f8fafc',
-        'bg-tertiary': '#f1f5f9',
       },
       borderRadius: {
-        '2xl': '1rem',
-        '3xl': '1.5rem',
+        // Mirrors the app's radius scale (constants/theme.ts)
+        sm: '10px',
+        md: '14px',
+        lg: '20px',
+        xl: '28px',
+        '2xl': '32px',
+        '3xl': '40px',
+      },
+      maxWidth: {
+        prose: '68ch',
+        container: '1200px',
       },
       boxShadow: {
-        'card': '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+        soft: '0 1px 2px rgba(9, 6, 26, 0.04), 0 8px 24px -12px rgba(9, 6, 26, 0.18)',
+        lift: '0 2px 4px rgba(9, 6, 26, 0.06), 0 18px 40px -18px rgba(9, 6, 26, 0.28)',
+        pop: '0 24px 60px -24px rgba(9, 6, 26, 0.42)',
+        phone: '0 40px 90px -40px rgba(9, 6, 26, 0.65)',
+        // Legacy keys kept so the archived src/ SPA still compiles
+        card: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
         'card-hover': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
         'card-elevated': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
       },
+      keyframes: {
+        'aurora-a': {
+          '0%, 100%': { transform: 'translate3d(0,0,0) scale(1)' },
+          '50%': { transform: 'translate3d(6%, -8%, 0) scale(1.18)' },
+        },
+        'aurora-b': {
+          '0%, 100%': { transform: 'translate3d(0,0,0) scale(1.1)' },
+          '50%': { transform: 'translate3d(-8%, 6%, 0) scale(0.92)' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-12px)' },
+        },
+        marquee: {
+          from: { transform: 'translateX(0)' },
+          to: { transform: 'translateX(-50%)' },
+        },
+        'pulse-ring': {
+          '0%': { transform: 'scale(0.9)', opacity: '0.6' },
+          '70%, 100%': { transform: 'scale(1.7)', opacity: '0' },
+        },
+      },
       animation: {
+        'aurora-a': 'aurora-a 22s cubic-bezier(0.45,0,0.55,1) infinite',
+        'aurora-b': 'aurora-b 28s cubic-bezier(0.45,0,0.55,1) infinite',
+        float: 'float 6s ease-in-out infinite',
+        marquee: 'marquee 40s linear infinite',
+        'pulse-ring': 'pulse-ring 2.4s cubic-bezier(0.24,0,0.38,1) infinite',
+        // Legacy keys kept so the archived src/ SPA still compiles
         'fade-in-up': 'fadeInUp 0.4s ease-out forwards',
-        'slide-in': 'slideIn 0.4s ease-out forwards',
-        'scale-in': 'scaleIn 0.4s ease-out forwards',
-        'scale-in-glass': 'scaleInGlass 0.8s ease-out forwards',
-        'slide-in-glass': 'slideInGlass 0.7s ease-out forwards',
-        'ethereal-float': 'etherealFloat 6s ease-in-out infinite',
-        'glow-pulse': 'glowPulse 2s ease-in-out infinite',
-        'morph-bg': 'morphBackground 8s ease-in-out infinite',
-        'slide-in-left': 'slideInFromLeft 0.6s ease-out forwards',
-        'fade-in-delay-1': 'fadeInUp 0.6s ease-out 0.1s forwards',
-        'fade-in-delay-2': 'fadeInUp 0.6s ease-out 0.2s forwards',
-        'fade-in-delay-3': 'fadeInUp 0.6s ease-out 0.3s forwards',
-        'fade-in-delay-4': 'fadeInUp 0.6s ease-out 0.4s forwards',
-        'fade-in-delay-5': 'fadeInUp 0.6s ease-out 0.5s forwards',
       },
       transitionTimingFunction: {
-        'apple': 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-      },
-      transitionProperty: {
-        'glass': 'all, backdrop-filter, -webkit-backdrop-filter',
+        spring: 'cubic-bezier(0.22, 1, 0.36, 1)',
+        apple: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
       },
       spacing: {
-        '18': '4.5rem', /* 72px */
-        '72': '18rem',   /* 288px */
-        '84': '21rem',   /* 336px */
-        '96': '24rem',   /* 384px */
-      }
+        18: '4.5rem',
+      },
     },
   },
   plugins: [],

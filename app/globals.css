@@ -1,0 +1,403 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   Lessgo design tokens
+   Mirrored from the app's constants/theme.ts so web and native stay in sync.
+   Light base #F1EEFF · dark base #0E0B24 · five domain accents.
+   ========================================================================== */
+
+:root,
+html[data-theme='light'] {
+  --bg: #f7f5ff;
+  --bg-elev: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #efebff;
+  --ink: #14102b;
+  --ink-muted: #575178;
+  --ink-faint: #837da4;
+  --line: rgba(20, 16, 43, 0.1);
+  --line-strong: rgba(20, 16, 43, 0.18);
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.9);
+  --scrim: rgba(247, 245, 255, 0.86);
+
+  /* Domain accents — light-mode variants from the app */
+  --events: #7fa80a;
+  --events-ink: #16190f;
+  --groups: #d96f00;
+  --groups-ink: #201206;
+  --split: #16a34a;
+  --split-ink: #052e16;
+  --vibes: #e0393b;
+  --vibes-ink: #2a0f0f;
+  --profile: #7c48e0;
+  --profile-ink: #17101f;
+
+  /* Accent used as a large fill, with -on for text placed on top of it */
+  --events-fill: #b4e22e;
+  --groups-fill: #f58a1e;
+  --split-fill: #34c46a;
+  --vibes-fill: #f86060;
+  --profile-fill: #9b6df2;
+  --events-on: #16190f;
+  --groups-on: #201206;
+  --split-on: #052e16;
+  --vibes-on: #ffffff;
+  --profile-on: #ffffff;
+
+  /* Low-opacity accent washes for chips and soft surfaces */
+  --events-tint: rgba(127, 168, 10, 0.14);
+  --groups-tint: rgba(217, 111, 0, 0.12);
+  --split-tint: rgba(22, 163, 74, 0.12);
+  --vibes-tint: rgba(224, 57, 59, 0.1);
+  --profile-tint: rgba(124, 72, 224, 0.12);
+
+  --aurora-opacity: 0.5;
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  --bg: #0e0b24;
+  --bg-elev: #151132;
+  --surface: #191441;
+  --surface-2: #221b53;
+  --ink: #f5f2ff;
+  --ink-muted: #b3abd8;
+  --ink-faint: #857ead;
+  --line: rgba(255, 255, 255, 0.1);
+  --line-strong: rgba(255, 255, 255, 0.2);
+  --glass: rgba(25, 20, 65, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --scrim: rgba(14, 11, 36, 0.82);
+
+  /* Domain accents — dark-mode variants from the app */
+  --events: #c7f04a;
+  --events-ink: #141210;
+  --groups: #ff9f45;
+  --groups-ink: #1a1206;
+  --split: #4ade80;
+  --split-ink: #052e16;
+  --vibes: #ff7a7a;
+  --vibes-ink: #1e0d0c;
+  --profile: #c9a7ff;
+  --profile-ink: #17101f;
+
+  --events-fill: #c7f04a;
+  --groups-fill: #ff9f45;
+  --split-fill: #4ade80;
+  --vibes-fill: #ff7a7a;
+  --profile-fill: #c9a7ff;
+  --events-on: #141210;
+  --groups-on: #1a1206;
+  --split-on: #052e16;
+  --vibes-on: #1e0d0c;
+  --profile-on: #17101f;
+
+  --events-tint: rgba(199, 240, 74, 0.14);
+  --groups-tint: rgba(255, 159, 69, 0.14);
+  --split-tint: rgba(74, 222, 128, 0.14);
+  --vibes-tint: rgba(255, 122, 122, 0.14);
+  --profile-tint: rgba(201, 167, 255, 0.16);
+
+  --aurora-opacity: 0.62;
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+@layer base {
+  * {
+    border-color: var(--line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background: var(--profile-fill);
+    color: var(--profile-on);
+  }
+
+  /* One visible focus treatment everywhere, legible on any backdrop. */
+  :focus-visible {
+    outline: 2px solid var(--profile);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  /* Anchor targets clear the sticky header. */
+  :target {
+    scroll-margin-top: 6rem;
+  }
+}
+
+/* ==========================================================================
+   Components
+   ========================================================================== */
+
+@layer components {
+  .container-page {
+    width: 100%;
+    max-width: 1200px;
+    margin-inline: auto;
+    padding-inline: 1.25rem;
+  }
+
+  @media (min-width: 768px) {
+    .container-page {
+      padding-inline: 2rem;
+    }
+  }
+
+  /* The signature gradient. Used sparingly: hero, final CTA, wordmark. */
+  .gradient-brand {
+    background-image: linear-gradient(
+      110deg,
+      #22d3c5 0%,
+      #4776e6 32%,
+      #8e54e9 64%,
+      #ec008c 100%
+    );
+  }
+
+  .text-gradient {
+    background-image: linear-gradient(
+      110deg,
+      #22d3c5 0%,
+      #4776e6 30%,
+      #8e54e9 62%,
+      #ec008c 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    /* Keeps descenders from being clipped by background-clip. */
+    padding-bottom: 0.08em;
+  }
+
+  html[data-theme='light'] .text-gradient {
+    background-image: linear-gradient(
+      110deg,
+      #0d9e94 0%,
+      #3a63cc 30%,
+      #7b3fd4 62%,
+      #c60077 100%
+    );
+  }
+
+  .glass {
+    background-color: var(--glass);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(16px) saturate(1.6);
+    -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  }
+
+  .card {
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 28px;
+  }
+
+  /* Hairline gradient border, used on premium cards. */
+  .ring-gradient {
+    position: relative;
+  }
+  .ring-gradient::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(140deg, #22d3c5, #8e54e9 50%, #ec008c);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
+  /* Fades a horizontally scrolling strip out at both edges. */
+  .edge-fade {
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      transparent,
+      #000 8%,
+      #000 92%,
+      transparent
+    );
+    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  }
+}
+
+/* ==========================================================================
+   Scroll reveal — driven by the useReveal hook (IntersectionObserver).
+   Elements are visible by default and only hidden once JS marks them, so
+   the page is fully readable with JavaScript disabled.
+   ========================================================================== */
+
+[data-reveal='pending'] {
+  opacity: 0;
+  transform: translateY(24px);
+}
+
+[data-reveal='shown'] {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+/* ==========================================================================
+   Reduced motion — every effect on this site has an off switch.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  [data-reveal='pending'],
+  [data-reveal='shown'] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* ==========================================================================
+   Compatibility layer.
+   The event deep-link web client (web/components/*) styles itself with these
+   `luma-*` classes, originally from the archived src/index.css. They are
+   re-expressed on the new tokens so /e/:id, /onboarding and /me inherit the
+   new brand instead of breaking.
+   ========================================================================== */
+
+@layer components {
+  .luma-header {
+    background-color: var(--scrim);
+    border-color: var(--line);
+    backdrop-filter: blur(16px) saturate(1.6);
+    -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  }
+
+  .luma-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.35rem;
+    min-height: 44px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    line-height: 1.2;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition:
+      transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 0.2s ease;
+  }
+
+  .luma-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .luma-button-primary {
+    background-image: linear-gradient(110deg, #4776e6, #8e54e9 55%, #ec008c);
+    color: #ffffff;
+    box-shadow: 0 10px 30px -12px rgba(142, 84, 233, 0.8);
+  }
+
+  .luma-button-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 40px -14px rgba(142, 84, 233, 0.95);
+  }
+
+  .luma-button-secondary {
+    background-color: var(--surface-2);
+    color: var(--ink);
+    border-color: var(--line);
+  }
+
+  .luma-button-secondary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: var(--line-strong);
+  }
+
+  .luma-button:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  .luma-card {
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 2px rgba(9, 6, 26, 0.04), 0 8px 24px -12px rgba(9, 6, 26, 0.18);
+  }
+
+  .luma-input {
+    width: 100%;
+    padding: 0.85rem 1.1rem;
+    min-height: 48px;
+    border-radius: 16px;
+    background-color: var(--bg-elev);
+    border: 1px solid var(--line-strong);
+    color: var(--ink);
+    font-size: 1rem;
+  }
+
+  .luma-input::placeholder {
+    color: var(--ink-faint);
+  }
+
+  .luma-input:focus {
+    outline: 2px solid var(--profile);
+    outline-offset: 1px;
+    border-color: transparent;
+  }
+}
