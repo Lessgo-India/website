@@ -6,7 +6,8 @@ import { SITE_NAME } from '@web/lib/config';
 import AppHeader from '@web/components/AppHeader';
 import EventClient from '@web/components/EventClient';
 
-type PageProps = { params: { id: string } };
+// Next 15+ passes route params as a promise.
+type PageProps = { params: Promise<{ id: string }> };
 
 // Dedupe the public preview fetch between generateMetadata and the page render.
 const loadPreview = cache(async (id: string) => {
@@ -18,7 +19,8 @@ const loadPreview = cache(async (id: string) => {
 });
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const preview = await loadPreview(params.id);
+  const { id } = await params;
+  const preview = await loadPreview(id);
   if (!preview || !preview.name) {
     return { title: 'Event', description: `View this event on ${SITE_NAME}.` };
   }
@@ -48,7 +50,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function EventPage({ params }: PageProps) {
-  const preview = await loadPreview(params.id);
+  const { id } = await params;
+  const preview = await loadPreview(id);
   const when = preview ? formatEventWhen(preview.startDate, preview.endDate) : '';
 
   return (
@@ -85,7 +88,7 @@ export default async function EventPage({ params }: PageProps) {
         </section>
 
         {/* Authenticated island: RSVP + downloads + more */}
-        <EventClient id={params.id} />
+        <EventClient id={id} />
       </main>
     </div>
   );

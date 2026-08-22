@@ -1,4 +1,5 @@
 import { Check } from 'lucide-react';
+import type { ReactElement } from 'react';
 import { features, type Domain } from '@content/site';
 import { DomainGlow } from '@ui/Aurora';
 import { Container } from '@ui/Section';
@@ -18,7 +19,7 @@ import {
  */
 const DOMAINS: Record<
   Domain,
-  { screen: () => JSX.Element; glow: string; accent: string; tint: string }
+  { screen: () => ReactElement; glow: string; accent: string; tint: string }
 > = {
   events: { screen: EventsScreen, glow: '#C7F04A', accent: 'text-events', tint: 'bg-events-tint' },
   split: { screen: BalancesScreen, glow: '#4ADE80', accent: 'text-split', tint: 'bg-split-tint' },

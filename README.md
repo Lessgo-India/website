@@ -25,8 +25,8 @@ The Lessgo website. It does two jobs:
 
 ## 🛠 Technologies
 
-- **Next.js 14** (App Router) — marketing routes are static, `/e/:id` is SSR
-- **React 18** and **TypeScript**
+- **Next.js 16** (App Router) — marketing routes are static, `/e/:id` is SSR
+- **React 19** and **TypeScript**
 - **Tailwind CSS** — tokens mirror the app's `constants/theme.ts`
 - **Firebase Web SDK** — phone/OTP auth for the web client
 - **Lucide React** — icons
@@ -34,6 +34,8 @@ The Lessgo website. It does two jobs:
 
 No animation library and no analytics SDK: entrances use a small
 IntersectionObserver hook, and everything else is CSS. Node 20+ is required.
+Linting is ESLint 9 flat config (`eslint.config.mjs`) — `next lint` was removed
+in Next 16.
 
 ## 🚀 Getting started
 
@@ -63,7 +65,7 @@ IntersectionObserver hook, and everything else is CSS. Node 20+ is required.
 3. Run it
    ```bash
    npm run dev        # dev server
-   npm run lint       # next lint
+   npm run lint       # eslint (flat config)
    npm run typecheck  # tsc --noEmit
    ```
 

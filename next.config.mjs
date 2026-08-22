@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  eslint: { ignoreDuringBuilds: true },
   // Remote covers/avatars render with plain <img>, so image optimization is
   // unnecessary and this avoids per-domain allow-listing.
   images: { unoptimized: true },
