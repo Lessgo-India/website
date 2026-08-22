@@ -1,10 +1,13 @@
 'use client';
 
-import { useEffect, useRef, type ElementType, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ElementType, type ReactNode } from 'react';
 
 /**
  * Scroll-triggered entrance. Renders `data-reveal="pending"` on the server and
- * flips to "shown" once the element enters the viewport, then stops observing.
+ * flips to "shown" once the element enters the viewport.
+ *
+ * The flag is React state rather than a direct DOM mutation, so an unrelated
+ * re-render can't revert it after the observer has stopped watching.
  *
  * No-JS is covered by a <noscript> override in the root layout, and
  * prefers-reduced-motion is handled entirely in CSS.
@@ -21,24 +24,23 @@ export function Reveal({
   className?: string;
 }) {
   const ref = useRef<HTMLElement | null>(null);
+  const [shown, setShown] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!el || shown) return;
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduced || typeof IntersectionObserver === 'undefined') {
-      el.dataset.reveal = 'shown';
+      setShown(true);
       return;
     }
 
     const observer = new IntersectionObserver(
       (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            (entry.target as HTMLElement).dataset.reveal = 'shown';
-            observer.unobserve(entry.target);
-          }
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShown(true);
+          observer.disconnect();
         }
       },
       { rootMargin: '0px 0px -12% 0px', threshold: 0.08 },
@@ -46,12 +48,12 @@ export function Reveal({
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [shown]);
 
   return (
     <Tag
       ref={ref}
-      data-reveal="pending"
+      data-reveal={shown ? 'shown' : 'pending'}
       style={delay ? ({ '--reveal-delay': `${delay}ms` } as React.CSSProperties) : undefined}
       className={className}
     >

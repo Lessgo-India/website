@@ -308,13 +308,42 @@ html[data-theme='dark'] {
 
 /* ==========================================================================
    Compatibility layer.
-   The event deep-link web client (web/components/*) styles itself with these
-   `luma-*` classes, originally from the archived src/index.css. They are
-   re-expressed on the new tokens so /e/:id, /onboarding and /me inherit the
-   new brand instead of breaking.
+   The event deep-link web client (web/components/*, app/e, app/me,
+   app/onboarding) styles itself with these classes, originally from the
+   archived src/index.css. They are re-expressed on the new tokens so those
+   routes inherit the new brand instead of breaking.
    ========================================================================== */
 
+:root {
+  /* Referenced directly by an arbitrary utility in EventClient.tsx */
+  --border-light: var(--line);
+}
+
 @layer components {
+  .text-primary {
+    color: var(--ink);
+  }
+
+  .text-secondary {
+    color: var(--ink-muted);
+  }
+
+  .text-muted {
+    color: var(--ink-faint);
+  }
+
+  .bg-primary {
+    background-color: var(--bg);
+  }
+
+  .border-light {
+    border-color: var(--line);
+  }
+
+  .border-medium {
+    border-color: var(--line-strong);
+  }
+
   .luma-header {
     background-color: var(--scrim);
     border-color: var(--line);

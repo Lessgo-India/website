@@ -1,0 +1,25 @@
+# Keeps the Railway/BuildKit build context small and, critically, prevents
+# `tsconfig.tsbuildinfo` and `.next/` from landing in the image — Nixpacks
+# mounts cache *directories* at those paths and the build fails if a file or
+# stale directory is already there.
+
+node_modules
+.next
+out
+dist
+dist-ssr
+*.tsbuildinfo
+
+.git
+.github
+.vscode
+.idea
+.DS_Store
+
+*.log
+.env
+.env.*
+!.env.local.example
+
+README.md
+eas.json

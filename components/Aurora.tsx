@@ -17,7 +17,7 @@ export function Aurora({
   return (
     <div
       aria-hidden="true"
-      className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`}
+      className={`pointer-events-none absolute inset-0 -z-10 overflow-hidden ${className}`}
     >
       <div
         className={`absolute -left-[18%] -top-[30%] h-[42rem] w-[42rem] rounded-full blur-[110px] animate-aurora-a ${scale}`}

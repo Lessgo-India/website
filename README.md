@@ -33,7 +33,7 @@ The Lessgo website. It does two jobs:
 - **PostHog** — product analytics, loaded via snippet only after consent
 
 No animation library and no analytics SDK: entrances use a small
-IntersectionObserver hook, and everything else is CSS.
+IntersectionObserver hook, and everything else is CSS. Node 20+ is required.
 
 ## 🚀 Getting started
 
@@ -62,7 +62,9 @@ IntersectionObserver hook, and everything else is CSS.
 
 3. Run it
    ```bash
-   npm run dev
+   npm run dev        # dev server
+   npm run lint       # next lint
+   npm run typecheck  # tsc --noEmit
    ```
 
 4. Open `http://localhost:3000`
@@ -102,8 +104,7 @@ lessgo-website/
 │   ├── phone/               # HTML/CSS recreations of the app screens
 │   └── sections/            # Homepage sections
 ├── content/site.ts          # Every user-facing string (@content/*)
-├── web/                     # Event/OTP web-client lib + components (@web/*)
-└── src/                     # Archived pre-Next.js SPA — unused
+└── web/                     # Event/OTP web-client lib + components (@web/*)
 ```
 
 All marketing copy lives in `content/site.ts`. Nothing is hardcoded in

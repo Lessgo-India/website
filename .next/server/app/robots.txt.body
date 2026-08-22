@@ -1,8 +1,0 @@
-User-Agent: *
-Allow: /
-Disallow: /api/
-Disallow: /me
-Disallow: /onboarding
-
-Host: https://lessgo.com
-Sitemap: https://lessgo.com/sitemap.xml

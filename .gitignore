@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 
+# Next.js build output
+.next
+out
+
+# TypeScript incremental build cache. Must not be committed: Nixpacks mounts a
+# cache directory at this path and the build fails if a file is already there.
+*.tsbuildinfo
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

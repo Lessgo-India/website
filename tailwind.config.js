@@ -9,7 +9,6 @@ export default {
     './web/**/*.{js,ts,jsx,tsx}',
     './components/**/*.{js,ts,jsx,tsx}',
     './content/**/*.{js,ts,jsx,tsx}',
-    './src/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {
@@ -72,13 +71,6 @@ export default {
           dusk: '#1B1547',
           mist: '#F1EEFF',
         },
-
-        // ── Legacy keys kept so the archived src/ SPA still compiles ───────
-        'luma-purple': '#6366f1',
-        'luma-purple-hover': '#4f46e5',
-        'luma-light-purple': '#8b5cf6',
-        'luma-green': '#10b981',
-        'luma-orange': '#f59e0b',
       },
       borderRadius: {
         // Mirrors the app's radius scale (constants/theme.ts)
@@ -98,10 +90,6 @@ export default {
         lift: '0 2px 4px rgba(9, 6, 26, 0.06), 0 18px 40px -18px rgba(9, 6, 26, 0.28)',
         pop: '0 24px 60px -24px rgba(9, 6, 26, 0.42)',
         phone: '0 40px 90px -40px rgba(9, 6, 26, 0.65)',
-        // Legacy keys kept so the archived src/ SPA still compiles
-        card: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-        'card-hover': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-        'card-elevated': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
       },
       keyframes: {
         'aurora-a': {
@@ -131,15 +119,9 @@ export default {
         float: 'float 6s ease-in-out infinite',
         marquee: 'marquee 40s linear infinite',
         'pulse-ring': 'pulse-ring 2.4s cubic-bezier(0.24,0,0.38,1) infinite',
-        // Legacy keys kept so the archived src/ SPA still compiles
-        'fade-in-up': 'fadeInUp 0.4s ease-out forwards',
       },
       transitionTimingFunction: {
         spring: 'cubic-bezier(0.22, 1, 0.36, 1)',
-        apple: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-      },
-      spacing: {
-        18: '4.5rem',
       },
     },
   },

@@ -27,11 +27,5 @@
     "**/*.tsx",
     ".next/types/**/*.ts"
   ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "vite.config.ts",
-    "src/main.tsx",
-    "src/vite-env.d.ts"
-  ]
+  "exclude": ["node_modules", ".next"]
 }
