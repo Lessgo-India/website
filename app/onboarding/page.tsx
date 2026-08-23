@@ -2,6 +2,8 @@
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
+import { track } from '@ui/analytics';
 import { useAuth } from '@web/lib/auth';
 import { createProfile, getProfileOrNull } from '@web/lib/api';
 import OtpAuth from '@web/components/OtpAuth';
@@ -9,11 +11,22 @@ import AppHeader from '@web/components/AppHeader';
 
 type Phase = 'auth' | 'checking' | 'profile' | 'saving';
 
+const inputClass =
+  'w-full min-h-[52px] rounded-lg border border-line-strong bg-bg-elev px-4 text-base text-ink ' +
+  'placeholder:text-ink-faint focus:border-transparent focus:outline-none focus:ring-2 focus:ring-profile';
+
+const GENDERS = [
+  { value: 'M', label: 'Male' },
+  { value: 'F', label: 'Female' },
+  { value: 'T', label: 'Other' },
+] as const;
+
 function OnboardingInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextParam = searchParams?.get('next') || '/me';
-  const next = nextParam.startsWith('/') ? nextParam : '/me';
+  // Only ever redirect within this site — never to an attacker-supplied host.
+  const rawNext = searchParams?.get('next') || '/me';
+  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/me';
 
   const { ready, user, userId, getToken, configured } = useAuth();
 
@@ -25,23 +38,21 @@ function OnboardingInner() {
 
   const goNext = useCallback(() => router.replace(next), [next, router]);
 
-  // Once authenticated, decide new vs existing user.
+  // Once the phone is verified, decide new vs. returning guest.
   useEffect(() => {
     let active = true;
     (async () => {
       if (!ready || !user || !userId) return;
       if (phase !== 'auth' && phase !== 'checking') return;
       setPhase('checking');
-      const token = await getToken();
-      if (!token) {
-        setPhase('auth');
-        return;
-      }
       try {
-        const profile = await getProfileOrNull(userId, token);
+        const profile = await getProfileOrNull(userId, getToken);
         if (!active) return;
-        if (profile) goNext();
-        else setPhase('profile');
+        if (profile) {
+          goNext();
+        } else {
+          setPhase('profile');
+        }
       } catch (e) {
         if (!active) return;
         setError((e as Error)?.message || 'Something went wrong. Please try again.');
@@ -64,17 +75,13 @@ function OnboardingInner() {
       setError('Please enter your date of birth.');
       return;
     }
-    const token = await getToken();
-    if (!token) {
-      setError('Your session expired. Please sign in again.');
-      return;
-    }
     setPhase('saving');
     try {
-      await createProfile({ userId, name: name.trim(), dob, gender }, token);
+      await createProfile({ userId, name: name.trim(), dob, gender }, getToken);
+      track('web_signup_completed');
       goNext();
     } catch (e) {
-      setError((e as Error)?.message || 'Could not create your profile.');
+      setError((e as Error)?.message || 'Could not create your account.');
       setPhase('profile');
     }
   }, [userId, name, dob, gender, getToken, goNext]);
@@ -83,85 +90,101 @@ function OnboardingInner() {
   const showProfile = !!user && (phase === 'profile' || phase === 'saving');
 
   return (
-    <div className="min-h-screen bg-primary">
+    <div className="min-h-screen bg-[color:var(--bg)]">
       <AppHeader />
-      <main className="container mx-auto max-w-md px-4 sm:px-6 py-8">
-        <div className="luma-card space-y-5">
-          {showAuth ? (
-            <>
-              <OtpAuth heading="Sign in or sign up" />
-              <p className="text-xs text-muted">
-                New to Lessgo? Verifying your number creates your account.
-              </p>
-            </>
-          ) : null}
+      <main id="content" className="container-page max-w-md py-10 sm:py-14">
+        <div className="rounded-xl border border-line bg-surface p-6 sm:p-8">
+          {showAuth ? <OtpAuth heading="Verify your number" /> : null}
 
           {user && phase === 'checking' ? (
-            <p className="text-secondary text-sm">Setting things up…</p>
+            <p className="flex items-center gap-2 text-sm text-ink-muted">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              Setting things up…
+            </p>
           ) : null}
 
           {showProfile ? (
-            <>
-              <h2 className="text-xl font-semibold text-primary">Create your profile</h2>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm text-secondary mb-1" htmlFor="name">
-                    Name
+            <div className="space-y-5">
+              <div>
+                <h1 className="font-display text-2xl font-bold text-ink">
+                  Nice — one last step
+                </h1>
+                <p className="mt-2 text-sm text-ink-muted">
+                  Tell your hosts who&apos;s replying. You can change this later in the app.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-ink-muted" htmlFor="name">
+                    Your name
                   </label>
                   <input
                     id="name"
-                    className="luma-input"
+                    className={inputClass}
+                    autoComplete="name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Your name"
+                    placeholder="e.g. Priya Sharma"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm text-secondary mb-1" htmlFor="dob">
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-ink-muted" htmlFor="dob">
                     Date of birth
                   </label>
                   <input
                     id="dob"
                     type="date"
-                    className="luma-input"
+                    className={inputClass}
+                    autoComplete="bday"
+                    max={new Date().toISOString().slice(0, 10)}
                     value={dob}
                     onChange={(e) => setDob(e.target.value)}
                   />
                 </div>
-                <div>
-                  <label className="block text-sm text-secondary mb-1">Gender</label>
+
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-medium text-ink-muted">Gender</legend>
                   <div className="grid grid-cols-3 gap-2">
-                    {(['M', 'F', 'T'] as const).map((g) => (
-                      <button
-                        key={g}
-                        type="button"
-                        onClick={() => setGender(g)}
-                        className="rounded-lg border py-2 text-sm"
-                        style={{
-                          borderColor:
-                            gender === g ? 'var(--primary-accent)' : 'var(--border-light)',
-                          background: gender === g ? 'var(--active-bg)' : 'transparent',
-                          color: gender === g ? 'var(--primary-accent)' : 'var(--text-secondary)',
-                        }}
-                      >
-                        {g === 'M' ? 'Male' : g === 'F' ? 'Female' : 'Other'}
-                      </button>
-                    ))}
+                    {GENDERS.map((option) => {
+                      const active = gender === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => setGender(option.value)}
+                          className={`min-h-[48px] rounded-lg border-2 text-sm font-semibold transition-transform duration-200 ease-spring active:scale-[0.97] ${
+                            active
+                              ? 'border-profile bg-profile-tint text-profile'
+                              : 'border-line text-ink-muted hover:border-line-strong'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
                   </div>
-                </div>
+                </fieldset>
               </div>
+
               <button
-                className="luma-button luma-button-primary w-full"
+                type="button"
+                className="gradient-brand inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full px-7 text-base font-semibold text-white shadow-[0_10px_30px_-12px_rgba(142,84,233,0.85)] transition-transform duration-200 ease-spring hover:-translate-y-px active:scale-[0.97] disabled:pointer-events-none disabled:opacity-55"
                 disabled={phase === 'saving'}
                 onClick={() => void handleCreate()}
               >
-                {phase === 'saving' ? 'Creating…' : 'Create profile'}
+                {phase === 'saving' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : null}
+                {phase === 'saving' ? 'Creating…' : 'Create account'}
               </button>
-            </>
+            </div>
           ) : null}
 
           {error ? (
-            <p className="text-sm" style={{ color: 'var(--error)' }}>
+            <p role="alert" className="mt-4 text-sm text-vibes">
               {error}
             </p>
           ) : null}

@@ -9,8 +9,8 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        // Signed-in surfaces and the API have nothing to index.
-        disallow: ['/api/', '/me', '/onboarding'],
+        // Signed-in surfaces, private invites and the API have nothing to index.
+        disallow: ['/api/', '/me', '/onboarding', '/e/'],
       },
     ],
     sitemap: `${base}/sitemap.xml`,

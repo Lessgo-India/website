@@ -34,21 +34,6 @@ export type EventDetail = {
   whatsapp_group_url?: string;
 };
 
-export type GalleryItem = {
-  _id?: string;
-  url: string;
-  fileName?: string;
-  uploadedAt?: string;
-};
-
-export type DocItem = {
-  _id?: string;
-  url: string;
-  fileName?: string;
-  label?: string;
-  uploadedAt?: string;
-};
-
 export type MuoEvent = {
   event_id: string;
   eventName?: string;

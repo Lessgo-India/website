@@ -33,11 +33,9 @@ export function useMe(): {
         setMuo(cache.muo);
         return;
       }
-      const token = await getToken();
-      if (!token) return;
       setLoading(true);
       try {
-        const data = await getMuo(userId, token);
+        const data = await getMuo(userId, getToken);
         if (!active) return;
         cache = { userId, muo: data };
         setMuo(data);

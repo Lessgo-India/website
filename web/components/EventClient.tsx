@@ -2,64 +2,55 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import {
-  Calendar,
-  Check,
-  Download,
-  FileText,
-  HelpCircle,
-  Loader2,
-  MapPin,
-  Users,
-  X,
-} from 'lucide-react';
+import { CalendarDays, Check, HelpCircle, Loader2, MapPin, Users, X } from 'lucide-react';
+import { track } from '@ui/analytics';
 import { useAuth } from '@web/lib/auth';
-import { getDocuments, getEvent, getGallery, setRsvp } from '@web/lib/api';
-import {
-  numberToRsvp,
-  RSVP_TO_NUMBER,
-  type DocItem,
-  type EventDetail,
-  type GalleryItem,
-  type RsvpStatus,
-} from '@web/lib/types';
-import { eventTypeLabel, formatEventWhen, isPast } from '@web/lib/format';
+import { getEvent, setRsvp } from '@web/lib/api';
+import { numberToRsvp, RSVP_TO_NUMBER, type EventDetail, type RsvpStatus } from '@web/lib/types';
+import { isPast } from '@web/lib/format';
 import DownloadAppButton from './DownloadAppButton';
 
-const RSVP_OPTIONS: {
-  key: Exclude<RsvpStatus, 'pending'>;
-  label: string;
-  color: string;
-  icon: React.ReactNode;
-}[] = [
-  { key: 'going', label: 'Going', color: '#10b981', icon: <Check className="h-4 w-4" /> },
-  { key: 'maybe', label: 'Maybe', color: '#f59e0b', icon: <HelpCircle className="h-4 w-4" /> },
-  { key: 'not_going', label: 'Not going', color: '#ef4444', icon: <X className="h-4 w-4" /> },
+type Choice = Exclude<RsvpStatus, 'pending'>;
+
+// The exact colours the app's RSVP picker uses, so a guest sees the same three
+// states on the web and in the app.
+const CHOICES: { key: Choice; label: string; color: string; icon: React.ReactNode }[] = [
+  { key: 'going', label: "I'm in", color: '#34D399', icon: <Check className="h-5 w-5" /> },
+  { key: 'maybe', label: 'Maybe', color: '#F59E0B', icon: <HelpCircle className="h-5 w-5" /> },
+  { key: 'not_going', label: "Can't make it", color: '#EF4444', icon: <X className="h-5 w-5" /> },
 ];
 
-function Spinner({ label }: { label?: string }) {
+const CONFIRMATION: Record<Choice, string> = {
+  going: "You're going. See you there!",
+  maybe: 'Marked as maybe — you can change this any time.',
+  not_going: "You've let the host know you can't make it.",
+};
+
+function Panel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-center gap-2 py-8 text-secondary">
-      <Loader2 className="h-5 w-5 animate-spin" />
-      {label ? <span className="text-sm">{label}</span> : null}
-    </div>
+    <section className="rounded-xl border border-line bg-surface p-6 sm:p-7">{children}</section>
   );
 }
 
-function Card({ children }: { children: React.ReactNode }) {
-  return <div className="luma-card space-y-4">{children}</div>;
+function Loading({ label }: { label: string }) {
+  return (
+    <Panel>
+      <p className="flex items-center justify-center gap-2 py-4 text-sm text-ink-muted">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        {label}
+      </p>
+    </Panel>
+  );
 }
 
 export default function EventClient({ id }: { id: string }) {
-  const { ready, user, userId, getToken, configured } = useAuth();
+  const { ready, user, userId, getToken, configured, signOut } = useAuth();
 
   const [event, setEvent] = useState<EventDetail | null>(null);
-  const [gallery, setGallery] = useState<GalleryItem[]>([]);
-  const [docs, setDocs] = useState<DocItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusNum, setStatusNum] = useState<number | undefined>(undefined);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState<Choice | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -69,27 +60,15 @@ export default function EventClient({ id }: { id: string }) {
         setLoading(false);
         return;
       }
-      const token = await getToken();
-      if (!token) {
-        setLoading(false);
-        return;
-      }
       setLoading(true);
       setError(null);
       try {
-        const ev = await getEvent(id, token);
+        const detail = await getEvent(id, getToken);
         if (!active) return;
-        setEvent(ev);
-        setStatusNum(ev.members_list?.find((m) => m.userId === userId)?.status);
-        const [g, d] = await Promise.allSettled([
-          getGallery(id, token),
-          getDocuments(id, token),
-        ]);
-        if (!active) return;
-        if (g.status === 'fulfilled') setGallery(g.value);
-        if (d.status === 'fulfilled') setDocs(d.value);
+        setEvent(detail);
+        setStatusNum(detail.members_list?.find((m) => m.userId === userId)?.status);
       } catch (e) {
-        if (active) setError((e as Error)?.message || 'Could not load this event.');
+        if (active) setError((e as Error)?.message || 'We could not load this invite.');
       } finally {
         if (active) setLoading(false);
       }
@@ -99,240 +78,196 @@ export default function EventClient({ id }: { id: string }) {
     };
   }, [ready, user, userId, id, getToken]);
 
-  const members = event?.members_list ?? [];
-  const isMember = useMemo(
-    () => !!userId && members.some((m) => m.userId === userId),
-    [members, userId],
-  );
+  const members = useMemo(() => event?.members_list ?? [], [event]);
+  const isGuest = !!userId && members.some((m) => m.userId === userId);
   const goingCount = members.filter((m) => m.status === 1).length;
   const maybeCount = members.filter((m) => m.status === 0).length;
   const myStatus = numberToRsvp(statusNum);
   const ended = isPast(event?.endDate, event?.startDate);
 
   const handleRsvp = useCallback(
-    async (next: Exclude<RsvpStatus, 'pending'>) => {
-      if (!userId) return;
-      const token = await getToken();
-      if (!token) {
-        setError('Your session expired. Please sign in again.');
-        return;
-      }
+    async (next: Choice) => {
+      if (!userId || saving) return;
       const previous = statusNum;
-      setSaving(true);
+      setSaving(next);
       setError(null);
-      setStatusNum(RSVP_TO_NUMBER[next]);
+      setStatusNum(RSVP_TO_NUMBER[next]); // optimistic, mirroring the app
       try {
-        await setRsvp(id, userId, RSVP_TO_NUMBER[next], token);
+        await setRsvp(id, userId, RSVP_TO_NUMBER[next], getToken);
+        track('web_rsvp_submitted', { eventId: id, response: next });
       } catch (e) {
         setStatusNum(previous);
-        setError((e as Error)?.message || 'Could not update your RSVP.');
+        setError((e as Error)?.message || 'Could not save your RSVP. Please try again.');
       } finally {
-        setSaving(false);
+        setSaving(null);
       }
     },
-    [getToken, id, statusNum, userId],
+    [getToken, id, saving, statusNum, userId],
   );
 
-  // --- Sign-in required states ---
   if (!configured) {
     return (
-      <Card>
-        <h2 className="text-lg font-semibold text-primary">Sign-in unavailable</h2>
-        <p className="text-secondary text-sm">
-          Get the Lessgo app to RSVP and view this event.
+      <Panel>
+        <h2 className="font-display text-xl font-bold text-ink">RSVP is unavailable</h2>
+        <p className="mt-2 text-sm text-ink-muted">
+          Phone sign-in isn&apos;t set up on this site yet. Ask the host to share the invite again,
+          or get the app.
         </p>
-        <DownloadAppButton subtitle="RSVP in the app" />
-      </Card>
+        <div className="mt-5">
+          <DownloadAppButton />
+        </div>
+      </Panel>
     );
   }
 
-  if (!ready) return <Card><Spinner label="Loading…" /></Card>;
+  if (!ready) return <Loading label="Loading…" />;
 
+  // Signed out: the only job of this panel is to get a phone number verified.
   if (!user) {
-    const next = encodeURIComponent(`/e/${id}`);
     return (
-      <Card>
-        <h2 className="text-lg font-semibold text-primary">RSVP &amp; see full details</h2>
-        <p className="text-secondary text-sm">
-          Sign in with your phone number to RSVP, view the guest count and download shared photos
-          &amp; documents. No app install required.
+      <Panel>
+        <h2 className="font-display text-xl font-bold text-ink">Are you coming?</h2>
+        <p className="mt-2 text-sm text-ink-muted">
+          Verify your phone number to reply to this invite. It takes a few seconds, and there is no
+          app to install.
         </p>
-        <Link href={`/onboarding?next=${next}`} className="luma-button luma-button-primary">
+        <Link
+          href={`/onboarding?next=${encodeURIComponent(`/e/${id}`)}`}
+          onClick={() => track('web_rsvp_signin_started', { eventId: id })}
+          className="gradient-brand mt-5 inline-flex min-h-[52px] w-full items-center justify-center rounded-full px-7 text-base font-semibold text-white shadow-[0_10px_30px_-12px_rgba(142,84,233,0.85)] transition-transform duration-200 ease-spring hover:-translate-y-px active:scale-[0.97]"
+        >
           Continue with phone
         </Link>
-        <div className="pt-2">
-          <p className="text-xs text-muted mb-2">Prefer the full experience?</p>
-          <DownloadAppButton subtitle="Get the app" />
-        </div>
-      </Card>
+        <p className="mt-3 text-xs text-ink-faint">
+          Only invited guests can reply. Your number is used to match you to this invite — nothing
+          else.
+        </p>
+      </Panel>
     );
   }
 
-  if (loading) return <Card><Spinner label="Loading event…" /></Card>;
+  if (loading) return <Loading label="Loading your invite…" />;
 
   if (error && !event) {
     return (
-      <Card>
-        <p className="text-sm" style={{ color: 'var(--error)' }}>
-          {error}
+      <Panel>
+        <h2 className="font-display text-xl font-bold text-ink">
+          We couldn&apos;t open this invite
+        </h2>
+        <p className="mt-2 text-sm text-ink-muted">{error}</p>
+      </Panel>
+    );
+  }
+
+  if (!isGuest) {
+    return (
+      <Panel>
+        <h2 className="font-display text-xl font-bold text-ink">
+          You&apos;re not on the guest list
+        </h2>
+        <p className="mt-2 text-sm text-ink-muted">
+          Only guests the host invited can reply. If your invite went to a different number, sign in
+          with that one.
         </p>
-        <DownloadAppButton subtitle="Open in the app" />
-      </Card>
+        <button
+          type="button"
+          onClick={() => void signOut()}
+          className="mt-5 inline-flex min-h-[44px] items-center justify-center rounded-full border border-line bg-surface-2 px-5 text-[0.95rem] font-semibold text-ink transition-transform duration-200 ease-spring hover:-translate-y-px active:scale-[0.97]"
+        >
+          Use a different number
+        </button>
+      </Panel>
     );
   }
 
   return (
-    <div className="space-y-5">
-      {/* RSVP */}
-      <Card>
-        {isMember ? (
-          <>
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-primary">Your RSVP</h2>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin text-secondary" /> : null}
-            </div>
-            {ended ? (
-              <p className="text-xs text-muted">This event has ended.</p>
-            ) : null}
-            <div className="grid grid-cols-3 gap-2">
-              {RSVP_OPTIONS.map((opt) => {
-                const active = myStatus === opt.key;
-                return (
-                  <button
-                    key={opt.key}
-                    onClick={() => void handleRsvp(opt.key)}
-                    disabled={saving}
-                    className="flex flex-col items-center justify-center gap-1 rounded-xl border py-3 text-sm font-medium transition"
-                    style={{
-                      borderColor: active ? opt.color : 'var(--border-light)',
-                      background: active ? `${opt.color}1F` : 'transparent',
-                      color: active ? opt.color : 'var(--text-secondary)',
-                    }}
-                  >
-                    {opt.icon}
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        ) : (
-          <>
-            <h2 className="text-lg font-semibold text-primary">You’re not on the guest list</h2>
-            <p className="text-secondary text-sm">
-              Only invited guests can RSVP to this event. Get the app to join and see more.
+    <div className="space-y-4">
+      <Panel>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="font-display text-xl font-bold text-ink">
+              {ended ? 'This event has ended' : 'Are you coming?'}
+            </h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              {ended
+                ? 'You can still see how you replied.'
+                : 'Your answer reaches the host straight away.'}
             </p>
-            <DownloadAppButton subtitle="Join in the app" />
-          </>
-        )}
+          </div>
+          {saving ? (
+            <Loader2
+              className="mt-1 h-4 w-4 shrink-0 animate-spin text-ink-faint"
+              aria-hidden="true"
+            />
+          ) : null}
+        </div>
+
+        <div
+          role="radiogroup"
+          aria-label="Your RSVP"
+          className="mt-5 grid grid-cols-3 gap-2 sm:gap-3"
+        >
+          {CHOICES.map((choice) => {
+            const active = myStatus === choice.key;
+            return (
+              <button
+                key={choice.key}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                disabled={!!saving || ended}
+                onClick={() => void handleRsvp(choice.key)}
+                className="flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-lg border-2 px-2 py-4 text-center text-sm font-semibold transition-transform duration-200 ease-spring hover:-translate-y-px active:scale-[0.97] disabled:pointer-events-none disabled:opacity-60"
+                style={{
+                  borderColor: active ? choice.color : 'var(--line)',
+                  background: active ? `${choice.color}1F` : 'transparent',
+                  color: active ? choice.color : 'var(--ink-muted)',
+                }}
+              >
+                <span aria-hidden="true">{choice.icon}</span>
+                {choice.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <p aria-live="polite" className="mt-4 text-sm text-ink-muted">
+          {myStatus === 'pending'
+            ? 'Pick an option to let the host know.'
+            : CONFIRMATION[myStatus as Choice]}
+        </p>
+
         {error ? (
-          <p className="text-sm" style={{ color: 'var(--error)' }}>
+          <p role="alert" className="mt-3 text-sm text-vibes">
             {error}
           </p>
         ) : null}
-      </Card>
+      </Panel>
 
-      {/* Details */}
-      <Card>
-        <h2 className="text-lg font-semibold text-primary">Details</h2>
-        <div className="space-y-3 text-sm">
-          {formatEventWhen(event?.startDate, event?.endDate) ? (
-            <div className="flex items-start gap-3">
-              <Calendar className="h-4 w-4 mt-0.5 icon-scheduling" />
-              <span className="text-secondary">
-                {formatEventWhen(event?.startDate, event?.endDate)}
-              </span>
-            </div>
-          ) : null}
+      <Panel>
+        <h2 className="font-display text-lg font-bold text-ink">The plan</h2>
+        <dl className="mt-4 space-y-3 text-sm">
           {event?.locationName ? (
             <div className="flex items-start gap-3">
-              <MapPin className="h-4 w-4 mt-0.5 icon-location" />
-              <span className="text-secondary">{event.locationName}</span>
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" aria-hidden="true" />
+              <dd className="text-ink-muted">{event.locationName}</dd>
             </div>
           ) : null}
           <div className="flex items-start gap-3">
-            <Users className="h-4 w-4 mt-0.5 icon-community" />
-            <span className="text-secondary">
+            <Users className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" aria-hidden="true" />
+            <dd className="text-ink-muted">
               {goingCount} going
               {maybeCount ? ` · ${maybeCount} maybe` : ''} · {members.length} invited
-            </span>
+            </dd>
           </div>
-        </div>
-        {event?.description ? (
-          <p className="text-secondary text-sm whitespace-pre-wrap border-t border-light pt-3">
-            {event.description}
-          </p>
-        ) : null}
-        {event?.eventType ? (
-          <span className="event-badge text-xs">{eventTypeLabel(event.eventType)}</span>
-        ) : null}
-      </Card>
-
-      {/* Photos */}
-      {gallery.length > 0 ? (
-        <Card>
-          <h2 className="text-lg font-semibold text-primary">Photos</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {gallery.slice(0, 24).map((item, i) => (
-              <a
-                key={item._id ?? item.url ?? i}
-                href={item.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block overflow-hidden rounded-lg border border-light"
-                title="Open / save photo"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={item.url}
-                  alt={item.fileName || 'Event photo'}
-                  loading="lazy"
-                  className="h-28 w-full object-cover"
-                />
-              </a>
-            ))}
-          </div>
-        </Card>
-      ) : null}
-
-      {/* Documents */}
-      {docs.length > 0 ? (
-        <Card>
-          <h2 className="text-lg font-semibold text-primary">Tickets &amp; documents</h2>
-          <ul className="divide-y divide-[color:var(--border-light)]">
-            {docs.map((doc, i) => (
-              <li key={doc._id ?? doc.url ?? i} className="flex items-center justify-between gap-3 py-3">
-                <span className="flex items-center gap-3 min-w-0">
-                  <FileText className="h-5 w-5 shrink-0 text-secondary" />
-                  <span className="truncate text-sm text-secondary">
-                    {doc.label || doc.fileName || 'Document'}
-                  </span>
-                </span>
-                <a
-                  href={doc.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download
-                  className="luma-button luma-button-secondary text-sm inline-flex items-center gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  Download
-                </a>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      ) : null}
-
-      {/* Post/create actions live in the app only */}
-      <Card>
-        <h2 className="text-lg font-semibold text-primary">Do more in the app</h2>
-        <p className="text-secondary text-sm">
-          Add photos, split expenses, vote in polls, post updates and chat with the group in the
-          Lessgo app.
-        </p>
-        <DownloadAppButton subtitle="Get the app" />
-      </Card>
+          {event?.description ? (
+            <div className="flex items-start gap-3">
+              <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" aria-hidden="true" />
+              <dd className="whitespace-pre-wrap text-ink-muted">{event.description}</dd>
+            </div>
+          ) : null}
+        </dl>
+      </Panel>
     </div>
   );
 }
