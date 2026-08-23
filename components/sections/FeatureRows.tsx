@@ -1,7 +1,9 @@
 import { Check } from 'lucide-react';
-import type { ReactElement } from 'react';
+import type { CSSProperties, ReactElement } from 'react';
 import { features, type Domain } from '@content/site';
 import { DomainGlow } from '@ui/Aurora';
+import { GlowIcons } from '@ui/GlowIcons';
+import { Spotlight } from '@ui/Spotlight';
 import { Container } from '@ui/Section';
 import { Reveal } from '@ui/Reveal';
 import { PhoneFrame } from '@ui/phone/PhoneFrame';
@@ -45,11 +47,14 @@ export function FeatureRows() {
           <section
             key={feature.id}
             id={feature.id}
+            style={{ '--glow': `var(--${feature.domain})` } as CSSProperties}
             className={`relative isolate overflow-hidden py-20 sm:py-24 ${
               i % 2 === 1 ? 'bg-bg-elev' : ''
             }`}
           >
-            <DomainGlow color={domain.glow} side={flipped ? 'left' : 'right'} />
+            <DomainGlow side={flipped ? 'left' : 'right'} />
+            <GlowIcons at={flipped ? '10% 50%' : '90% 50%'} size={360} opacity={0.18} />
+            <Spotlight />
 
             <Container>
               <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">

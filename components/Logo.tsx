@@ -15,14 +15,13 @@ export function Logo({
       aria-label="Lessgo — home"
     >
       <span className="relative inline-flex h-9 w-9 items-center justify-center">
-        <span className="absolute inset-0 rounded-[12px] gradient-brand opacity-90 transition-transform duration-300 ease-spring group-hover:scale-105" />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={site.logo}
           alt=""
-          width={22}
-          height={22}
-          className="relative h-[22px] w-[22px] object-contain"
+          width={36}
+          height={36}
+          className="relative h-9 w-9 object-contain transition-transform duration-300 ease-spring group-hover:scale-105"
         />
       </span>
       {showWordmark ? (

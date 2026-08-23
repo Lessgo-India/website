@@ -1,7 +1,9 @@
+import { GlowIcons } from '@ui/GlowIcons';
+
 /**
- * The signature ambient background: two large blurred colour fields that drift
- * slowly behind the hero and the closing CTA. Pure CSS transforms, so it stays
- * on the compositor and never touches layout.
+ * A soft ambient glow in the region's theme colour (`--glow`). On the flat
+ * black/white canvas it is the only colour behind the content, so each section
+ * recolours it just by setting `--glow`. Pure CSS, stays on the compositor.
  *
  * Decorative only — hidden from assistive tech, frozen by prefers-reduced-motion.
  */
@@ -12,7 +14,7 @@ export function Aurora({
   className?: string;
   intensity?: 'full' | 'soft';
 }) {
-  const scale = intensity === 'soft' ? 'opacity-60' : '';
+  const opacity = intensity === 'soft' ? 0.07 : 0.11;
 
   return (
     <div
@@ -20,48 +22,23 @@ export function Aurora({
       className={`pointer-events-none absolute inset-0 -z-10 overflow-hidden ${className}`}
     >
       <div
-        className={`absolute -left-[18%] -top-[30%] h-[42rem] w-[42rem] rounded-full blur-[110px] animate-aurora-a ${scale}`}
+        className="absolute left-1/2 top-[-18%] h-[38rem] w-[54rem] -translate-x-1/2 rounded-full blur-[140px] animate-aurora-a"
         style={{
-          opacity: 'var(--aurora-opacity)',
-          background:
-            'radial-gradient(circle at 30% 30%, #22D3C5 0%, rgba(71,118,230,0.65) 42%, transparent 70%)',
+          opacity,
+          background: 'radial-gradient(circle at 50% 50%, var(--glow) 0%, transparent 68%)',
         }}
       />
-      <div
-        className={`absolute -right-[16%] top-[-14%] h-[38rem] w-[38rem] rounded-full blur-[120px] animate-aurora-b ${scale}`}
-        style={{
-          opacity: 'var(--aurora-opacity)',
-          background:
-            'radial-gradient(circle at 60% 40%, #EC008C 0%, rgba(142,84,233,0.7) 45%, transparent 72%)',
-        }}
-      />
-      <div
-        className={`absolute bottom-[-28%] left-[24%] h-[34rem] w-[34rem] rounded-full blur-[130px] animate-aurora-a ${scale}`}
-        style={{
-          opacity: 'calc(var(--aurora-opacity) * 0.7)',
-          animationDelay: '-8s',
-          background:
-            'radial-gradient(circle at 50% 50%, #8E54E9 0%, rgba(34,211,197,0.5) 50%, transparent 74%)',
-        }}
-      />
-      {/* Softens the whole field into the page background. */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(120% 80% at 50% 0%, transparent 30%, var(--bg) 100%)',
-        }}
-      />
+      <GlowIcons at="50% 22%" size={520} opacity={intensity === 'soft' ? 0.16 : 0.24} />
     </div>
   );
 }
 
-/** A single accent-tinted glow, used behind each feature section. */
+/** A single theme-tinted glow behind a section. Defaults to the region's `--glow`. */
 export function DomainGlow({
-  color,
+  color = 'var(--glow)',
   side = 'right',
 }: {
-  color: string;
+  color?: string;
   side?: 'left' | 'right';
 }) {
   return (
@@ -72,7 +49,7 @@ export function DomainGlow({
       }`}
       style={{
         background: `radial-gradient(circle, ${color} 0%, transparent 68%)`,
-        opacity: 0.16,
+        opacity: 0.1,
       }}
     />
   );

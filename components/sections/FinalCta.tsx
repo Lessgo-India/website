@@ -1,5 +1,6 @@
 import { finalCta } from '@content/site';
 import { Aurora } from '@ui/Aurora';
+import { Spotlight } from '@ui/Spotlight';
 import { Container } from '@ui/Section';
 import { Reveal } from '@ui/Reveal';
 import { EarlyAccessForm } from '@ui/EarlyAccessForm';
@@ -9,6 +10,7 @@ export function FinalCta() {
   return (
     <section className="relative isolate overflow-hidden py-24 sm:py-32">
       <Aurora intensity="soft" />
+      <Spotlight />
 
       <Container className="relative">
         <Reveal>

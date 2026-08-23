@@ -1,6 +1,7 @@
 import { ArrowRight, Check } from 'lucide-react';
 import { hero } from '@content/site';
 import { Aurora } from '@ui/Aurora';
+import { Spotlight } from '@ui/Spotlight';
 import { ButtonLink } from '@ui/Button';
 import { CtaButton } from '@ui/CtaButton';
 import { Container } from '@ui/Section';
@@ -12,6 +13,7 @@ export function Hero() {
   return (
     <section className="relative isolate overflow-hidden pb-20 pt-12 sm:pb-28 sm:pt-16">
       <Aurora />
+      <Spotlight />
 
       <Container className="relative">
         <div className="grid items-center gap-14 lg:grid-cols-[1.02fr_1fr] lg:gap-10">

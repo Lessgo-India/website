@@ -10,18 +10,22 @@
 
 :root,
 html[data-theme='light'] {
-  --bg: #f7f5ff;
-  --bg-elev: #ffffff;
+  --bg: #ffffff;
+  --bg-elev: #f7f7f8;
   --surface: #ffffff;
-  --surface-2: #efebff;
-  --ink: #14102b;
-  --ink-muted: #575178;
-  --ink-faint: #837da4;
-  --line: rgba(20, 16, 43, 0.1);
-  --line-strong: rgba(20, 16, 43, 0.18);
+  --surface-2: #f1f1f3;
+  --ink: #0c0c0f;
+  --ink-muted: #55555f;
+  --ink-faint: #8c8c96;
+  --line: rgba(10, 10, 15, 0.1);
+  --line-strong: rgba(10, 10, 15, 0.17);
   --glass: rgba(255, 255, 255, 0.72);
-  --glass-border: rgba(255, 255, 255, 0.9);
-  --scrim: rgba(247, 245, 255, 0.86);
+  --glass-border: rgba(10, 10, 15, 0.06);
+  --scrim: rgba(255, 255, 255, 0.85);
+
+  /* Region glow — the only colour on the flat canvas; sections override it. */
+  --glow: #7c48e0;
+  --brand-gradient: linear-gradient(110deg, #0d9e94 0%, #3a63cc 30%, #7b3fd4 62%, #c60077 100%);
 
   /* Domain accents — light-mode variants from the app */
   --events: #7fa80a;
@@ -59,18 +63,22 @@ html[data-theme='light'] {
 }
 
 html[data-theme='dark'] {
-  --bg: #0e0b24;
-  --bg-elev: #151132;
-  --surface: #191441;
-  --surface-2: #221b53;
-  --ink: #f5f2ff;
-  --ink-muted: #b3abd8;
-  --ink-faint: #857ead;
+  --bg: #000000;
+  --bg-elev: #0b0b0d;
+  --surface: #0e0e12;
+  --surface-2: #17171c;
+  --ink: #f4f4f6;
+  --ink-muted: #a7a7b3;
+  --ink-faint: #74747f;
   --line: rgba(255, 255, 255, 0.1);
-  --line-strong: rgba(255, 255, 255, 0.2);
-  --glass: rgba(25, 20, 65, 0.62);
-  --glass-border: rgba(255, 255, 255, 0.14);
-  --scrim: rgba(14, 11, 36, 0.82);
+  --line-strong: rgba(255, 255, 255, 0.18);
+  --glass: rgba(10, 10, 12, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --scrim: rgba(0, 0, 0, 0.82);
+
+  /* Region glow — the only colour on the flat canvas; sections override it. */
+  --glow: #c9a7ff;
+  --brand-gradient: linear-gradient(110deg, #22d3c5 0%, #4776e6 32%, #8e54e9 64%, #ec008c 100%);
 
   /* Domain accents — dark-mode variants from the app */
   --events: #c7f04a;
@@ -188,6 +196,21 @@ html[data-theme='dark'] {
       #8e54e9 64%,
       #ec008c 100%
     );
+  }
+
+  /* Theme-aware gradient border: paints only the ring via mask-exclude, so it
+     can overlay any element (set border-radius + opacity on the element). */
+  .gradient-ring {
+    padding: 1.5px;
+    background: var(--brand-gradient);
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
   }
 
   .text-gradient {
@@ -429,4 +452,47 @@ html[data-theme='dark'] {
     outline-offset: 1px;
     border-color: transparent;
   }
+}
+
+/* ==========================================================================
+   In-page app mockups (phone screens) — Events & Balances.
+   Neutral surfaces flip with the site theme; brand accents are set inline.
+   ========================================================================== */
+
+.app-screen {
+  --as-bg: #ffffff;
+  --as-ink: #0b0c0e;
+  --as-muted: #6b7280;
+  --as-faint: #9aa0aa;
+  --as-line: rgba(12, 15, 18, 0.1);
+  --as-card2: #f5f6f8;
+  --as-chip: #eef0f2;
+  --as-pos: #16a34a;
+  --as-neg: #e11d48;
+  --as-accept-bg: rgba(22, 163, 74, 0.12);
+  --as-net: linear-gradient(158deg, #e7f6ec, #f4fbf6);
+  --as-net-line: rgba(22, 163, 74, 0.18);
+  --as-net-sub: rgba(16, 74, 45, 0.06);
+  --as-net-chip: rgba(16, 74, 45, 0.09);
+  --as-tabbar: #ffffff;
+  --as-tabline: rgba(12, 15, 18, 0.1);
+}
+
+html[data-theme='dark'] .app-screen {
+  --as-bg: #000000;
+  --as-ink: #ffffff;
+  --as-muted: #9aa1a8;
+  --as-faint: #6b7280;
+  --as-line: rgba(255, 255, 255, 0.1);
+  --as-card2: #0e1211;
+  --as-chip: rgba(255, 255, 255, 0.08);
+  --as-pos: #4ade80;
+  --as-neg: #fb7185;
+  --as-accept-bg: rgba(74, 222, 128, 0.14);
+  --as-net: linear-gradient(158deg, #0f2a1c, #06120d);
+  --as-net-line: rgba(74, 222, 128, 0.16);
+  --as-net-sub: rgba(255, 255, 255, 0.05);
+  --as-net-chip: rgba(255, 255, 255, 0.09);
+  --as-tabbar: #0e1210;
+  --as-tabline: rgba(255, 255, 255, 0.09);
 }
