@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Env files. Only the checked-in template is tracked.
+.env
+.env.*
+!.env.local.example
+
 # Next.js build output
 .next
 out
