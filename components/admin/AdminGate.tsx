@@ -1,71 +1,51 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Loader2, LockKeyhole, ShieldAlert } from 'lucide-react';
 import { Logo } from '@ui/Logo';
-import { ApiError } from '@web/lib/api';
+import AdminLogin from '@ui/admin/AdminLogin';
 import { getAdminSession, type AdminSession } from '@web/lib/adminApi';
-import { useAuth } from '@web/lib/auth';
-import OtpAuth from '@web/components/OtpAuth';
 
-type Phase = 'loading' | 'signin' | 'checking' | 'denied' | 'error' | 'granted';
+type Phase = 'loading' | 'signin' | 'unconfigured' | 'error' | 'granted';
 
 /**
- * Gates the dashboard on an allowlisted operator.
+ * Gates the dashboard on a valid admin session.
  *
- * This is a convenience, not a security boundary: it asks the gateway whether
- * the signed-in phone is an admin and renders accordingly. The gateway enforces
- * the same allowlist on every data route, so bypassing this component reveals
- * an empty shell and nothing else.
+ * This is a convenience, not a security boundary: the session cookie is
+ * httpOnly, so all this component can do is ask the server whether it is signed
+ * in. Every data route re-checks the same cookie, and bypassing this component
+ * reveals an empty shell and nothing else.
  */
 export default function AdminGate({ children }: { children: React.ReactNode }) {
-  const { ready, user, getToken, configured, signOut } = useAuth();
   const [phase, setPhase] = useState<Phase>('loading');
   const [session, setSession] = useState<AdminSession | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!configured || !ready) return;
-    if (!user) {
-      setPhase('signin');
-      return;
+  const check = useCallback(async () => {
+    try {
+      const result = await getAdminSession();
+      setSession(result);
+      setPhase('granted');
+    } catch (error) {
+      const status = (error as { status?: number })?.status;
+      if (status === 401) {
+        setPhase('signin');
+        return;
+      }
+      if (status === 503) {
+        setPhase('unconfigured');
+        return;
+      }
+      setMessage((error as Error)?.message ?? 'Could not verify admin access.');
+      setPhase('error');
     }
+  }, []);
 
-    let active = true;
-    setPhase('checking');
-    getAdminSession(getToken)
-      .then((result) => {
-        if (!active) return;
-        setSession(result);
-        setPhase(result.admin ? 'granted' : 'denied');
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        if (error instanceof ApiError && error.status === 403) {
-          setPhase('denied');
-          setMessage(error.message);
-          return;
-        }
-        setMessage((error as Error)?.message ?? 'Could not verify admin access.');
-        setPhase('error');
-      });
+  useEffect(() => {
+    void check();
+  }, [check]);
 
-    return () => {
-      active = false;
-    };
-  }, [configured, ready, user, getToken]);
-
-  if (!configured) {
-    return (
-      <Panel
-        icon={<ShieldAlert className="h-6 w-6 text-warn" aria-hidden="true" />}
-        title="Sign-in isn’t configured"
-        body="This deployment has no Firebase credentials, so phone sign-in is unavailable. Set the NEXT_PUBLIC_FIREBASE_* variables and rebuild."
-      />
-    );
-  }
-
-  if (phase === 'loading' || phase === 'checking') {
+  if (phase === 'loading') {
     return (
       <Panel
         icon={<Loader2 className="h-6 w-6 animate-spin text-ink-muted" aria-hidden="true" />}
@@ -75,31 +55,13 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (phase === 'signin') {
+  if (phase === 'unconfigured') {
     return (
       <Panel
-        icon={<LockKeyhole className="h-6 w-6 text-profile" aria-hidden="true" />}
-        title="Lessgo admin"
-        body="Operators only. Sign in with an allowlisted phone number."
-      >
-        <div className="mt-6 text-left">
-          <OtpAuth heading="Verify your number" />
-        </div>
-      </Panel>
-    );
-  }
-
-  if (phase === 'denied') {
-    return (
-      <Panel
-        icon={<ShieldAlert className="h-6 w-6 text-down" aria-hidden="true" />}
-        title="Not an admin"
-        body={message ?? 'This number isn’t on the operator allowlist.'}
-      >
-        <button type="button" onClick={signOut} className={secondaryClass}>
-          Use a different number
-        </button>
-      </Panel>
+        icon={<ShieldAlert className="h-6 w-6 text-warn" aria-hidden="true" />}
+        title="Sign-in isn’t configured"
+        body="This deployment has no ADMIN_USERS or ADMIN_SESSION_SECRET set, so nobody can sign in. Generate credentials with scripts/hash-admin-password.mjs."
+      />
     );
   }
 
@@ -108,36 +70,52 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
       <Panel
         icon={<ShieldAlert className="h-6 w-6 text-warn" aria-hidden="true" />}
         title="Couldn’t verify access"
-        body={message ?? 'The gateway did not respond.'}
+        body={message ?? 'The server did not respond.'}
       >
-        <button type="button" onClick={() => window.location.reload()} className={secondaryClass}>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-full border border-line-strong px-6 text-sm font-semibold text-ink transition-colors hover:bg-surface-2"
+        >
           Try again
         </button>
       </Panel>
     );
   }
 
-  if (session && !session.statsAvailable) {
+  if (phase === 'signin') {
     return (
-      <>
+      <Panel
+        icon={<LockKeyhole className="h-6 w-6 text-profile" aria-hidden="true" />}
+        title="Lessgo admin"
+        body="Operators only."
+      >
+        <AdminLogin
+          onSuccess={() => {
+            setPhase('loading');
+            void check();
+          }}
+        />
+      </Panel>
+    );
+  }
+
+  return (
+    <>
+      {session && !session.statsAvailable ? (
         <p
           role="alert"
           className="mb-6 rounded-lg border border-warn bg-warn-tint px-4 py-3 text-sm text-ink"
         >
-          The gateway has no database connection, so counts and trends are unavailable. Health
-          checks still work.
+          {session.gatewayReachable
+            ? 'The gateway has no database connection, so counts and trends are unavailable. Health checks still work.'
+            : 'The gateway is unreachable, so counts and trends are unavailable.'}
         </p>
-        {children}
-      </>
-    );
-  }
-
-  return <>{children}</>;
+      ) : null}
+      {children}
+    </>
+  );
 }
-
-const secondaryClass =
-  'mt-6 inline-flex min-h-[44px] items-center justify-center rounded-full border ' +
-  'border-line-strong px-6 text-sm font-semibold text-ink transition-colors hover:bg-surface-2';
 
 function Panel({
   icon,

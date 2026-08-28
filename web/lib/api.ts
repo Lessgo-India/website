@@ -36,8 +36,7 @@ async function errorFrom(res: Response): Promise<ApiError> {
   return new ApiError(message, res.status);
 }
 
-/** Exported so sibling clients (e.g. the admin dashboard) reuse the 401 retry. */
-export async function request<T>(
+async function request<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {

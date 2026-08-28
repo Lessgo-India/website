@@ -1,12 +1,32 @@
-import { request, type TokenProvider } from './api';
+import { ApiError } from './api';
 
 /**
- * Client for the gateway's read-only `/admin` API.
+ * Client for the admin dashboard.
  *
- * Every call carries the operator's Firebase ID token; the gateway decides
- * whether that identity is on the allowlist. Nothing here is a security
- * boundary — the UI only ever mirrors a decision already made server-side.
+ * Every call goes to this app's own origin, which holds the session in an
+ * httpOnly cookie and forwards to the gateway server-side. The browser never
+ * sees a gateway credential, and there is no bearer token for a script to
+ * steal.
  */
+
+async function adminRequest<T>(path: string): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`/api/admin${path}`, {
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+  } catch {
+    throw new ApiError('Network error. Check your connection and try again.', 0);
+  }
+
+  const body = (await res.json().catch(() => null)) as { message?: string } | null;
+  if (!res.ok) {
+    throw new ApiError(body?.message ?? `Request failed (${res.status})`, res.status);
+  }
+  return body as T;
+}
 
 export type ServiceStatus = 'ok' | 'degraded' | 'down' | 'unconfigured';
 
@@ -26,8 +46,11 @@ export interface HealthSnapshot {
 
 export interface AdminSession {
   admin: boolean;
-  userId: string | null;
-  statsAvailable: boolean;
+  configured: boolean;
+  userId?: string;
+  expiresAt?: number;
+  statsAvailable?: boolean;
+  gatewayReachable?: boolean;
 }
 
 export interface RsvpMix {
@@ -120,28 +143,42 @@ export interface TrendPoint {
   statuses?: number;
 }
 
-export function getAdminSession(auth: TokenProvider): Promise<AdminSession> {
-  return request<AdminSession>('/admin/session', { auth });
+export function getAdminSession(): Promise<AdminSession> {
+  return adminRequest<AdminSession>('/session');
 }
 
-export function getAdminHealth(auth: TokenProvider): Promise<HealthSnapshot> {
-  return request<HealthSnapshot>('/admin/health', { auth });
+export function getAdminHealth(): Promise<HealthSnapshot> {
+  return adminRequest<HealthSnapshot>('/gateway/health');
 }
 
-export function getAdminStats(
-  window: { from: Date; to: Date },
-  auth: TokenProvider,
-): Promise<AdminStats> {
+export function getAdminStats(window: { from: Date; to: Date }): Promise<AdminStats> {
   const query = new URLSearchParams({
     from: window.from.toISOString(),
     to: window.to.toISOString(),
   });
-  return request<AdminStats>(`/admin/stats?${query}`, { auth });
+  return adminRequest<AdminStats>(`/gateway/stats?${query}`);
 }
 
-export function getAdminTrends(
-  days: number,
-  auth: TokenProvider,
-): Promise<{ series: TrendPoint[] }> {
-  return request<{ series: TrendPoint[] }>(`/admin/trends?days=${days}`, { auth });
+export function getAdminTrends(days: number): Promise<{ series: TrendPoint[] }> {
+  return adminRequest<{ series: TrendPoint[] }>(`/gateway/trends?days=${days}`);
+}
+
+export async function adminLogin(phone: string, credential: string): Promise<void> {
+  const res = await fetch('/api/admin/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify({ phone, credential }),
+  });
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { message?: string } | null;
+    throw new ApiError(body?.message ?? 'Sign-in failed.', res.status);
+  }
+}
+
+export async function adminLogout(): Promise<void> {
+  await fetch('/api/admin/logout', { method: 'POST', credentials: 'same-origin' }).catch(
+    () => undefined,
+  );
 }

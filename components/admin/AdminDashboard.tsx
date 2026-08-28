@@ -9,7 +9,7 @@ import HealthRail from '@ui/admin/HealthRail';
 import StatCard from '@ui/admin/StatCard';
 import TrendGrid, { type Trend } from '@ui/admin/TrendGrid';
 import WindowPicker from '@ui/admin/WindowPicker';
-import { getAdminHealth, getAdminStats, getAdminTrends, type AdminStats } from '@web/lib/adminApi';
+import { getAdminHealth, getAdminStats, getAdminTrends, adminLogout, type AdminStats } from '@web/lib/adminApi';
 import {
   formatAgo,
   formatCount,
@@ -19,7 +19,6 @@ import {
   rollingWindow,
   type WindowDays,
 } from '@web/lib/adminFormat';
-import { useAuth } from '@web/lib/auth';
 import { usePoll } from '@web/lib/useAdminPoll';
 
 const HEALTH_INTERVAL_MS = 30_000;
@@ -28,7 +27,6 @@ const TREND_DAYS = 30;
 const WINDOW_STORAGE_KEY = 'lessgo.admin.window';
 
 export default function AdminDashboard() {
-  const { getToken, signOut } = useAuth();
   const [days, setDays] = useState<WindowDays>(7);
   const [now, setNow] = useState(() => Date.now());
 
@@ -48,7 +46,7 @@ export default function AdminDashboard() {
   }, []);
 
   const health = usePoll(
-    useCallback(() => getAdminHealth(getToken), [getToken]),
+    useCallback(() => getAdminHealth(), []),
     HEALTH_INTERVAL_MS,
     'health',
   );
@@ -56,13 +54,13 @@ export default function AdminDashboard() {
   // Recomputing the window per fetch keeps a long-open tab's "last 7 days"
   // actually relative to now rather than to whenever the page was opened.
   const stats = usePoll(
-    useCallback(() => getAdminStats(rollingWindow(days), getToken), [days, getToken]),
+    useCallback(() => getAdminStats(rollingWindow(days)), [days]),
     STATS_INTERVAL_MS,
     `stats-${days}`,
   );
 
   const trends = usePoll(
-    useCallback(() => getAdminTrends(TREND_DAYS, getToken), [getToken]),
+    useCallback(() => getAdminTrends(TREND_DAYS), []),
     STATS_INTERVAL_MS * 5,
     'trends',
   );
@@ -145,6 +143,11 @@ export default function AdminDashboard() {
     health.refresh();
     stats.refresh();
     trends.refresh();
+  };
+
+  const signOut = async () => {
+    await adminLogout();
+    window.location.reload();
   };
 
   return (
