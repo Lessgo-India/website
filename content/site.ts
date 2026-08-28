@@ -298,6 +298,44 @@ export const finalCta = {  headline: 'Your next plan is one tap away.',
   reassure: 'Free to start · No ads · Your contacts stay yours',
 } as const;
 
+export const notFound = {
+  eyebrow: 'Error 404',
+  headlineLead: 'This plan',
+  headlineAccent: 'fell through',
+  body: 'We couldn’t find that page. The link is probably broken, or the page has moved. Either way, your friends are still free tonight.',
+  primaryCta: 'Back to home',
+  secondaryCta: 'Help & FAQ',
+  /** Most real 404s here are stale or truncated event invites, so answer that first. */
+  invite: {
+    title: 'Landed here from an invite?',
+    body: 'Invite links have /e/ in them. If yours won’t open, the plan may have been deleted — or the link got cut short in the chat. Ask whoever invited you to send it again.',
+  },
+  /** Decorative: a plan with nobody in it. Every word is repeated in the copy. */
+  card: {
+    chip: 'Event',
+    title: 'Untitled plan',
+    when: 'Never',
+    where: 'Nowhere',
+    rsvp: [
+      { label: 'Going', count: '0' },
+      { label: 'Maybe', count: '0' },
+      { label: 'Can’t', count: '0' },
+    ],
+  },
+  destinationsTitle: 'Try one of these instead',
+  destinations: [
+    { icon: 'home', label: 'Home', body: 'The whole thing, in one scroll.', href: '/' },
+    { icon: 'features', label: 'Features', body: 'Plan, RSVP, split, settle.', href: '/features' },
+    { icon: 'help', label: 'Help & FAQ', body: 'Answers to the usual questions.', href: '/help' },
+    {
+      icon: 'download',
+      label: 'Get early access',
+      body: 'Be first in when we open up.',
+      href: '/download',
+    },
+  ],
+} as const;
+
 export const footer = {
   blurb: 'Lessgo turns messy group chats into plans that actually happen — RSVP, split, settle, done.',
   columns: [

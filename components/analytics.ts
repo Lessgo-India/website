@@ -44,6 +44,13 @@ export function writeConsent(value: Consent): void {
 
 let loading = false;
 
+/**
+ * Events raised while the PostHog script is still downloading. Without this,
+ * anything fired from a mount effect on a fresh page load — the 404 report,
+ * for one — would be dropped before `window.posthog` exists.
+ */
+let pending: Array<[string, Record<string, unknown>]> = [];
+
 export function loadAnalytics(): void {
   if (typeof window === 'undefined') return;
   if (!KEY || loading || window.posthog) return;
@@ -67,6 +74,8 @@ export function loadAnalytics(): void {
       respect_dnt: true,
     });
     window.posthog?.capture('page_view', { path: window.location.pathname });
+    pending.forEach(([event, props]) => window.posthog?.capture(event, props));
+    pending = [];
   };
 
   document.head.appendChild(script);
@@ -76,5 +85,9 @@ export function loadAnalytics(): void {
 export function track(event: string, props: Record<string, unknown> = {}): void {
   if (typeof window === 'undefined') return;
   if (readConsent() !== 'granted') return;
-  window.posthog?.capture(event, props);
+  if (!window.posthog) {
+    if (KEY && pending.length < 20) pending.push([event, props]);
+    return;
+  }
+  window.posthog.capture(event, props);
 }
