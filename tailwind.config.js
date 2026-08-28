@@ -61,6 +61,11 @@ export default {
           tint: 'var(--profile-tint)',
         },
 
+        // ── Service status, used only by the admin dashboard ───────────────
+        ok: { DEFAULT: 'var(--ok)', tint: 'var(--ok-tint)' },
+        warn: { DEFAULT: 'var(--warn)', tint: 'var(--warn-tint)' },
+        down: { DEFAULT: 'var(--down)', tint: 'var(--down-tint)' },
+
         // ── Fixed brand stops for the signature aurora gradient ────────────
         brand: {
           teal: '#22D3C5',

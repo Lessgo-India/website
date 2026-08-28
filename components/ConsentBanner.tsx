@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { loadAnalytics, readConsent, writeConsent, type Consent } from './analytics';
 import { Button } from './Button';
@@ -12,6 +13,10 @@ import { Button } from './Button';
  */
 export function ConsentBanner() {
   const [visible, setVisible] = useState(false);
+  // The internal admin tool is not a public marketing surface: it loads no
+  // marketing analytics, so there is nothing here to consent to.
+  const pathname = usePathname();
+  const isInternal = pathname === '/admin' || (pathname?.startsWith('/admin/') ?? false);
 
   useEffect(() => {
     const existing = readConsent();
@@ -28,7 +33,7 @@ export function ConsentBanner() {
     if (value === 'granted') loadAnalytics();
   }
 
-  if (!visible) return null;
+  if (!visible || isInternal) return null;
 
   return (
     <div

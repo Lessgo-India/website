@@ -36,7 +36,11 @@ async function errorFrom(res: Response): Promise<ApiError> {
   return new ApiError(message, res.status);
 }
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+/** Exported so sibling clients (e.g. the admin dashboard) reuse the 401 retry. */
+export async function request<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
   if (!BACKEND_API) throw new ApiError('The Lessgo backend is not configured.', 0);
   const { method = 'GET', body, auth } = options;
 

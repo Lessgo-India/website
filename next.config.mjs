@@ -35,6 +35,16 @@ const nextConfig = {
           },
         ],
       },
+      {
+        // Belt and braces alongside the route's noindex metadata: this also
+        // covers anything the admin tool serves that isn't an HTML document.
+        source: '/admin/:path*',
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' }],
+      },
+      {
+        source: '/admin',
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' }],
+      },
     ];
   },
 };
