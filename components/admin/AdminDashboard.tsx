@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import { LogOut, RefreshCw } from 'lucide-react';
-import { Logo } from '@ui/Logo';
 import { ThemeToggle } from '@ui/ThemeToggle';
 import AllTimeCard from '@ui/admin/AllTimeCard';
 import DomainSection, { type Metric } from '@ui/admin/DomainSection';
@@ -148,7 +148,14 @@ export default function AdminDashboard() {
   return (
     <div className="container-page py-6">
       <header className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-line pb-5">
-        <Logo showWordmark={false} />
+        <Image
+          src="/admin-icon.png"
+          alt=""
+          width={53}
+          height={48}
+          priority
+          className="h-12 w-auto flex-none object-contain"
+        />
         <div className="min-w-0">
           <h1 className="font-display text-xl font-extrabold text-ink">
             Admin<span className="text-gradient"> · </span>Operations
