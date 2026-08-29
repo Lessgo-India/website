@@ -66,6 +66,14 @@ export default {
         warn: { DEFAULT: 'var(--warn)', tint: 'var(--warn-tint)' },
         down: { DEFAULT: 'var(--down)', tint: 'var(--down-tint)' },
 
+        // ── Gold, used only by the all-time totals card ────────────────────
+        gold: {
+          DEFAULT: 'var(--gold)',
+          line: 'var(--gold-line)',
+          tint: 'var(--gold-tint)',
+          glow: 'var(--gold-glow)',
+        },
+
         // ── Fixed brand stops for the signature aurora gradient ────────────
         brand: {
           teal: '#22D3C5',
@@ -117,6 +125,10 @@ export default {
           '0%': { transform: 'scale(0.9)', opacity: '0.6' },
           '70%, 100%': { transform: 'scale(1.7)', opacity: '0' },
         },
+        'gold-sweep': {
+          '0%, 55%': { transform: 'translateX(-200%)' },
+          '100%': { transform: 'translateX(200%)' },
+        },
       },
       animation: {
         'aurora-a': 'aurora-a 22s cubic-bezier(0.45,0,0.55,1) infinite',
@@ -124,6 +136,7 @@ export default {
         float: 'float 6s ease-in-out infinite',
         marquee: 'marquee 40s linear infinite',
         'pulse-ring': 'pulse-ring 2.4s cubic-bezier(0.24,0,0.38,1) infinite',
+        'gold-sweep': 'gold-sweep 6s ease-in-out infinite',
       },
       transitionTimingFunction: {
         spring: 'cubic-bezier(0.22, 1, 0.36, 1)',

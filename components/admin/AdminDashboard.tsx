@@ -8,7 +8,9 @@ import AllTimeCard from '@ui/admin/AllTimeCard';
 import DomainSection, { type Metric } from '@ui/admin/DomainSection';
 import HealthRail from '@ui/admin/HealthRail';
 import StatCard from '@ui/admin/StatCard';
+import TotalsCard from '@ui/admin/TotalsCard';
 import TrendGrid, { type Trend } from '@ui/admin/TrendGrid';
+import ViewTabs from '@ui/admin/ViewTabs';
 import WindowPicker from '@ui/admin/WindowPicker';
 import { getAdminHealth, getAdminStats, getAdminTrends, adminLogout, type AdminStats } from '@web/lib/adminApi';
 import {
@@ -27,14 +29,26 @@ const HEALTH_INTERVAL_MS = 30_000;
 const STATS_INTERVAL_MS = 120_000;
 const TREND_DAYS = 30;
 const WINDOW_STORAGE_KEY = 'lessgo.admin.window';
+const VIEW_STORAGE_KEY = 'lessgo.admin.view';
+
+const VIEWS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'all-time', label: 'All time' },
+] as const;
+
+type ViewId = (typeof VIEWS)[number]['id'];
 
 export default function AdminDashboard() {
   const [days, setDays] = useState<WindowDays>(7);
+  const [view, setView] = useState<ViewId>('overview');
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     const stored = Number(window.localStorage.getItem(WINDOW_STORAGE_KEY));
     if ([1, 7, 15, 30].includes(stored)) setDays(stored as WindowDays);
+
+    const storedView = window.localStorage.getItem(VIEW_STORAGE_KEY);
+    if (VIEWS.some((option) => option.id === storedView)) setView(storedView as ViewId);
   }, []);
 
   useEffect(() => {
@@ -45,6 +59,11 @@ export default function AdminDashboard() {
   const chooseWindow = useCallback((next: WindowDays) => {
     setDays(next);
     window.localStorage.setItem(WINDOW_STORAGE_KEY, String(next));
+  }, []);
+
+  const chooseView = useCallback((next: string) => {
+    setView(next as ViewId);
+    window.localStorage.setItem(VIEW_STORAGE_KEY, next);
   }, []);
 
   const health = usePoll(
@@ -140,8 +159,10 @@ export default function AdminDashboard() {
           </p>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          <WindowPicker value={days} onChange={chooseWindow} disabled={stats.loading && !data} />
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          {view === 'overview' ? (
+            <WindowPicker value={days} onChange={chooseWindow} disabled={stats.loading && !data} />
+          ) : null}
           <button
             type="button"
             onClick={refreshAll}
@@ -165,6 +186,11 @@ export default function AdminDashboard() {
         </div>
       </header>
 
+      <div className="mt-6 space-y-4">
+        <TotalsCard data={data} />
+        <ViewTabs tabs={VIEWS} value={view} onChange={chooseView} />
+      </div>
+
       <div className="mt-6 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-6 lg:self-start">
           <HealthRail health={health.data} loading={health.loading} error={health.error} />
@@ -180,23 +206,36 @@ export default function AdminDashboard() {
             </p>
           ) : null}
 
-          <AllTimeCard data={data} series={series} trendDays={TREND_DAYS} />
+          {/* Both panels stay mounted so switching tabs keeps section state and scroll. */}
+          <div
+            role="tabpanel"
+            id="all-time-panel"
+            aria-labelledby="all-time-tab"
+            hidden={view !== 'all-time'}
+            className="space-y-6"
+          >
+            <AllTimeCard data={data} series={series} />
 
-          <TrendGrid
-            id="ratios"
-            title="Ratios"
-            description="How the product behaves, not how much of it exists. All time — not affected by the window filter."
-            trends={ratioCards}
-          />
+            <TrendGrid
+              id="ratios"
+              title="Ratios"
+              description="How the product behaves, not how much of it exists. All time — not affected by the window filter."
+              trends={ratioCards}
+            />
+          </div>
 
-          <section aria-labelledby="window-heading" className="space-y-4">
+          <section
+            role="tabpanel"
+            id="overview-panel"
+            aria-labelledby="overview-tab"
+            hidden={view !== 'overview'}
+            className="space-y-4"
+          >
             <div>
-              <h2 id="window-heading" className="font-display text-lg font-bold text-ink">
-                Last {windowLabel}
-              </h2>
+              <h2 className="font-display text-lg font-bold text-ink">Last {windowLabel}</h2>
               <p className="mt-1 text-sm text-ink-muted">
-                A rolling window ending now. Everything from here down moves with the picker;
-                lifetime totals live in the card above.
+                A rolling window ending now. Everything on this tab moves with the picker; the
+                lifetime breakdown is in the All time tab.
               </p>
             </div>
 

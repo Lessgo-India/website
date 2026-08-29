@@ -68,6 +68,20 @@ html[data-theme='light'] {
   --warn-tint: rgba(180, 83, 9, 0.12);
   --down-tint: rgba(185, 28, 28, 0.12);
 
+  /* Gold — the all-time totals card only. `--gold` clears 5.3:1 on --surface. */
+  --gold: #8a6407;
+  --gold-line: rgba(176, 129, 20, 0.4);
+  --gold-tint: rgba(198, 150, 30, 0.1);
+  --gold-glow: #d9a327;
+  --gold-gradient: linear-gradient(
+    115deg,
+    #8a6407 0%,
+    #b8860b 28%,
+    #e3b23c 50%,
+    #a8791a 74%,
+    #7a5806 100%
+  );
+
   --aurora-opacity: 0.5;
   color-scheme: light;
 }
@@ -126,6 +140,20 @@ html[data-theme='dark'] {
   --ok-tint: rgba(74, 222, 128, 0.14);
   --warn-tint: rgba(251, 191, 36, 0.14);
   --down-tint: rgba(248, 113, 113, 0.14);
+
+  /* Gold — the all-time totals card only. */
+  --gold: #f2cd7d;
+  --gold-line: rgba(242, 205, 125, 0.32);
+  --gold-tint: rgba(242, 205, 125, 0.08);
+  --gold-glow: #f2cd7d;
+  --gold-gradient: linear-gradient(
+    115deg,
+    #7a5a17 0%,
+    #d4a63c 26%,
+    #fff4d2 50%,
+    #e8c46a 72%,
+    #8a6a1f 100%
+  );
 
   --aurora-opacity: 0.62;
   color-scheme: dark;
@@ -243,6 +271,64 @@ html[data-theme='dark'] {
     background-clip: text;
     color: transparent;
     /* Keeps descenders from being clipped by background-clip. */
+    padding-bottom: 0.08em;
+  }
+
+  /* ── Gold treatment, used only by the all-time totals card ──────────────
+     Same mask-exclude trick as .gradient-ring: paints the ring, not the fill. */
+  .gold-ring {
+    padding: 1.5px;
+    background: var(--gold-gradient);
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+
+  .gold-surface {
+    background-image:
+      radial-gradient(120% 150% at 8% -40%, var(--gold-tint) 0%, transparent 60%),
+      radial-gradient(80% 120% at 100% 0%, var(--gold-tint) 0%, transparent 55%);
+  }
+
+  /* The sweep itself is a Tailwind animation, so reduced-motion stops it. */
+  .gold-sheen {
+    background: linear-gradient(
+      105deg,
+      transparent 40%,
+      rgba(255, 246, 214, 0.1) 47%,
+      rgba(255, 255, 255, 0.22) 50%,
+      rgba(255, 246, 214, 0.1) 53%,
+      transparent 60%
+    );
+  }
+
+  .gold-tile {
+    border: 1px solid var(--gold-line);
+    background:
+      linear-gradient(180deg, var(--gold-tint) 0%, transparent 72%),
+      var(--surface-2);
+    transition:
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 220ms ease;
+  }
+
+  .gold-tile:hover {
+    transform: translateY(-2px);
+    border-color: var(--gold);
+    box-shadow: 0 14px 32px -18px var(--gold-glow);
+  }
+
+  .text-gold-gradient {
+    background-image: var(--gold-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
     padding-bottom: 0.08em;
   }
 

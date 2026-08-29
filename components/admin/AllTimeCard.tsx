@@ -34,18 +34,17 @@ interface Block {
 /**
  * Every lifetime total the dashboard knows about, in one place.
  *
- * This card is deliberately the ONLY home for cumulative numbers: everything
- * below it answers to the window picker, so an operator never has to work out
- * whether a figure means "ever" or "in the last 7 days".
+ * This card is deliberately the ONLY home for cumulative numbers — the Overview
+ * tab answers to the window picker — so an operator never has to work out
+ * whether a figure means "ever" or "in the last 7 days". Sparklines are the
+ * daily snapshot of that same total.
  */
 export default function AllTimeCard({
   data,
   series,
-  trendDays,
 }: {
   data: AdminStats | null;
   series: TrendPoint[];
-  trendDays: number;
 }) {
   const blocks = buildBlocks(data, series);
 
@@ -54,18 +53,9 @@ export default function AllTimeCard({
       aria-labelledby="all-time-heading"
       className="rounded-xl border border-line bg-surface p-5 sm:p-6"
     >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h2 id="all-time-heading" className="font-display text-lg font-bold text-ink">
-          All time
-        </h2>
-        <span className="rounded-full border border-line bg-surface-2 px-2.5 py-1 text-xs font-semibold text-ink-muted">
-          Not affected by the window filter
-        </span>
-      </div>
-      <p className="mt-1 text-sm text-ink-muted">
-        Lifetime totals across every dimension. Sparklines are the daily snapshot of that same
-        total over the last {trendDays} days.
-      </p>
+      <h2 id="all-time-heading" className="font-display text-lg font-bold text-ink">
+        All time
+      </h2>
 
       <div className="mt-5 space-y-6">
         {blocks.map((block) => {
