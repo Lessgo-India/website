@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, Copy, Loader2 } from 'lucide-react';
 import { track } from '@ui/analytics';
 import { useAuth } from '@web/lib/auth';
-import type { ConfirmationResult } from '@web/lib/firebase';
+import { resetRecaptcha, type ConfirmationResult } from '@web/lib/firebase';
+import { detectPlatform, isInAppBrowser, type Platform } from '@web/lib/platform';
 
 const RECAPTCHA_ID = 'lessgo-recaptcha';
 const RESEND_SECONDS = 30;
@@ -55,12 +56,30 @@ export default function OtpAuth({ heading = 'Sign in with your phone' }: { headi
   const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const [cooldown, setCooldown] = useState(0);
+  const [inApp, setInApp] = useState(false);
+  const [platform, setPlatform] = useState<Platform>('other');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (cooldown <= 0) return;
     const t = setTimeout(() => setCooldown((s) => s - 1), 1000);
     return () => clearTimeout(t);
   }, [cooldown]);
+
+  useEffect(() => {
+    setInApp(isInAppBrowser());
+    setPlatform(detectPlatform());
+  }, []);
+
+  const copyLink = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      /* clipboard blocked — the instructions still tell them how to open it */
+    }
+  }, []);
 
   const send = useCallback(
     async (isResend = false) => {
@@ -78,6 +97,10 @@ export default function OtpAuth({ heading = 'Sign in with your phone' }: { headi
         setCooldown(RESEND_SECONDS);
         track(isResend ? 'web_otp_resent' : 'web_otp_requested');
       } catch (e) {
+        // A failed reCAPTCHA leaves a stale verifier; clear it so the next
+        // attempt renders a fresh one instead of erroring again.
+        const code = (e as { code?: string })?.code ?? '';
+        if (code.includes('captcha') || code.includes('internal')) resetRecaptcha();
         setError(readableAuthError(e));
       } finally {
         setBusy(false);
@@ -116,6 +139,38 @@ export default function OtpAuth({ heading = 'Sign in with your phone' }: { headi
   return (
     <div className="space-y-4">
       <h1 className="font-display text-2xl font-bold text-ink">{heading}</h1>
+
+      {inApp ? (
+        <div className="rounded-lg border border-line-strong bg-bg-elev p-4">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-profile" aria-hidden="true" />
+            <div className="space-y-2 text-sm">
+              <p className="font-semibold text-ink">Open this page in your browser</p>
+              <p className="text-ink-muted">
+                You&apos;re in an in-app browser, which blocks the security check needed to text your
+                code.{' '}
+                {platform === 'ios'
+                  ? 'Tap the ••• (or Aa) menu, then “Open in Safari”.'
+                  : platform === 'android'
+                    ? 'Tap the ⋮ menu, then “Open in Chrome”.'
+                    : 'Open this link in Chrome or Safari.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => void copyLink()}
+                className="inline-flex min-h-[40px] items-center gap-2 rounded-full border border-line-strong bg-surface px-4 text-sm font-semibold text-ink transition-transform duration-200 ease-spring active:scale-[0.97]"
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 text-profile" aria-hidden="true" />
+                ) : (
+                  <Copy className="h-4 w-4" aria-hidden="true" />
+                )}
+                {copied ? 'Link copied' : 'Copy link'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {step === 'phone' ? (
         <>
