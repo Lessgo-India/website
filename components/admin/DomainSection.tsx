@@ -8,6 +8,8 @@ export interface Metric {
   value: string;
   /** Shown under the label — what the number actually counts. */
   hint?: string;
+  /** Exact figure behind an abbreviated `value`, shown on hover. */
+  title?: string;
 }
 
 type Domain = 'events' | 'groups' | 'split' | 'vibes' | 'profile';
@@ -88,7 +90,10 @@ export default function DomainSection({
                     <span className="mt-0.5 block text-xs text-ink-muted">{metric.hint}</span>
                   ) : null}
                 </th>
-                <td className="px-5 py-2.5 text-right font-mono tabular-nums text-ink">
+                <td
+                  className="px-5 py-2.5 text-right font-mono tabular-nums text-ink"
+                  title={metric.title}
+                >
                   {metric.value}
                 </td>
               </tr>

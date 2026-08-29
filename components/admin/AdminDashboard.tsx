@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LogOut, RefreshCw } from 'lucide-react';
 import { Logo } from '@ui/Logo';
 import { ThemeToggle } from '@ui/ThemeToggle';
+import AllTimeCard from '@ui/admin/AllTimeCard';
 import DomainSection, { type Metric } from '@ui/admin/DomainSection';
 import HealthRail from '@ui/admin/HealthRail';
 import StatCard from '@ui/admin/StatCard';
@@ -14,6 +15,7 @@ import {
   formatAgo,
   formatCount,
   formatMoney,
+  formatMoneyExact,
   formatPercent,
   formatRatio,
   rollingWindow,
@@ -106,38 +108,12 @@ export default function AdminDashboard() {
       {
         label: 'Average expense',
         value: formatMoney(r?.avgExpenseValue),
+        title: formatMoneyExact(r?.avgExpenseValue),
         definition: 'Total expense value divided by the number of expenses.',
         accent: 'text-split',
       },
     ];
   }, [data, series]);
-
-  const growthCards = useMemo<Trend[]>(
-    () => [
-      {
-        label: 'Profiles',
-        value: formatCount(data?.users.total),
-        definition: 'Signed-up accounts, cumulative.',
-        series: series.map((p) => p.profiles ?? 0),
-        accent: 'text-profile',
-      },
-      {
-        label: 'Events',
-        value: formatCount(data?.events.total),
-        definition: 'Events ever created, cumulative.',
-        series: series.map((p) => p.events ?? 0),
-        accent: 'text-events',
-      },
-      {
-        label: 'Expenses',
-        value: formatCount(data?.money.expenses),
-        definition: 'Expenses ever recorded, cumulative.',
-        series: series.map((p) => p.expenses ?? 0),
-        accent: 'text-split',
-      },
-    ],
-    [data, series],
-  );
 
   const refreshAll = () => {
     health.refresh();
@@ -204,16 +180,32 @@ export default function AdminDashboard() {
             </p>
           ) : null}
 
-          <section aria-labelledby="headline-heading">
-            <h2 id="headline-heading" className="sr-only">
-              Headline totals
-            </h2>
+          <AllTimeCard data={data} series={series} trendDays={TREND_DAYS} />
+
+          <TrendGrid
+            id="ratios"
+            title="Ratios"
+            description="How the product behaves, not how much of it exists. All time — not affected by the window filter."
+            trends={ratioCards}
+          />
+
+          <section aria-labelledby="window-heading" className="space-y-4">
+            <div>
+              <h2 id="window-heading" className="font-display text-lg font-bold text-ink">
+                Last {windowLabel}
+              </h2>
+              <p className="mt-1 text-sm text-ink-muted">
+                A rolling window ending now. Everything from here down moves with the picker;
+                lifetime totals live in the card above.
+              </p>
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
                 domain="profile"
-                label="Users"
-                value={formatCount(data?.users.total)}
-                sub={`${formatCount(data?.users.created)} new in the last ${windowLabel}`}
+                label="New users"
+                value={formatCount(data?.users.created)}
+                sub={`${formatCount(data?.users.createdPrev)} in the previous ${windowLabel}`}
                 current={data?.users.created ?? 0}
                 previous={data?.users.createdPrev ?? 0}
                 windowLabel={windowLabel}
@@ -221,11 +213,9 @@ export default function AdminDashboard() {
               />
               <StatCard
                 domain="events"
-                label="Events"
-                value={formatCount(data?.events.total)}
-                sub={`${formatCount(data?.events.live)} live now · ${formatCount(
-                  data?.events.created,
-                )} created in ${windowLabel}`}
+                label="New events"
+                value={formatCount(data?.events.created)}
+                sub={`${formatCount(data?.events.live)} live right now`}
                 current={data?.events.created ?? 0}
                 previous={data?.events.createdPrev ?? 0}
                 windowLabel={windowLabel}
@@ -233,9 +223,11 @@ export default function AdminDashboard() {
               />
               <StatCard
                 domain="groups"
-                label="Groups"
-                value={formatCount(data?.groups.total)}
-                sub={`${formatCount(data?.groups.buzzOpen)} Buzz open right now`}
+                label="New groups"
+                value={formatCount(data?.groups.created)}
+                sub={`${formatCount(data?.groups.buzzCreated)} Buzz started · ${formatCount(
+                  data?.groups.buzzOpen,
+                )} open right now`}
                 current={data?.groups.created ?? 0}
                 previous={data?.groups.createdPrev ?? 0}
                 windowLabel={windowLabel}
@@ -244,63 +236,44 @@ export default function AdminDashboard() {
               <StatCard
                 domain="split"
                 label="Money split"
-                value={formatMoney(data?.money.expenseValue)}
-                sub={`${formatMoney(data?.money.createdValue)} across ${formatCount(
-                  data?.money.created,
-                )} expenses in ${windowLabel}`}
+                value={formatMoney(data?.money.createdValue)}
+                valueTitle={formatMoneyExact(data?.money.createdValue)}
+                sub={`across ${formatCount(data?.money.created)} expenses`}
                 current={data?.money.created ?? 0}
                 previous={data?.money.createdPrev ?? 0}
                 windowLabel={windowLabel}
                 deltaUnit="expenses"
               />
             </div>
+
+            <div className="grid gap-4 xl:grid-cols-2">
+              <DomainSection
+                id="events"
+                title="Events"
+                domain="events"
+                metrics={eventMetrics(data, windowLabel)}
+              />
+              <DomainSection
+                id="groups"
+                title="Groups & Buzz"
+                domain="groups"
+                metrics={groupMetrics(data, windowLabel)}
+              />
+              <DomainSection
+                id="money"
+                title="Expenses & settlements"
+                domain="split"
+                metrics={moneyMetrics(data, windowLabel)}
+              />
+              <DomainSection
+                id="people"
+                title="People & Vibes"
+                domain="profile"
+                metrics={peopleMetrics(data, windowLabel)}
+                note="Aggregate counts only — no individual records are read or returned."
+              />
+            </div>
           </section>
-
-          <div className="grid gap-4 xl:grid-cols-2">
-            <DomainSection
-              id="events"
-              title="Events"
-              domain="events"
-              metrics={eventMetrics(data, windowLabel)}
-              note={
-                data && data.events.rsvp === null
-                  ? 'RSVP mix is not measured at this data volume.'
-                  : undefined
-              }
-            />
-            <DomainSection
-              id="groups"
-              title="Groups & Buzz"
-              domain="groups"
-              metrics={groupMetrics(data, windowLabel)}
-            />
-            <DomainSection
-              id="money"
-              title="Expenses & settlements"
-              domain="split"
-              metrics={moneyMetrics(data, windowLabel)}
-            />
-            <DomainSection
-              id="people"
-              title="People & Vibes"
-              domain="profile"
-              metrics={peopleMetrics(data, windowLabel)}
-              note="Aggregate counts only — no individual records are read or returned."
-            />
-          </div>
-
-          <TrendGrid
-            id="ratios"
-            title="Ratios"
-            description="How the product behaves, not how much of it exists. All-time unless stated."
-            trends={ratioCards}
-          />
-          <TrendGrid
-            id="growth"
-            title="Growth"
-            description={`Daily totals captured at 03:00 IST, last ${TREND_DAYS} days. A flat line means no snapshots yet.`}
-            trends={growthCards}
-          />
         </div>
       </div>
     </div>
@@ -309,53 +282,64 @@ export default function AdminDashboard() {
 
 type Stats = AdminStats | null;
 
+/**
+ * The lower tables carry only what moves with the window picker, plus the few
+ * "right now" states that are genuinely current rather than cumulative.
+ * Lifetime totals belong to `AllTimeCard`.
+ */
+function previousHint(previous: number | undefined, windowLabel: string): string {
+  return `${formatCount(previous)} in the previous ${windowLabel}`;
+}
+
 function eventMetrics(data: Stats, windowLabel: string): Metric[] {
   const e = data?.events;
-  const rsvp = e?.rsvp;
   return [
-    { label: 'Coming up', value: formatCount(e?.upcoming), hint: 'Starts in the future' },
+    {
+      label: `Created in ${windowLabel}`,
+      value: formatCount(e?.created),
+      hint: previousHint(e?.createdPrev, windowLabel),
+    },
     { label: 'Live now', value: formatCount(e?.live), hint: 'Started, not yet ended' },
-    { label: 'Wrapped', value: formatCount(e?.wrapped), hint: 'Ended within 30 days' },
-    { label: 'Archived', value: formatCount(e?.archived), hint: 'Ended over 30 days ago' },
-    { label: 'Recurring', value: formatCount(e?.recurring), hint: 'Repeats on a schedule' },
-    { label: `Created in ${windowLabel}`, value: formatCount(e?.created) },
-    { label: 'RSVP — going', value: rsvp ? formatCount(rsvp.going) : '—' },
-    { label: 'RSVP — maybe', value: rsvp ? formatCount(rsvp.maybe) : '—' },
-    { label: 'RSVP — no reply', value: rsvp ? formatCount(rsvp.noReply) : '—' },
-    { label: 'RSVP — can’t make it', value: rsvp ? formatCount(rsvp.declined) : '—' },
-    ...(e?.byType ?? []).map((row) => ({
-      label: `Type · ${row.type}`,
-      value: formatCount(row.count),
-    })),
+    { label: 'Coming up', value: formatCount(e?.upcoming), hint: 'Starts in the future' },
+    { label: 'Wrapped', value: formatCount(e?.wrapped), hint: 'Ended within the last 30 days' },
   ];
 }
 
 function groupMetrics(data: Stats, windowLabel: string): Metric[] {
   const g = data?.groups;
   return [
-    { label: 'Groups', value: formatCount(g?.total) },
-    { label: 'With at least one event', value: formatCount(g?.withEvents) },
-    { label: `Created in ${windowLabel}`, value: formatCount(g?.created) },
-    { label: 'Buzz — total', value: formatCount(g?.buzzTotal) },
-    { label: 'Buzz — open', value: formatCount(g?.buzzOpen), hint: 'Still gathering interest' },
-    { label: 'Buzz — confirmed', value: formatCount(g?.buzzConfirmed), hint: 'Became an event' },
-    { label: 'Buzz — expired', value: formatCount(g?.buzzExpired), hint: 'Timed out unconfirmed' },
-    { label: `Buzz created in ${windowLabel}`, value: formatCount(g?.buzzCreated) },
+    {
+      label: `Created in ${windowLabel}`,
+      value: formatCount(g?.created),
+      hint: previousHint(g?.createdPrev, windowLabel),
+    },
+    {
+      label: `Buzz started in ${windowLabel}`,
+      value: formatCount(g?.buzzCreated),
+      hint: previousHint(g?.buzzCreatedPrev, windowLabel),
+    },
+    { label: 'Buzz open now', value: formatCount(g?.buzzOpen), hint: 'Still gathering interest' },
   ];
 }
 
 function moneyMetrics(data: Stats, windowLabel: string): Metric[] {
   const m = data?.money;
   return [
-    { label: 'Expenses', value: formatCount(m?.expenses) },
-    { label: 'Expense value', value: formatMoney(m?.expenseValue) },
-    { label: 'Transactions', value: formatCount(m?.transactions), hint: 'One payer → one payee' },
-    { label: 'Transaction value', value: formatMoney(m?.transactionValue) },
-    { label: 'Settlements', value: formatCount(m?.settlements), hint: 'Recorded outside an event' },
-    { label: 'Events with an expense', value: formatCount(m?.eventsWithExpense) },
-    { label: `Expenses in ${windowLabel}`, value: formatCount(m?.created) },
-    { label: `Value in ${windowLabel}`, value: formatMoney(m?.createdValue) },
-    { label: `Transactions in ${windowLabel}`, value: formatCount(m?.transactionsCreated) },
+    {
+      label: `Expenses in ${windowLabel}`,
+      value: formatCount(m?.created),
+      hint: previousHint(m?.createdPrev, windowLabel),
+    },
+    {
+      label: `Value in ${windowLabel}`,
+      value: formatMoney(m?.createdValue),
+      title: formatMoneyExact(m?.createdValue),
+    },
+    {
+      label: `Transactions in ${windowLabel}`,
+      value: formatCount(m?.transactionsCreated),
+      hint: previousHint(m?.transactionsCreatedPrev, windowLabel),
+    },
   ];
 }
 
@@ -364,20 +348,18 @@ function peopleMetrics(data: Stats, windowLabel: string): Metric[] {
   const v = data?.vibes;
   const f = data?.files;
   return [
-    { label: 'Profiles', value: formatCount(u?.total), hint: 'Completed signups' },
-    { label: 'Active accounts', value: formatCount(u?.active) },
     {
-      label: 'Invited, never joined',
-      value: formatCount(u?.invitedNotJoined),
-      hint: 'In someone’s guest list with no profile yet',
+      label: `Signups in ${windowLabel}`,
+      value: formatCount(u?.created),
+      hint: previousHint(u?.createdPrev, windowLabel),
     },
-    { label: 'People in the graph', value: formatCount(u?.inGraph) },
-    { label: `Signups in ${windowLabel}`, value: formatCount(u?.created) },
-    { label: 'Vibes posted', value: formatCount(v?.total) },
-    { label: 'Vibes live now', value: formatCount(v?.active) },
-    { label: `Vibes in ${windowLabel}`, value: formatCount(v?.created) },
-    { label: 'Interest tapped', value: formatCount(v?.interest) },
-    { label: 'Documents', value: formatCount(f?.documents), hint: 'Byte totals are not measured' },
-    { label: 'Gallery photos', value: formatCount(f?.photos) },
+    {
+      label: `Vibes in ${windowLabel}`,
+      value: formatCount(v?.created),
+      hint: previousHint(v?.createdPrev, windowLabel),
+    },
+    { label: 'Vibes live now', value: formatCount(v?.active), hint: 'Not yet expired' },
+    { label: `Documents in ${windowLabel}`, value: formatCount(f?.documentsCreated) },
+    { label: `Gallery photos in ${windowLabel}`, value: formatCount(f?.photosCreated) },
   ];
 }

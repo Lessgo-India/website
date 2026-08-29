@@ -7,6 +7,8 @@ export interface Trend {
   value: string;
   /** Stated on the card, not in a tooltip — an ambiguous denominator lies. */
   definition: string;
+  /** Exact figure behind an abbreviated `value`, shown on hover. */
+  title?: string;
   series?: number[];
   accent?: string;
 }
@@ -41,7 +43,10 @@ export default function TrendGrid({
                 <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
                   {trend.label}
                 </p>
-                <p className="mt-1.5 font-display text-2xl font-extrabold tabular-nums text-ink">
+                <p
+                  className="mt-1.5 font-display text-2xl font-extrabold tabular-nums text-ink"
+                  title={trend.title}
+                >
                   {trend.value}
                 </p>
               </div>

@@ -20,6 +20,7 @@ const ACCENT: Record<Domain, string> = {
 export default function StatCard({
   label,
   value,
+  valueTitle,
   sub,
   current,
   previous,
@@ -29,6 +30,8 @@ export default function StatCard({
 }: {
   label: string;
   value: string;
+  /** Exact figure behind an abbreviated `value`, shown on hover. */
+  valueTitle?: string;
   sub: string;
   current: number;
   previous: number;
@@ -53,7 +56,8 @@ export default function StatCard({
       <p className={`text-xs font-semibold uppercase tracking-wide ${ACCENT[domain]}`}>{label}</p>
       <p
         className="mt-2 font-display text-3xl font-extrabold tabular-nums text-ink"
-        aria-label={`${label}: ${value}. ${delta.spoken}${unit} versus the previous ${windowLabel}`}
+        title={valueTitle}
+        aria-label={`${label}: ${valueTitle ?? value}. ${delta.spoken}${unit} versus the previous ${windowLabel}`}
       >
         {value}
       </p>

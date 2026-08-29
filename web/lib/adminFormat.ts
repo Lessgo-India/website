@@ -2,8 +2,8 @@
  * Formatting for the admin dashboard.
  *
  * Everything is rendered for an India-based operator: `en-IN` digit grouping
- * (1,20,000 — not 120,000), rupees, and IST timestamps regardless of where the
- * browser or the server happens to be.
+ * (1,20,000 — not 120,000), rupees on the Indian short scale (K/L/Cr), and IST
+ * timestamps regardless of where the browser or the server happens to be.
  */
 
 const IST = 'Asia/Kolkata';
@@ -55,7 +55,38 @@ export function formatCount(value: number | null | undefined): string {
   return counts.format(value);
 }
 
+const MONEY_UNITS = [
+  { min: 10_000_000, suffix: 'Cr' },
+  { min: 100_000, suffix: 'L' },
+  { min: 1_000, suffix: 'K' },
+] as const;
+
+function compactRupees(value: number): string {
+  const abs = Math.abs(value);
+  const sign = value < 0 ? '−' : '';
+  const index = MONEY_UNITS.findIndex((unit) => abs >= unit.min);
+  if (index === -1) return `${sign}₹${Math.round(abs)}`;
+
+  let { min, suffix } = MONEY_UNITS[index];
+  // ₹99,999 has to read "1L", not "100K" — rounding can spill into the next unit.
+  if (abs / min >= 99.95 && index > 0) ({ min, suffix } = MONEY_UNITS[index - 1]);
+
+  const scaled = abs / min;
+  const digits = scaled.toFixed(scaled < 100 ? 1 : 0).replace(/\.0$/, '');
+  return `${sign}₹${digits}${suffix}`;
+}
+
+/**
+ * Rupees on the Indian short scale — ₹2,10,000 becomes ₹2.1L. Scanning a wall
+ * of money is the whole job here; `formatMoneyExact` is paired with it as a
+ * tooltip wherever the precise figure still matters.
+ */
 export function formatMoney(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '—';
+  return compactRupees(value);
+}
+
+export function formatMoneyExact(value: number | null | undefined): string {
   if (value === null || value === undefined) return '—';
   return rupees.format(value);
 }
