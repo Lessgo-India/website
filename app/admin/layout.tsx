@@ -11,6 +11,8 @@ import AdminGate from '@ui/admin/AdminGate';
 export const metadata: Metadata = {
   title: 'Admin · Lessgo',
   robots: { index: false, follow: false, nocache: true },
+  // Overrides the root icons so an admin tab is tellable from a marketing one.
+  icons: { icon: '/admin-favicon.svg' },
 };
 
 // Never let admin markup end up in a static build artifact.
