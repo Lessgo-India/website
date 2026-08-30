@@ -10,19 +10,13 @@ import { detectPlatform, isInAppBrowser, type Platform } from '@web/lib/platform
 
 const RECAPTCHA_ID = 'lessgo-recaptcha';
 const RESEND_SECONDS = 30;
+const INDIA_COUNTRY_CODE = '+91';
 
-// Normalise user input to E.164 (defaults to +91 for bare 10-digit numbers).
-function toE164(raw: string): string | null {
-  const trimmed = raw.trim();
-  if (trimmed.startsWith('+')) {
-    const digits = '+' + trimmed.slice(1).replace(/\D/g, '');
-    return digits.length >= 11 ? digits : null;
-  }
-  const digits = trimmed.replace(/\D/g, '');
-  if (digits.length === 10) return `+91${digits}`;
-  if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
-  if (digits.length > 10) return `+${digits}`;
-  return null;
+function normaliseIndianPhoneInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
+  if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
+  return digits.slice(0, 10);
 }
 
 // Firebase's raw messages ("FirebaseError: auth/…") are not for guests.
@@ -84,14 +78,13 @@ export default function OtpAuth({ heading = 'Sign in with your phone' }: { headi
   const send = useCallback(
     async (isResend = false) => {
       setError(null);
-      const e164 = toE164(phone);
-      if (!e164) {
-        setError('Enter a valid phone number.');
+      if (!/^\d{10}$/.test(phone)) {
+        setError('Enter a valid 10-digit phone number.');
         return;
       }
       setBusy(true);
       try {
-        const result = await sendOtp(e164, RECAPTCHA_ID);
+        const result = await sendOtp(`${INDIA_COUNTRY_CODE}${phone}`, RECAPTCHA_ID);
         setConfirmation(result);
         setStep('otp');
         setCooldown(RESEND_SECONDS);
@@ -181,16 +174,27 @@ export default function OtpAuth({ heading = 'Sign in with your phone' }: { headi
             <label className="block text-sm font-medium text-ink-muted" htmlFor="lessgo-phone">
               Phone number
             </label>
-            <input
-              id="lessgo-phone"
-              inputMode="tel"
-              autoComplete="tel"
-              className={inputClass}
-              placeholder="+91 98765 43210"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && void send()}
-            />
+            <div className="flex min-h-[52px] overflow-hidden rounded-lg border border-line-strong bg-bg-elev text-base text-ink focus-within:border-transparent focus-within:ring-2 focus-within:ring-profile">
+              <span
+                id="lessgo-phone-prefix"
+                className="flex shrink-0 items-center border-r border-line px-4 font-semibold text-ink-muted"
+              >
+                {INDIA_COUNTRY_CODE}
+              </span>
+              <input
+                id="lessgo-phone"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel-national"
+                aria-describedby="lessgo-phone-prefix"
+                pattern="[0-9]{10}"
+                className="min-w-0 flex-1 bg-transparent px-4 text-base text-ink placeholder:text-ink-faint focus:outline-none"
+                placeholder="98765 43210"
+                value={phone}
+                onChange={(e) => setPhone(normaliseIndianPhoneInput(e.target.value))}
+                onKeyDown={(e) => e.key === 'Enter' && void send()}
+              />
+            </div>
           </div>
           <button className={primaryClass} disabled={busy} onClick={() => void send()}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
@@ -211,7 +215,11 @@ export default function OtpAuth({ heading = 'Sign in with your phone' }: { headi
       ) : (
         <>
           <p className="text-sm text-ink-muted">
-            Enter the 6-digit code sent to <span className="font-semibold text-ink">{phone}</span>.
+            Enter the 6-digit code sent to{' '}
+            <span className="font-semibold text-ink">
+              {INDIA_COUNTRY_CODE} {phone.slice(0, 5)} {phone.slice(5)}
+            </span>
+            .
           </p>
           <input
             inputMode="numeric"

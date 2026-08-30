@@ -1,6 +1,15 @@
 import { BACKEND_API } from './config';
 import type { EventDetail, EventPreview, Muo, Profile } from './types';
 
+const PROFILE_AVATAR_BASE_URL =
+  'https://lessgo-asset.s3.ap-south-1.amazonaws.com/avatars';
+const PROFILE_AVATAR_COUNT = 9;
+
+function randomProfileAvatarUrl(): string {
+  const avatarNumber = Math.floor(Math.random() * PROFILE_AVATAR_COUNT) + 1;
+  return `${PROFILE_AVATAR_BASE_URL}/avatar${avatarNumber}.png`;
+}
+
 /**
  * Returns a Firebase ID token, forcing a refresh when asked. Taking the
  * provider rather than a token string lets `request` recover from a token that
@@ -137,7 +146,7 @@ export function createProfile(input: CreateProfileInput, auth: TokenProvider): P
       dob: input.dob,
       gender: input.gender,
       region_code: input.regionCode || 'IN',
-      dp_url: 'https://lessgo.blob.core.windows.net/lessgocontainer/default-profile.png',
+      dp_url: randomProfileAvatarUrl(),
       status: "Hey! I'm at Lessgo",
       user_settings: { blocked_users: [] },
       friendList: [],

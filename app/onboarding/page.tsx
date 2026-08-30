@@ -2,14 +2,14 @@
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { track } from '@ui/analytics';
 import { useAuth } from '@web/lib/auth';
 import { createProfile, getProfileOrNull } from '@web/lib/api';
 import OtpAuth from '@web/components/OtpAuth';
 import AppHeader from '@web/components/AppHeader';
 
-type Phase = 'auth' | 'checking' | 'profile' | 'saving';
+type Phase = 'auth' | 'checking' | 'check_failed' | 'profile' | 'saving';
 
 const inputClass =
   'w-full min-h-[52px] rounded-lg border border-line-strong bg-bg-elev px-4 text-base text-ink ' +
@@ -31,6 +31,7 @@ function OnboardingInner() {
   const { ready, user, userId, getToken, configured } = useAuth();
 
   const [phase, setPhase] = useState<Phase>('auth');
+  const [profileCheckAttempt, setProfileCheckAttempt] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [dob, setDob] = useState('');
@@ -43,7 +44,6 @@ function OnboardingInner() {
     let active = true;
     (async () => {
       if (!ready || !user || !userId) return;
-      if (phase !== 'auth' && phase !== 'checking') return;
       setPhase('checking');
       try {
         const profile = await getProfileOrNull(userId, getToken);
@@ -55,14 +55,14 @@ function OnboardingInner() {
         }
       } catch (e) {
         if (!active) return;
-        setError((e as Error)?.message || 'Something went wrong. Please try again.');
-        setPhase('profile');
+        setError((e as Error)?.message || 'We could not check your account. Please try again.');
+        setPhase('check_failed');
       }
     })();
     return () => {
       active = false;
     };
-  }, [ready, user, userId, phase, getToken, goNext]);
+  }, [ready, user, userId, getToken, goNext, profileCheckAttempt]);
 
   const handleCreate = useCallback(async () => {
     setError(null);
@@ -101,6 +101,30 @@ function OnboardingInner() {
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               Setting things up…
             </p>
+          ) : null}
+
+          {user && phase === 'check_failed' ? (
+            <div className="space-y-5">
+              <div>
+                <h1 className="font-display text-2xl font-bold text-ink">
+                  We couldn&apos;t check your account
+                </h1>
+                <p className="mt-2 text-sm text-ink-muted">
+                  We won&apos;t ask you to register again until we can confirm this is a new number.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full border border-line-strong bg-surface-2 px-6 text-sm font-semibold text-ink transition-transform duration-200 ease-spring hover:-translate-y-px active:scale-[0.97]"
+                onClick={() => {
+                  setError(null);
+                  setProfileCheckAttempt((attempt) => attempt + 1);
+                }}
+              >
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                Try again
+              </button>
+            </div>
           ) : null}
 
           {showProfile ? (
