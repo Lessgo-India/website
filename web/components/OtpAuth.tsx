@@ -7,6 +7,7 @@ import { track } from '@ui/analytics';
 import { useAuth } from '@web/lib/auth';
 import { resetRecaptcha, type ConfirmationResult } from '@web/lib/firebase';
 import { detectPlatform, isInAppBrowser, type Platform } from '@web/lib/platform';
+import { OtpArt, PhoneArt } from '@web/components/AuthArt';
 
 const RECAPTCHA_ID = 'lessgo-recaptcha';
 const RESEND_SECONDS = 30;
@@ -131,6 +132,7 @@ export default function OtpAuth({ heading = 'Sign in with your phone' }: { headi
 
   return (
     <div className="space-y-4">
+      {step === 'phone' ? <PhoneArt /> : <OtpArt />}
       <h1 className="font-display text-2xl font-bold text-ink">{heading}</h1>
 
       {inApp ? (

@@ -1,12 +1,19 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { track } from '@ui/analytics';
 import { useAuth } from '@web/lib/auth';
-import { createProfile, getProfileOrNull } from '@web/lib/api';
+import {
+  avatarUrlForIndex,
+  createProfile,
+  getProfileOrNull,
+  PROFILE_AVATAR_COUNT,
+  uploadProfileImage,
+} from '@web/lib/api';
 import OtpAuth from '@web/components/OtpAuth';
+import AvatarPicker from '@web/components/AvatarPicker';
 import AppHeader from '@web/components/AppHeader';
 
 type Phase = 'auth' | 'checking' | 'check_failed' | 'profile' | 'saving';
@@ -36,6 +43,42 @@ function OnboardingInner() {
   const [name, setName] = useState('');
   const [dob, setDob] = useState('');
   const [gender, setGender] = useState<'M' | 'F' | 'T'>('M');
+
+  // Profile picture: a random default avatar to start, shuffle through the
+  // built-ins, or upload a custom photo (uploaded on submit).
+  const [avatarIndex, setAvatarIndex] = useState(
+    () => Math.floor(Math.random() * PROFILE_AVATAR_COUNT) + 1,
+  );
+  const [customFile, setCustomFile] = useState<File | null>(null);
+  const [customPreview, setCustomPreview] = useState<string | null>(null);
+  const customPreviewRef = useRef<string | null>(null);
+  const previewUrl = customPreview ?? avatarUrlForIndex(avatarIndex);
+
+  // Release the previous object URL whenever the custom photo changes, and the
+  // last one on unmount, so picked-then-replaced blobs don't leak.
+  const replaceCustom = useCallback((file: File | null) => {
+    if (customPreviewRef.current) URL.revokeObjectURL(customPreviewRef.current);
+    const url = file ? URL.createObjectURL(file) : null;
+    customPreviewRef.current = url;
+    setCustomFile(file);
+    setCustomPreview(url);
+  }, []);
+  useEffect(
+    () => () => {
+      if (customPreviewRef.current) URL.revokeObjectURL(customPreviewRef.current);
+    },
+    [],
+  );
+
+  const shuffleAvatar = useCallback(() => {
+    replaceCustom(null);
+    setAvatarIndex((current) => {
+      if (PROFILE_AVATAR_COUNT < 2) return current;
+      let next = current;
+      while (next === current) next = Math.floor(Math.random() * PROFILE_AVATAR_COUNT) + 1;
+      return next;
+    });
+  }, [replaceCustom]);
 
   const goNext = useCallback(() => router.replace(next), [next, router]);
 
@@ -77,14 +120,19 @@ function OnboardingInner() {
     }
     setPhase('saving');
     try {
-      await createProfile({ userId, name: name.trim(), dob, gender }, getToken);
+      // Upload the custom photo (if any) first so the profile is created with
+      // its final picture; otherwise use the chosen default avatar.
+      const dpUrl = customFile
+        ? await uploadProfileImage(userId, customFile, getToken)
+        : avatarUrlForIndex(avatarIndex);
+      await createProfile({ userId, name: name.trim(), dob, gender, dpUrl }, getToken);
       track('web_signup_completed');
       goNext();
     } catch (e) {
       setError((e as Error)?.message || 'Could not create your account.');
       setPhase('profile');
     }
-  }, [userId, name, dob, gender, getToken, goNext]);
+  }, [userId, name, dob, gender, avatarIndex, customFile, getToken, goNext]);
 
   const showAuth = phase === 'auth' && (!configured || !user);
   const showProfile = !!user && (phase === 'profile' || phase === 'saving');
@@ -137,6 +185,13 @@ function OnboardingInner() {
                   Tell your hosts who&apos;s replying. You can change this later in the app.
                 </p>
               </div>
+
+              <AvatarPicker
+                previewUrl={previewUrl}
+                onShuffle={shuffleAvatar}
+                onPickFile={replaceCustom}
+                busy={phase === 'saving'}
+              />
 
               <div className="space-y-4">
                 <div className="space-y-2">
