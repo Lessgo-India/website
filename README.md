@@ -28,12 +28,13 @@ The Lessgo website. It does two jobs:
 - **Next.js 16** (App Router) — marketing routes are static, `/e/:id` is SSR
 - **React 19** and **TypeScript**
 - **Tailwind CSS** — tokens mirror the app's `constants/theme.ts`
+- **MongoDB** — persistent, duplicate-safe early-access signups
 - **Firebase Web SDK** — phone/OTP auth for the web client
 - **Lucide React** — icons
 - **PostHog** — product analytics, loaded via snippet only after consent
 
 No animation library and no analytics SDK: entrances use a small
-IntersectionObserver hook, and everything else is CSS. Node 20+ is required.
+IntersectionObserver hook, and everything else is CSS. Node 20.19+ is required.
 Linting is ESLint 9 flat config (`eslint.config.mjs`) — `next lint` was removed
 in Next 16.
 
@@ -41,7 +42,7 @@ in Next 16.
 
 ### Prerequisites
 
-- Node.js 18 or newer
+- Node.js 20.19 or newer
 - npm
 
 ### Installation
@@ -59,8 +60,8 @@ in Next 16.
    ```
    The marketing pages render without any of it. The web client needs
    `NEXT_PUBLIC_BACKEND_API` and the `NEXT_PUBLIC_FIREBASE_*` values; analytics
-   needs `NEXT_PUBLIC_POSTHOG_KEY`; the early-access form needs
-   `EARLY_ACCESS_WEBHOOK_URL`.
+   needs `NEXT_PUBLIC_POSTHOG_KEY`; the early-access form needs the server-only
+   `MONGODB_URL` and, optionally, `MONGODB_DB`.
 
 3. Run it
    ```bash
@@ -94,7 +95,7 @@ lessgo-website/
 │   │   ├── whats-new/
 │   │   ├── privacy/
 │   │   └── terms/
-│   ├── api/early-access/    # Signup forwarder (no data stored here)
+│   ├── api/early-access/    # MongoDB-backed interest signup endpoint
 │   ├── e/[id]/              # Event deep link (SSR, indexable)
 │   ├── onboarding/          # Phone + OTP
 │   ├── me/                  # Signed-in home
@@ -116,8 +117,9 @@ components, so adding Hindi later is a config change rather than a rewrite.
 
 - [ ] Have counsel review `/privacy` and `/terms`, and confirm the Grievance
       Officer contact.
-- [ ] Set `EARLY_ACCESS_WEBHOOK_URL`. Until it is set, the signup form honestly
-      tells visitors to email instead of silently dropping their address.
+- [ ] Set the server-only `MONGODB_URL` and optional `MONGODB_DB`. Until MongoDB
+   is configured, the signup form honestly tells visitors to email instead
+   of silently dropping their address.
 - [ ] Flip `site.storesLive` to `true` in `content/site.ts` once the Play Store
       and App Store listings are live, and set `NEXT_PUBLIC_IOS_APP_URL`.
 - [ ] Set `NEXT_PUBLIC_SITE_URL` so canonicals, OG tags and the sitemap resolve.

@@ -42,8 +42,9 @@ export default function PrivacyPage() {
             <ul>
               <li>
                 <strong>Early-access signups.</strong> If you submit your email address, we store
-                it with our signup collector so we can tell you when the app is available. We do
-                not use it for anything else.
+                the normalized address, signup source and submission timestamps in our signup
+                database so we can tell you when the app is available. We do not use it for
+                anything else.
               </li>
               <li>
                 <strong>Analytics.</strong> Only if you agree. If you select

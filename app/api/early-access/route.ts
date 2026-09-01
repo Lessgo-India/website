@@ -1,4 +1,8 @@
 import { NextResponse } from 'next/server';
+import {
+  isEarlyAccessStorageConfigured,
+  saveInterestSignup,
+} from '@web/lib/earlyAccess.server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -6,12 +10,10 @@ export const dynamic = 'force-dynamic';
 /**
  * Early-access capture.
  *
- * Signups are forwarded to whatever collector is configured in
- * EARLY_ACCESS_WEBHOOK_URL (a form service, Slack hook, Airtable automation…).
- * Nothing is persisted here — the site keeps no database and stores no PII.
+ * Signups are stored in MongoDB by the website service. Email is normalized
+ * and uniquely indexed so retries never create duplicate contacts.
  */
 
-const WEBHOOK = process.env.EARLY_ACCESS_WEBHOOK_URL;
 const CONTACT_EMAIL = 'hello@lessgo.com';
 const MAX_BODY_BYTES = 2_000;
 const WINDOW_MS = 60_000;
@@ -75,11 +77,11 @@ export async function POST(req: Request) {
   }
 
   const normalized = email.trim().toLowerCase();
-  const origin = typeof source === 'string' ? source.slice(0, 40) : 'unknown';
+  const origin =
+    typeof source === 'string' && source.trim() ? source.trim().slice(0, 40) : 'unknown';
 
-  if (!WEBHOOK) {
-    // Fail loudly rather than pretending the signup was captured.
-    console.warn('[early-access] EARLY_ACCESS_WEBHOOK_URL is not set; signup not stored.');
+  if (!isEarlyAccessStorageConfigured()) {
+    console.warn('[early-access] MONGODB_URL is not set; signup not stored.');
     return NextResponse.json(
       {
         ok: false,
@@ -90,24 +92,17 @@ export async function POST(req: Request) {
   }
 
   try {
-    const upstream = await fetch(WEBHOOK, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: normalized,
-        source: origin,
-        submittedAt: new Date().toISOString(),
-      }),
-      signal: AbortSignal.timeout(8_000),
-    });
-
-    if (!upstream.ok) throw new Error(`Collector responded ${upstream.status}`);
+    await saveInterestSignup(normalized, origin);
   } catch (err) {
-    // Never log the address itself.
-    console.error('[early-access] forward failed:', (err as Error).message);
+    const mongoError = err as { name?: unknown; code?: unknown };
+    // Never log the address or a connection string.
+    console.error('[early-access] MongoDB write failed', {
+      name: typeof mongoError?.name === 'string' ? mongoError.name : 'UnknownError',
+      code: typeof mongoError?.code === 'number' ? mongoError.code : undefined,
+    });
     return NextResponse.json(
       { ok: false, message: `Could not save that just now. Try again, or email ${CONTACT_EMAIL}.` },
-      { status: 502 },
+      { status: 503 },
     );
   }
 
