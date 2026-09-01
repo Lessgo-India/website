@@ -5,7 +5,7 @@ import { PageHeader, Prose } from '@ui/PageHeader';
 
 // NOTE FOR THE TEAM: drafted to match what the product actually does. Have
 // qualified counsel review before the public launch.
-const LAST_UPDATED = '23 August 2026';
+const LAST_UPDATED = '1 September 2026';
 
 export const metadata: Metadata = {
   title: 'Terms of Use',
@@ -29,7 +29,8 @@ export default function TermsPage() {
             <h2>1. Accepting these terms</h2>
             <p>
               By using the Lessgo app or this website (together, the &ldquo;Service&rdquo;) you
-              agree to these Terms of Use. If you do not agree, please do not use the Service.
+              enter into an agreement with Lessgo India and agree to these Terms of Use. If you
+              do not agree, please do not use the Service.
             </p>
 
             <h2>2. Who can use Lessgo</h2>
@@ -45,7 +46,7 @@ export default function TermsPage() {
               Accounts are created and verified with your phone number and a one-time code. You
               are responsible for keeping access to that number secure and for activity that
               happens under your account. Tell us at{' '}
-              <a href="mailto:hello@lessgo.com">hello@lessgo.com</a> if you believe your account
+              <a href="mailto:hello@lessgo.in">hello@lessgo.in</a> if you believe your account
               has been compromised.
             </p>
 
@@ -64,6 +65,11 @@ export default function TermsPage() {
             <p>
               We may suspend or terminate accounts that breach these terms, and remove content
               that does.
+            </p>
+            <p>
+              If you add someone who is not on Lessgo to an event, you ask Lessgo to send that
+              person an event invitation SMS. Please invite only people you know and have a
+              legitimate reason to contact.
             </p>
 
             <h2>5. Your content</h2>
@@ -111,8 +117,10 @@ export default function TermsPage() {
             <h2>10. Ending your use</h2>
             <p>
               You can stop using Lessgo and delete your profile at any time from{' '}
-              <strong>Profile → Data &amp; Privacy → Delete Profile</strong>. We may suspend or
-              end your access if you breach these terms or if we are legally required to.
+              <strong>Profile → Danger Zone → Delete Profile</strong>. You can also submit a
+              request from any browser through our{' '}
+              <Link href="/delete-account">account deletion page</Link>. We may suspend or end
+              your access if you breach these terms or if we are legally required to.
             </p>
 
             <h2>11. Disclaimers</h2>
@@ -141,7 +149,7 @@ export default function TermsPage() {
 
             <h2>14. Contact</h2>
             <p>
-              Questions about these terms: <a href="mailto:hello@lessgo.com">hello@lessgo.com</a>.
+              Questions about these terms: <a href="mailto:hello@lessgo.in">hello@lessgo.in</a>.
               See also our <Link href="/privacy">Privacy Policy</Link>.
             </p>
           </Prose>

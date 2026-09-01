@@ -7,7 +7,7 @@ import { PageHeader } from '@ui/PageHeader';
 import { JsonLd, breadcrumbSchema } from '@ui/JsonLd';
 import { FinalCta } from '@ui/sections/FinalCta';
 
-const url = SITE_URL || 'https://lessgo.com';
+const url = SITE_URL || 'https://www.lessgo.in';
 
 export const metadata: Metadata = {
   title: 'What’s new',

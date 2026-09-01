@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { SITE_URL } from '@web/lib/config';
 
-const base = SITE_URL || 'https://lessgo.com';
+const base = SITE_URL || 'https://www.lessgo.in';
 
 export default function robots(): MetadataRoute.Robots {
   return {

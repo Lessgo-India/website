@@ -22,7 +22,7 @@ export function organizationSchema(siteUrl: string) {
     contactPoint: [
       {
         '@type': 'ContactPoint',
-        email: 'hello@lessgo.com',
+        email: 'hello@lessgo.in',
         contactType: 'customer support',
         areaServed: 'IN',
         availableLanguage: ['English'],

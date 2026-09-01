@@ -26,7 +26,7 @@ const mono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: SITE_URL ? new URL(SITE_URL) : new URL('https://lessgo.com'),
+  metadataBase: SITE_URL ? new URL(SITE_URL) : new URL('https://www.lessgo.in'),
   title: {
     default: 'Lessgo — Hangouts made easy',
     template: '%s · Lessgo',

@@ -14,7 +14,7 @@ import { ShareLoop } from '@ui/sections/ShareLoop';
 import { PrivacySection } from '@ui/sections/PrivacySection';
 import { FinalCta } from '@ui/sections/FinalCta';
 
-const url = SITE_URL || 'https://lessgo.com';
+const url = SITE_URL || 'https://www.lessgo.in';
 
 export const metadata: Metadata = {
   // Absolute so the layout's "%s · Lessgo" template doesn't repeat the brand.

@@ -245,7 +245,7 @@ export const faq = [
   },
   {
     q: 'How do I delete my account?',
-    a: 'Open Profile, then Data & Privacy, then Delete Profile. Your account and associated data are removed. You can also write to us and we will handle it.',
+    a: 'In the app, open Profile, scroll to Danger Zone and choose Delete Profile. If you no longer have the app, use the account deletion page on our website. We verify the request, remove your account data and review shared records for deletion or de-identification.',
   },
 ] as const;
 
@@ -353,7 +353,7 @@ export const footer = {
       links: [
         { label: 'Help & FAQ', href: '/help' },
         { label: 'Privacy at Lessgo', href: '/#privacy' },
-        { label: 'Contact us', href: 'mailto:hello@lessgo.com' },
+        { label: 'Contact us', href: 'mailto:hello@lessgo.in' },
       ],
     },
     {
@@ -361,6 +361,7 @@ export const footer = {
       links: [
         { label: 'Privacy Policy', href: '/privacy' },
         { label: 'Terms of Use', href: '/terms' },
+        { label: 'Delete account', href: '/delete-account' },
         { label: 'Grievance Officer', href: '/privacy#grievance' },
       ],
     },

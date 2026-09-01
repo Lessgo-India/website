@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
  * and uniquely indexed so retries never create duplicate contacts.
  */
 
-const CONTACT_EMAIL = 'hello@lessgo.com';
+const CONTACT_EMAIL = 'hello@lessgo.in';
 const MAX_BODY_BYTES = 2_000;
 const WINDOW_MS = 60_000;
 const MAX_PER_WINDOW = 5;

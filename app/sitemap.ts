@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { SITE_URL } from '@web/lib/config';
 
-const base = SITE_URL || 'https://lessgo.com';
+const base = SITE_URL || 'https://www.lessgo.in';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
@@ -14,6 +14,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/whats-new', priority: 0.5, changeFrequency: 'weekly' },
     { path: '/privacy', priority: 0.4, changeFrequency: 'monthly' },
     { path: '/terms', priority: 0.4, changeFrequency: 'monthly' },
+    { path: '/delete-account', priority: 0.4, changeFrequency: 'monthly' },
   ];
 
   return routes.map((route) => ({

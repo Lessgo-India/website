@@ -10,7 +10,7 @@ import { JsonLd, appSchema, breadcrumbSchema } from '@ui/JsonLd';
 import { PhoneFrame } from '@ui/phone/PhoneFrame';
 import { EventDetailScreen } from '@ui/phone/screens';
 
-const url = SITE_URL || 'https://lessgo.com';
+const url = SITE_URL || 'https://www.lessgo.in';
 
 export const metadata: Metadata = {
   title: 'Get Lessgo — early access',

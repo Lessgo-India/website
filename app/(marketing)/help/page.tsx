@@ -9,7 +9,7 @@ import { PageHeader } from '@ui/PageHeader';
 import { Faq } from '@ui/Faq';
 import { JsonLd, breadcrumbSchema, faqSchema } from '@ui/JsonLd';
 
-const url = SITE_URL || 'https://lessgo.com';
+const url = SITE_URL || 'https://www.lessgo.in';
 
 export const metadata: Metadata = {
   title: 'Help & FAQ',
@@ -23,22 +23,22 @@ const CHANNELS = [
     icon: Mail,
     title: 'Email us',
     body: 'Questions, feedback, or something that went sideways. We read everything.',
-    action: 'hello@lessgo.com',
-    href: 'mailto:hello@lessgo.com',
+    action: 'hello@lessgo.in',
+    href: 'mailto:hello@lessgo.in',
   },
   {
     icon: Bug,
     title: 'Report a bug',
     body: 'There is a built-in bug reporter under Profile → Support in the app.',
-    action: 'bugs@lessgo.com',
-    href: 'mailto:bugs@lessgo.com',
+    action: 'bugs@lessgo.in',
+    href: 'mailto:bugs@lessgo.in',
   },
   {
     icon: ShieldCheck,
     title: 'Privacy requests',
     body: 'Access, correct or delete your data, or withdraw consent.',
-    action: 'Grievance Officer',
-    href: '/privacy#grievance',
+    action: 'Manage your data',
+    href: '/delete-account',
   },
 ];
 

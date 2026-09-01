@@ -8,7 +8,7 @@ import { JsonLd, breadcrumbSchema } from '@ui/JsonLd';
 import { FeatureRows } from '@ui/sections/FeatureRows';
 import { FinalCta } from '@ui/sections/FinalCta';
 
-const url = SITE_URL || 'https://lessgo.com';
+const url = SITE_URL || 'https://www.lessgo.in';
 
 export const metadata: Metadata = {
   title: 'Features — plan, RSVP, split and settle',
