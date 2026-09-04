@@ -35,9 +35,9 @@ const DOMAINS: Record<
   },
 };
 
-export function FeatureRows() {
+export function FeatureRows({ id = 'features' }: { id?: string }) {
   return (
-    <div id="features" className="relative">
+    <div id={id} className="relative">
       {features.map((feature, i) => {
         const domain = DOMAINS[feature.domain];
         const Screen = domain.screen;

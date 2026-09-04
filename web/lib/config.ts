@@ -9,9 +9,7 @@ export const BACKEND_API = trimSlashes(process.env.NEXT_PUBLIC_BACKEND_API ?? ''
 export const SITE_URL = trimSlashes(process.env.NEXT_PUBLIC_SITE_URL ?? '');
 export const SITE_NAME = 'Lessgo';
 
-export const ANDROID_APP_URL =
-  process.env.NEXT_PUBLIC_ANDROID_APP_URL ||
-  'https://play.google.com/store/apps/details?id=com.lessgo.india';
+export const ANDROID_APP_URL = process.env.NEXT_PUBLIC_ANDROID_APP_URL || '';
 export const IOS_APP_URL = process.env.NEXT_PUBLIC_IOS_APP_URL || '';
 
 export const firebaseConfig = {

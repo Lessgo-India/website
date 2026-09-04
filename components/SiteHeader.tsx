@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import { nav } from '@content/site';
@@ -9,6 +10,8 @@ import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
 
 export function SiteHeader() {
+  const pathname = usePathname();
+  const isHome = pathname === '/';
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -35,8 +38,14 @@ export function SiteHeader() {
 
   return (
     <header
-      className={`sticky top-0 z-50 transition-colors duration-300 ${
-        scrolled ? 'border-b border-line glass' : 'border-b border-transparent'
+      className={`z-50 transition-colors duration-300 ${
+        isHome
+          ? `sticky top-0 md:absolute md:inset-x-0 md:top-0 ${
+              scrolled
+                ? 'border-b border-line bg-[var(--glass)] backdrop-blur-xl md:border-transparent md:bg-transparent md:backdrop-blur-none'
+                : 'border-b border-transparent bg-transparent'
+            }`
+          : `sticky top-0 ${scrolled ? 'border-b border-line glass' : 'border-b border-transparent'}`
       }`}
     >
       <div className="container-page flex h-[72px] items-center justify-between gap-4">

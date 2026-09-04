@@ -34,6 +34,26 @@ export const hero = {
   trust: ['Free to start', 'No ads', 'Contacts stay private', 'Made in India'],
 } as const;
 
+export const productStory = {
+  intro: {
+    eyebrow: 'The social planning app · Early access in India',
+    title: 'Lessgo',
+    headline: 'Make the plan. Live the night.',
+    body: 'One place to turn the first “we should do something” into an invite, an RSVP, a shared bill, and a memory worth keeping.',
+    primaryCta: 'Get early access',
+    secondaryCta: 'Explore the app',
+    trust: ['Plan together', 'RSVP in a tap', 'Split fairly', 'Friends only'],
+  },
+  tour: {
+    eyebrow: 'Inside Lessgo',
+    title: 'One phone. Every part of the plan.',
+    lead: 'The group chat can keep the jokes. Lessgo keeps the plan.',
+    body: 'Keep scrolling. The phone stays put while Lessgo moves from the first invite to the final settlement — with a different space, rhythm, and colour for every part of the night.',
+    progressLabel: 'Lessgo product tour',
+    chapterLabel: 'Chapter',
+  },
+} as const;
+
 /** Event types the app supports, used in the marquee. */
 export const eventTypes = [
   { emoji: '👋', label: 'Hangout' },

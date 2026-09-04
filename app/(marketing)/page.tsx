@@ -9,6 +9,7 @@ import { Hero } from '@ui/sections/Hero';
 import { EventTypeMarquee } from '@ui/sections/EventTypeMarquee';
 import { ChaosToPlan } from '@ui/sections/ChaosToPlan';
 import { FeatureRows } from '@ui/sections/FeatureRows';
+import { ProductStory } from '@ui/sections/ProductStory';
 import { HowItWorks } from '@ui/sections/HowItWorks';
 import { ShareLoop } from '@ui/sections/ShareLoop';
 import { PrivacySection } from '@ui/sections/PrivacySection';
@@ -31,10 +32,15 @@ export default function HomePage() {
       <JsonLd data={appSchema(url)} />
       <JsonLd data={faqSchema()} />
 
-      <Hero />
-      <EventTypeMarquee />
-      <ChaosToPlan />
-      <FeatureRows />
+      <div className="md:hidden">
+        <Hero />
+        <EventTypeMarquee />
+        <ChaosToPlan />
+        <FeatureRows id="mobile-features" />
+      </div>
+      <div className="hidden md:block">
+        <ProductStory />
+      </div>
       <HowItWorks />
       <ShareLoop />
       <PrivacySection />

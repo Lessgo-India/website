@@ -11,15 +11,19 @@ export function PhoneFrame({
   className = '',
   glow,
   float = false,
+  size = 'default',
+  decorative = true,
 }: {
   children: ReactNode;
   className?: string;
   /** Accent colour for the ambient glow behind the device. */
   glow?: string;
   float?: boolean;
+  size?: 'default' | 'hero';
+  decorative?: boolean;
 }) {
   return (
-    <div aria-hidden="true" className={`relative ${className}`}>
+    <div aria-hidden={decorative || undefined} className={`relative ${className}`}>
       {glow ? (
         <div
           className="absolute inset-0 -z-10 translate-y-8 scale-90 rounded-[999px] blur-[70px]"
@@ -29,7 +33,8 @@ export function PhoneFrame({
 
       <div
         className={[
-          'relative mx-auto w-full max-w-[300px] rounded-[46px] p-[10px] shadow-phone',
+          'relative mx-auto w-full rounded-[46px] p-[10px] shadow-phone',
+          size === 'hero' ? 'max-w-[390px]' : 'max-w-[300px]',
           'bg-gradient-to-b from-[#3a3550] to-[#16132c]',
           float ? 'animate-float' : '',
         ]

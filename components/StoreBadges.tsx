@@ -1,4 +1,5 @@
-import { Apple, Smartphone } from 'lucide-react';
+import Image from 'next/image';
+import { Apple, Play } from 'lucide-react';
 import { site } from '@content/site';
 import { ANDROID_APP_URL, IOS_APP_URL } from '@web/lib/config';
 
@@ -10,19 +11,22 @@ import { ANDROID_APP_URL, IOS_APP_URL } from '@web/lib/config';
 export function StoreBadges({ className = '' }: { className?: string }) {
   if (!site.storesLive) {
     return (
-      <div className={`flex flex-wrap items-center gap-3 ${className}`}>
+      <div className={`flex flex-wrap items-center gap-3 ${className}`} aria-label="App store releases coming soon">
         {[
-          { icon: Smartphone, label: 'Android', status: 'In early access' },
-          { icon: Apple, label: 'iOS', status: 'Coming next' },
-        ].map(({ icon: Icon, label, status }) => (
+          { icon: Apple, name: 'App Store' },
+          { icon: Play, name: 'Google Play' },
+        ].map(({ icon: Icon, name }) => (
           <div
-            key={label}
-            className="inline-flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3"
+            key={name}
+            role="status"
+            aria-label={`${name} download coming soon`}
+            title="Coming soon"
+            className="inline-flex h-16 min-w-[164px] items-center gap-3 rounded-[10px] border border-[#a6a6a6] bg-black px-4 text-white"
           >
-            <Icon className="h-5 w-5 text-ink-muted" aria-hidden="true" />
+            <Icon className="h-7 w-7 shrink-0" strokeWidth={2} aria-hidden="true" />
             <span className="leading-tight">
-              <span className="block text-sm font-semibold text-ink">{label}</span>
-              <span className="block text-xs text-ink-faint">{status}</span>
+              <span className="block text-[0.58rem] font-medium uppercase text-white/75">Coming soon on</span>
+              <span className="mt-0.5 block text-base font-semibold text-white">{name}</span>
             </span>
           </div>
         ))}
@@ -31,27 +35,34 @@ export function StoreBadges({ className = '' }: { className?: string }) {
   }
 
   const stores = [
-    { href: ANDROID_APP_URL, icon: Smartphone, top: 'Get it on', name: 'Google Play' },
-    { href: IOS_APP_URL, icon: Apple, top: 'Download on the', name: 'App Store' },
-  ].filter((s) => Boolean(s.href));
+    {
+      href: IOS_APP_URL,
+      src: '/store-badges/download-on-the-app-store.svg',
+      alt: 'Download on the App Store',
+      width: 144,
+      height: 48,
+    },
+    {
+      href: ANDROID_APP_URL,
+      src: '/store-badges/get-it-on-google-play.png',
+      alt: 'Get it on Google Play',
+      width: 162,
+      height: 63,
+    },
+  ].filter((store) => Boolean(store.href));
 
   return (
-    <div className={`flex flex-wrap items-center gap-3 ${className}`}>
-      {stores.map(({ href, icon: Icon, top, name }) => (
+    <div className={`flex flex-wrap items-center gap-2 ${className}`}>
+      {stores.map(({ href, src, alt, width, height }) => (
         <a
-          key={name}
+          key={alt}
           href={href}
+          aria-label={alt}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-3 rounded-2xl border border-line bg-surface px-5 py-3 transition-transform duration-200 ease-spring hover:-translate-y-px hover:shadow-soft"
+          className="inline-flex min-h-16 items-center justify-center p-2"
         >
-          <Icon className="h-6 w-6 text-ink" aria-hidden="true" />
-          <span className="leading-tight">
-            <span className="block text-[0.65rem] uppercase tracking-wide text-ink-faint">
-              {top}
-            </span>
-            <span className="block text-sm font-bold text-ink">{name}</span>
-          </span>
+          <Image src={src} alt={alt} width={width} height={height} className="h-auto" />
         </a>
       ))}
     </div>

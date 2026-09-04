@@ -40,8 +40,9 @@ export function SiteFooter() {
             © {new Date().getFullYear()} {site.name}. All rights reserved.
           </p>
           <p>
-            Google Play and the Google Play logo are trademarks of Google LLC. App Store is a
-            trademark of Apple Inc.
+            Google Play and the Google Play logo are trademarks of Google LLC. Apple and the Apple
+            logo are trademarks of Apple Inc., registered in the U.S. and other countries and
+            regions. App Store is a service mark of Apple Inc.
           </p>
         </div>
       </Container>
