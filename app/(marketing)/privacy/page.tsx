@@ -6,7 +6,7 @@ import { PageHeader, Prose } from '@ui/PageHeader';
 // NOTE FOR THE TEAM: this policy is drafted to reflect what the product
 // actually does. Have qualified counsel review it, and confirm the Grievance
 // Officer details below, before the public launch.
-const LAST_UPDATED = '23 August 2026';
+const LAST_UPDATED = '4 September 2026';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -86,6 +86,13 @@ export default function PrivacyPage() {
                 <strong>Device and notification tokens,</strong> so we can deliver push alerts
                 you have asked for.
               </li>
+              <li>
+                <strong>App analytics,</strong> only if you agree. Google Firebase records
+                privacy-safe screen visits, basic app and device usage, and one-time activation
+                milestones so we can understand aggregate product usage. We do not include your
+                phone number, contacts, messages or event content, and you can withdraw consent
+                in General Settings.
+              </li>
             </ul>
 
             <h2>Why we use it</h2>
@@ -108,7 +115,8 @@ export default function PrivacyPage() {
             </p>
             <ul>
               <li>
-                <strong>Google Firebase</strong> — phone verification and authentication.
+                <strong>Google Firebase</strong> — phone verification and authentication, plus
+                aggregate app analytics only where you have consented.
               </li>
               <li>
                 <strong>Amazon Web Services and Microsoft Azure</strong> — storage for images,
