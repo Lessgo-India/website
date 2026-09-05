@@ -6,7 +6,7 @@ import { PageHeader, Prose } from '@ui/PageHeader';
 // NOTE FOR THE TEAM: this policy is drafted to reflect what the product
 // actually does. Have qualified counsel review it, and confirm the Grievance
 // Officer details below, before the public launch.
-const LAST_UPDATED = '4 September 2026';
+const LAST_UPDATED = '5 September 2026';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -87,11 +87,11 @@ export default function PrivacyPage() {
                 you have asked for.
               </li>
               <li>
-                <strong>App analytics,</strong> only if you agree. Google Firebase records
-                privacy-safe screen visits, basic app and device usage, and one-time activation
-                milestones so we can understand aggregate product usage. We do not include your
-                phone number, contacts, messages or event content, and you can withdraw consent
-                in General Settings.
+                <strong>App analytics.</strong> Google Firebase records privacy-safe screen visits,
+                basic app and device usage, and one-time activation milestones so we can
+                understand aggregate product usage. This is enabled by default. We do not include
+                your phone number, contacts, messages or event content, and you can turn analytics
+                off at any time under <strong>Profile → General Settings → Permissions</strong>.
               </li>
             </ul>
 
@@ -101,7 +101,9 @@ export default function PrivacyPage() {
               <li>To deliver the service — events, RSVPs, groups, expenses and sharing.</li>
               <li>To send notifications you have opted into.</li>
               <li>To keep Lessgo safe, prevent abuse and debug problems.</li>
-              <li>To understand aggregate product usage, where you have consented.</li>
+              <li>
+                To understand aggregate app usage. You can disable app analytics at any time.
+              </li>
             </ul>
             <p>
               We do not sell your personal data. We do not run advertising, and we do not share
@@ -116,7 +118,7 @@ export default function PrivacyPage() {
             <ul>
               <li>
                 <strong>Google Firebase</strong> — phone verification and authentication, plus
-                aggregate app analytics only where you have consented.
+                aggregate app analytics unless you disable it in General Settings.
               </li>
               <li>
                 <strong>Amazon Web Services and Microsoft Azure</strong> — storage for images,
@@ -152,7 +154,10 @@ export default function PrivacyPage() {
               <li>Access a summary of the personal data we hold about you.</li>
               <li>Correct or complete data that is inaccurate.</li>
               <li>Erase your data, including by deleting your profile in the app.</li>
-              <li>Withdraw consent you previously gave, including for analytics.</li>
+              <li>
+                Withdraw consent you previously gave, including for website analytics, or disable
+                app analytics in General Settings.
+              </li>
               <li>Nominate another person to exercise these rights on your behalf.</li>
               <li>Raise a grievance with us, and escalate to the Data Protection Board of India.</li>
             </ul>
