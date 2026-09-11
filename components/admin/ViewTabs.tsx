@@ -31,7 +31,7 @@ export default function ViewTabs({
   };
 
   return (
-    <div role="tablist" aria-label="Dashboard view" className="flex gap-1 border-b border-line">
+    <div role="tablist" aria-label="Dashboard view" className="flex border-b border-line">
       {tabs.map((tab, index) => {
         const selected = tab.id === value;
         return (
@@ -62,7 +62,7 @@ export default function ViewTabs({
                 move(tabs.length - 1, 0);
               }
             }}
-            className={`-mb-px min-h-[44px] border-b-2 px-4 text-sm font-semibold transition-colors ${
+            className={`-mb-px min-h-[44px] min-w-0 flex-1 border-b-2 px-2 text-xs font-semibold transition-colors sm:px-4 sm:text-sm ${
               selected
                 ? 'border-profile text-ink'
                 : 'border-transparent text-ink-muted hover:text-ink'

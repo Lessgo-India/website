@@ -1,18 +1,25 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import Image from 'next/image';
-import { LogOut, RefreshCw } from 'lucide-react';
-import { ThemeToggle } from '@ui/ThemeToggle';
-import AllTimeCard from '@ui/admin/AllTimeCard';
-import DomainSection, { type Metric } from '@ui/admin/DomainSection';
-import HealthRail from '@ui/admin/HealthRail';
-import StatCard from '@ui/admin/StatCard';
-import TotalsCard from '@ui/admin/TotalsCard';
-import TrendGrid, { type Trend } from '@ui/admin/TrendGrid';
-import ViewTabs from '@ui/admin/ViewTabs';
-import WindowPicker from '@ui/admin/WindowPicker';
-import { getAdminHealth, getAdminStats, getAdminTrends, adminLogout, type AdminStats } from '@web/lib/adminApi';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import { LogOut, RefreshCw } from "lucide-react";
+import { ThemeToggle } from "@ui/ThemeToggle";
+import AllTimeCard from "@ui/admin/AllTimeCard";
+import BugHouse from "@ui/admin/BugHouse";
+import DomainSection, { type Metric } from "@ui/admin/DomainSection";
+import HealthRail from "@ui/admin/HealthRail";
+import StatCard from "@ui/admin/StatCard";
+import TotalsCard from "@ui/admin/TotalsCard";
+import TrendGrid, { type Trend } from "@ui/admin/TrendGrid";
+import ViewTabs from "@ui/admin/ViewTabs";
+import WindowPicker from "@ui/admin/WindowPicker";
+import {
+  getAdminHealth,
+  getAdminStats,
+  getAdminTrends,
+  adminLogout,
+  type AdminStats,
+} from "@web/lib/adminApi";
 import {
   formatAgo,
   formatCount,
@@ -22,25 +29,26 @@ import {
   formatRatio,
   rollingWindow,
   type WindowDays,
-} from '@web/lib/adminFormat';
-import { usePoll } from '@web/lib/useAdminPoll';
+} from "@web/lib/adminFormat";
+import { usePoll } from "@web/lib/useAdminPoll";
 
 const HEALTH_INTERVAL_MS = 30_000;
 const STATS_INTERVAL_MS = 120_000;
 const TREND_DAYS = 30;
-const WINDOW_STORAGE_KEY = 'lessgo.admin.window';
-const VIEW_STORAGE_KEY = 'lessgo.admin.view';
+const WINDOW_STORAGE_KEY = "lessgo.admin.window";
+const VIEW_STORAGE_KEY = "lessgo.admin.view";
 
 const VIEWS = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'all-time', label: 'All time' },
+  { id: "overview", label: "Overview" },
+  { id: "all-time", label: "All time" },
+  { id: "bugs", label: "Bug House" },
 ] as const;
 
-type ViewId = (typeof VIEWS)[number]['id'];
+type ViewId = (typeof VIEWS)[number]["id"];
 
 export default function AdminDashboard() {
   const [days, setDays] = useState<WindowDays>(7);
-  const [view, setView] = useState<ViewId>('overview');
+  const [view, setView] = useState<ViewId>("overview");
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -48,7 +56,8 @@ export default function AdminDashboard() {
     if ([1, 7, 15, 30].includes(stored)) setDays(stored as WindowDays);
 
     const storedView = window.localStorage.getItem(VIEW_STORAGE_KEY);
-    if (VIEWS.some((option) => option.id === storedView)) setView(storedView as ViewId);
+    if (VIEWS.some((option) => option.id === storedView))
+      setView(storedView as ViewId);
   }, []);
 
   useEffect(() => {
@@ -69,7 +78,7 @@ export default function AdminDashboard() {
   const health = usePoll(
     useCallback(() => getAdminHealth(), []),
     HEALTH_INTERVAL_MS,
-    'health',
+    "health",
   );
 
   // Recomputing the window per fetch keeps a long-open tab's "last 7 days"
@@ -83,7 +92,7 @@ export default function AdminDashboard() {
   const trends = usePoll(
     useCallback(() => getAdminTrends(TREND_DAYS), []),
     STATS_INTERVAL_MS * 5,
-    'trends',
+    "trends",
   );
 
   const windowLabel = `${days}d`;
@@ -94,42 +103,45 @@ export default function AdminDashboard() {
     const r = data?.ratios;
     return [
       {
-        label: 'Guests per event',
+        label: "Guests per event",
         value: formatRatio(r?.guestsPerEvent),
-        definition: 'Average size of an event guest list, across every event.',
-        accent: 'text-events',
+        definition: "Average size of an event guest list, across every event.",
+        accent: "text-events",
       },
       {
-        label: 'Invite → signup',
+        label: "Invite → signup",
         value: formatPercent(r?.signupRate),
-        definition: 'People with a profile, as a share of everyone in the contacts graph.',
+        definition:
+          "People with a profile, as a share of everyone in the contacts graph.",
         series: series.map((p) => (p.users ? (p.profiles ?? 0) / p.users : 0)),
-        accent: 'text-profile',
+        accent: "text-profile",
       },
       {
-        label: 'Events with expenses',
+        label: "Events with expenses",
         value: formatPercent(r?.expenseAttachRate),
-        definition: 'Events that have at least one expense recorded against them.',
-        accent: 'text-split',
+        definition:
+          "Events that have at least one expense recorded against them.",
+        accent: "text-split",
       },
       {
-        label: 'Buzz → confirmed',
+        label: "Buzz → confirmed",
         value: formatPercent(r?.buzzConversion),
-        definition: 'Confirmed Buzz as a share of those that resolved (confirmed + expired).',
-        accent: 'text-groups',
+        definition:
+          "Confirmed Buzz as a share of those that resolved (confirmed + expired).",
+        accent: "text-groups",
       },
       {
-        label: 'Members per group',
+        label: "Members per group",
         value: formatRatio(r?.membersPerGroup),
-        definition: 'Average member count across every group.',
-        accent: 'text-groups',
+        definition: "Average member count across every group.",
+        accent: "text-groups",
       },
       {
-        label: 'Average expense',
+        label: "Average expense",
         value: formatMoney(r?.avgExpenseValue),
         title: formatMoneyExact(r?.avgExpenseValue),
-        definition: 'Total expense value divided by the number of expenses.',
-        accent: 'text-split',
+        definition: "Total expense value divided by the number of expenses.",
+        accent: "text-split",
       },
     ];
   }, [data, series]);
@@ -161,26 +173,34 @@ export default function AdminDashboard() {
             Admin<span className="text-gradient"> · </span>Operations
           </h1>
           <p className="text-xs text-ink-muted">
-            {data ? `Counts updated ${formatAgo(data.generatedAt, now)}` : 'Loading counts…'} · health
-            refreshes every 30s
+            {data
+              ? `Counts updated ${formatAgo(data.generatedAt, now)}`
+              : "Loading counts…"}{" "}
+            · health refreshes every 30s
           </p>
         </div>
 
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-          {view === 'overview' ? (
-            <WindowPicker value={days} onChange={chooseWindow} disabled={stats.loading && !data} />
-          ) : null}
-          <button
-            type="button"
-            onClick={refreshAll}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line text-ink-muted transition-colors hover:bg-surface-2"
-          >
-            <span className="sr-only">Refresh now</span>
-            <RefreshCw
-              className={`h-4 w-4 ${stats.loading || health.loading ? 'animate-spin' : ''}`}
-              aria-hidden="true"
+          {view === "overview" ? (
+            <WindowPicker
+              value={days}
+              onChange={chooseWindow}
+              disabled={stats.loading && !data}
             />
-          </button>
+          ) : null}
+          {view !== "bugs" ? (
+            <button
+              type="button"
+              onClick={refreshAll}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line text-ink-muted transition-colors hover:bg-surface-2"
+            >
+              <span className="sr-only">Refresh now</span>
+              <RefreshCw
+                className={`h-4 w-4 ${stats.loading || health.loading ? "animate-spin" : ""}`}
+                aria-hidden="true"
+              />
+            </button>
+          ) : null}
           <ThemeToggle />
           <button
             type="button"
@@ -194,13 +214,23 @@ export default function AdminDashboard() {
       </header>
 
       <div className="mt-6 space-y-4">
-        <TotalsCard data={data} />
+        {view !== "bugs" ? <TotalsCard data={data} /> : null}
         <ViewTabs tabs={VIEWS} value={view} onChange={chooseView} />
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <BugHouse active={view === "bugs"} />
+
+      <div
+        className={`mt-6 gap-6 lg:grid-cols-[280px_minmax(0,1fr)] ${
+          view === "bugs" ? "hidden" : "grid"
+        }`}
+      >
         <div className="lg:sticky lg:top-6 lg:self-start">
-          <HealthRail health={health.data} loading={health.loading} error={health.error} />
+          <HealthRail
+            health={health.data}
+            loading={health.loading}
+            error={health.error}
+          />
         </div>
 
         <div className="min-w-0 space-y-6">
@@ -218,7 +248,7 @@ export default function AdminDashboard() {
             role="tabpanel"
             id="all-time-panel"
             aria-labelledby="all-time-tab"
-            hidden={view !== 'all-time'}
+            hidden={view !== "all-time"}
             className="space-y-6"
           >
             <AllTimeCard data={data} series={series} />
@@ -235,14 +265,16 @@ export default function AdminDashboard() {
             role="tabpanel"
             id="overview-panel"
             aria-labelledby="overview-tab"
-            hidden={view !== 'overview'}
+            hidden={view !== "overview"}
             className="space-y-4"
           >
             <div>
-              <h2 className="font-display text-lg font-bold text-ink">Last {windowLabel}</h2>
+              <h2 className="font-display text-lg font-bold text-ink">
+                Last {windowLabel}
+              </h2>
               <p className="mt-1 text-sm text-ink-muted">
-                A rolling window ending now. Everything on this tab moves with the picker; the
-                lifetime breakdown is in the All time tab.
+                A rolling window ending now. Everything on this tab moves with
+                the picker; the lifetime breakdown is in the All time tab.
               </p>
             </div>
 
@@ -333,7 +365,10 @@ type Stats = AdminStats | null;
  * "right now" states that are genuinely current rather than cumulative.
  * Lifetime totals belong to `AllTimeCard`.
  */
-function previousHint(previous: number | undefined, windowLabel: string): string {
+function previousHint(
+  previous: number | undefined,
+  windowLabel: string,
+): string {
   return `${formatCount(previous)} in the previous ${windowLabel}`;
 }
 
@@ -345,9 +380,21 @@ function eventMetrics(data: Stats, windowLabel: string): Metric[] {
       value: formatCount(e?.created),
       hint: previousHint(e?.createdPrev, windowLabel),
     },
-    { label: 'Live now', value: formatCount(e?.live), hint: 'Started, not yet ended' },
-    { label: 'Coming up', value: formatCount(e?.upcoming), hint: 'Starts in the future' },
-    { label: 'Wrapped', value: formatCount(e?.wrapped), hint: 'Ended within the last 30 days' },
+    {
+      label: "Live now",
+      value: formatCount(e?.live),
+      hint: "Started, not yet ended",
+    },
+    {
+      label: "Coming up",
+      value: formatCount(e?.upcoming),
+      hint: "Starts in the future",
+    },
+    {
+      label: "Wrapped",
+      value: formatCount(e?.wrapped),
+      hint: "Ended within the last 30 days",
+    },
   ];
 }
 
@@ -364,7 +411,11 @@ function groupMetrics(data: Stats, windowLabel: string): Metric[] {
       value: formatCount(g?.buzzCreated),
       hint: previousHint(g?.buzzCreatedPrev, windowLabel),
     },
-    { label: 'Buzz open now', value: formatCount(g?.buzzOpen), hint: 'Still gathering interest' },
+    {
+      label: "Buzz open now",
+      value: formatCount(g?.buzzOpen),
+      hint: "Still gathering interest",
+    },
   ];
 }
 
@@ -404,8 +455,18 @@ function peopleMetrics(data: Stats, windowLabel: string): Metric[] {
       value: formatCount(v?.created),
       hint: previousHint(v?.createdPrev, windowLabel),
     },
-    { label: 'Vibes live now', value: formatCount(v?.active), hint: 'Not yet expired' },
-    { label: `Documents in ${windowLabel}`, value: formatCount(f?.documentsCreated) },
-    { label: `Gallery photos in ${windowLabel}`, value: formatCount(f?.photosCreated) },
+    {
+      label: "Vibes live now",
+      value: formatCount(v?.active),
+      hint: "Not yet expired",
+    },
+    {
+      label: `Documents in ${windowLabel}`,
+      value: formatCount(f?.documentsCreated),
+    },
+    {
+      label: `Gallery photos in ${windowLabel}`,
+      value: formatCount(f?.photosCreated),
+    },
   ];
 }

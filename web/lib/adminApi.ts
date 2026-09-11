@@ -1,4 +1,4 @@
-import { ApiError } from './api';
+import { ApiError } from "./api";
 
 /**
  * Client for the admin dashboard.
@@ -9,26 +9,45 @@ import { ApiError } from './api';
  * steal.
  */
 
-async function adminRequest<T>(path: string): Promise<T> {
+async function adminRequest<T>(
+  path: string,
+  options: { method?: "GET" | "PATCH" | "DELETE"; body?: unknown } = {},
+): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`/api/admin${path}`, {
-      headers: { Accept: 'application/json' },
-      credentials: 'same-origin',
-      cache: 'no-store',
+      method: options.method ?? "GET",
+      headers: {
+        Accept: "application/json",
+        ...(options.body === undefined
+          ? {}
+          : { "Content-Type": "application/json" }),
+      },
+      body:
+        options.body === undefined ? undefined : JSON.stringify(options.body),
+      credentials: "same-origin",
+      cache: "no-store",
     });
   } catch {
-    throw new ApiError('Network error. Check your connection and try again.', 0);
+    throw new ApiError(
+      "Network error. Check your connection and try again.",
+      0,
+    );
   }
 
-  const body = (await res.json().catch(() => null)) as { message?: string } | null;
+  const body = (await res.json().catch(() => null)) as {
+    message?: string;
+  } | null;
   if (!res.ok) {
-    throw new ApiError(body?.message ?? `Request failed (${res.status})`, res.status);
+    throw new ApiError(
+      body?.message ?? `Request failed (${res.status})`,
+      res.status,
+    );
   }
   return body as T;
 }
 
-export type ServiceStatus = 'ok' | 'degraded' | 'down' | 'unconfigured';
+export type ServiceStatus = "ok" | "degraded" | "down" | "unconfigured";
 
 export interface ServiceHealth {
   name: string;
@@ -143,15 +162,30 @@ export interface TrendPoint {
   statuses?: number;
 }
 
+export interface AdminBug {
+  id: string;
+  title: string;
+  description: string;
+  screen: string | null;
+  logs: string;
+  userName: string | null;
+  userId: string | null;
+  done: boolean;
+  createdAt: string;
+}
+
 export function getAdminSession(): Promise<AdminSession> {
-  return adminRequest<AdminSession>('/session');
+  return adminRequest<AdminSession>("/session");
 }
 
 export function getAdminHealth(): Promise<HealthSnapshot> {
-  return adminRequest<HealthSnapshot>('/gateway/health');
+  return adminRequest<HealthSnapshot>("/gateway/health");
 }
 
-export function getAdminStats(window: { from: Date; to: Date }): Promise<AdminStats> {
+export function getAdminStats(window: {
+  from: Date;
+  to: Date;
+}): Promise<AdminStats> {
   const query = new URLSearchParams({
     from: window.from.toISOString(),
     to: window.to.toISOString(),
@@ -159,26 +193,51 @@ export function getAdminStats(window: { from: Date; to: Date }): Promise<AdminSt
   return adminRequest<AdminStats>(`/gateway/stats?${query}`);
 }
 
-export function getAdminTrends(days: number): Promise<{ series: TrendPoint[] }> {
+export function getAdminTrends(
+  days: number,
+): Promise<{ series: TrendPoint[] }> {
   return adminRequest<{ series: TrendPoint[] }>(`/gateway/trends?days=${days}`);
 }
 
-export async function adminLogin(phone: string, credential: string): Promise<void> {
-  const res = await fetch('/api/admin/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
+export function getAdminBugs(): Promise<AdminBug[]> {
+  return adminRequest<AdminBug[]>("/gateway/bugs");
+}
+
+export function setAdminBugDone(id: string, done: boolean): Promise<AdminBug> {
+  return adminRequest<AdminBug>(`/gateway/bugs/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: { done },
+  });
+}
+
+export function deleteAdminDoneBugs(): Promise<{ deleted: number }> {
+  return adminRequest<{ deleted: number }>("/gateway/bugs/done", {
+    method: "DELETE",
+  });
+}
+
+export async function adminLogin(
+  phone: string,
+  credential: string,
+): Promise<void> {
+  const res = await fetch("/api/admin/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
     body: JSON.stringify({ phone, credential }),
   });
 
   if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { message?: string } | null;
-    throw new ApiError(body?.message ?? 'Sign-in failed.', res.status);
+    const body = (await res.json().catch(() => null)) as {
+      message?: string;
+    } | null;
+    throw new ApiError(body?.message ?? "Sign-in failed.", res.status);
   }
 }
 
 export async function adminLogout(): Promise<void> {
-  await fetch('/api/admin/logout', { method: 'POST', credentials: 'same-origin' }).catch(
-    () => undefined,
-  );
+  await fetch("/api/admin/logout", {
+    method: "POST",
+    credentials: "same-origin",
+  }).catch(() => undefined);
 }

@@ -1,30 +1,97 @@
-import { NextResponse } from 'next/server';
-import { callGateway, readSession } from '@web/lib/adminGateway.server';
+import { NextResponse } from "next/server";
+import { callGateway, readSession } from "@web/lib/adminGateway.server";
 
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-/** Read-only pass-through to the gateway's `/admin/*` API. GET only, by design. */
-export async function GET(req: Request, { params }: { params: Promise<{ path: string[] }> }) {
+type RouteContext = { params: Promise<{ path: string[] }> };
+
+async function readAdminRequest(req: Request, { params }: RouteContext) {
   const session = readSession(req);
   if (!session) {
-    return NextResponse.json(
-      { message: 'Your session has expired. Please sign in again.' },
-      { status: 401, headers: { 'Cache-Control': 'no-store' } },
-    );
+    return {
+      response: NextResponse.json(
+        { message: "Your session has expired. Please sign in again." },
+        { status: 401, headers: { "Cache-Control": "no-store" } },
+      ),
+    };
   }
 
   const { path } = await params;
-  const segments = (path ?? []).filter((segment) => /^[a-z0-9-]+$/i.test(segment));
-  if (segments.length === 0) {
-    return NextResponse.json({ message: 'Unknown admin endpoint.' }, { status: 404 });
+  const segments = path ?? [];
+  if (
+    segments.length === 0 ||
+    segments.some((segment) => !/^[a-z0-9-]+$/i.test(segment))
+  ) {
+    return {
+      response: NextResponse.json(
+        { message: "Unknown admin endpoint." },
+        { status: 404 },
+      ),
+    };
   }
 
+  return { session, segments };
+}
+
+function reply(status: number, body: unknown) {
+  return NextResponse.json(body, {
+    status,
+    headers: { "Cache-Control": "no-store" },
+  });
+}
+
+/** Read pass-through for the existing admin API and Bug House list. */
+export async function GET(req: Request, context: RouteContext) {
+  const request = await readAdminRequest(req, context);
+  if (request.response) return request.response;
+
   const { status, body } = await callGateway(
-    segments.join('/'),
+    request.segments.join("/"),
     new URL(req.url).search,
-    session,
+    request.session,
   );
 
-  return NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
+  return reply(status, body);
+}
+
+/** Bug House may only toggle the `done` state of one valid report id. */
+export async function PATCH(req: Request, context: RouteContext) {
+  const request = await readAdminRequest(req, context);
+  if (request.response) return request.response;
+  const [resource, id, ...rest] = request.segments;
+  if (
+    resource !== "bugs" ||
+    !/^[a-f0-9]{24}$/i.test(id ?? "") ||
+    rest.length > 0
+  ) {
+    return reply(404, { message: "Unknown admin endpoint." });
+  }
+
+  const body = (await req.json().catch(() => null)) as {
+    done?: unknown;
+  } | null;
+  if (typeof body?.done !== "boolean") {
+    return reply(400, { message: "A boolean done value is required." });
+  }
+
+  const result = await callGateway(`bugs/${id}`, "", request.session, {
+    method: "PATCH",
+    body: { done: body.done },
+  });
+  return reply(result.status, result.body);
+}
+
+/** Bug House cleanup is restricted to the single completed-reports endpoint. */
+export async function DELETE(req: Request, context: RouteContext) {
+  const request = await readAdminRequest(req, context);
+  if (request.response) return request.response;
+  if (request.segments.join("/") !== "bugs/done") {
+    return reply(404, { message: "Unknown admin endpoint." });
+  }
+
+  const result = await callGateway("bugs/done", "", request.session, {
+    method: "DELETE",
+  });
+  return reply(result.status, result.body);
 }

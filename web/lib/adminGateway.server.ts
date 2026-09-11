@@ -1,4 +1,8 @@
-import { verifySessionToken, SESSION_COOKIE, type SessionPayload } from './adminSession.server';
+import {
+  verifySessionToken,
+  SESSION_COOKIE,
+  type SessionPayload,
+} from "./adminSession.server";
 
 /**
  * SERVER ONLY — the browser never learns the gateway's admin key.
@@ -13,14 +17,15 @@ import { verifySessionToken, SESSION_COOKIE, type SessionPayload } from './admin
 const GATEWAY_TIMEOUT_MS = 10_000;
 
 export function gatewayBaseUrl(): string {
-  const raw = process.env.ADMIN_GATEWAY_URL ?? process.env.NEXT_PUBLIC_BACKEND_API ?? '';
-  return raw.trim().replace(/\/+$/, '');
+  const raw =
+    process.env.ADMIN_GATEWAY_URL ?? process.env.NEXT_PUBLIC_BACKEND_API ?? "";
+  return raw.trim().replace(/\/+$/, "");
 }
 
 export function readSession(req: Request): SessionPayload | null {
-  const header = req.headers.get('cookie') ?? '';
+  const header = req.headers.get("cookie") ?? "";
   const match = header
-    .split(';')
+    .split(";")
     .map((part) => part.trim())
     .find((part) => part.startsWith(`${SESSION_COOKIE}=`));
 
@@ -31,6 +36,10 @@ export async function callGateway(
   path: string,
   search: string,
   session: SessionPayload,
+  options: {
+    method?: "GET" | "PATCH" | "DELETE";
+    body?: unknown;
+  } = {},
 ): Promise<{ status: number; body: unknown }> {
   const base = gatewayBaseUrl();
   const key = process.env.ADMIN_GATEWAY_KEY?.trim();
@@ -38,28 +47,44 @@ export async function callGateway(
   if (!base || !key) {
     return {
       status: 503,
-      body: { message: 'ADMIN_GATEWAY_URL / ADMIN_GATEWAY_KEY are not configured.' },
+      body: {
+        message: "ADMIN_GATEWAY_URL / ADMIN_GATEWAY_KEY are not configured.",
+      },
     };
   }
 
   try {
+    const method = options.method ?? "GET";
     const response = await fetch(`${base}/admin/${path}${search}`, {
+      method,
       headers: {
-        accept: 'application/json',
-        'x-admin-api-key': key,
+        accept: "application/json",
+        ...(options.body === undefined
+          ? {}
+          : { "content-type": "application/json" }),
+        "x-admin-api-key": key,
         // Audit only — the gateway trusts it because only this server can call.
-        'x-admin-user': session.sub,
+        "x-admin-user": session.sub,
       },
-      cache: 'no-store',
+      body:
+        options.body === undefined ? undefined : JSON.stringify(options.body),
+      cache: "no-store",
       signal: AbortSignal.timeout(GATEWAY_TIMEOUT_MS),
     });
 
-    return { status: response.status, body: await response.json().catch(() => null) };
+    return {
+      status: response.status,
+      body: await response.json().catch(() => null),
+    };
   } catch (error) {
-    const timedOut = (error as Error)?.name === 'TimeoutError';
+    const timedOut = (error as Error)?.name === "TimeoutError";
     return {
       status: 504,
-      body: { message: timedOut ? 'The gateway did not respond in time.' : 'Gateway unreachable.' },
+      body: {
+        message: timedOut
+          ? "The gateway did not respond in time."
+          : "Gateway unreachable.",
+      },
     };
   }
 }
