@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bug,
   Check,
@@ -12,12 +12,19 @@ import {
 } from "lucide-react";
 import {
   deleteAdminDoneBugs,
+  getAdminBug,
   getAdminBugs,
   setAdminBugDone,
-  type AdminBug,
+  type AdminBugPage,
+  type AdminBugStatus,
+  type AdminBugSummary,
 } from "@web/lib/adminApi";
+import {
+  createLatestRequestGate,
+  selectBugHouseReloadTarget,
+} from "@web/lib/bugHouseView";
 
-type BugFilter = "open" | "resolved" | "all";
+type BugFilter = AdminBugStatus;
 
 const FILTERS: { id: BugFilter; label: string }[] = [
   { id: "open", label: "Open" },
@@ -38,17 +45,60 @@ function formatFiledAt(value: string): string {
 function BugReportCard({
   bug,
   busy,
-  copied,
   onToggleDone,
-  onCopyLogs,
+  onLoadLogs,
 }: {
-  bug: AdminBug;
+  bug: AdminBugSummary;
   busy: boolean;
-  copied: boolean;
-  onToggleDone: (bug: AdminBug) => void;
-  onCopyLogs: (bug: AdminBug) => void;
+  onToggleDone: (bug: AdminBugSummary) => void;
+  onLoadLogs: (id: string) => Promise<string>;
 }) {
   const [logsOpen, setLogsOpen] = useState(false);
+  const [logs, setLogs] = useState<string | null>(null);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsError, setLogsError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const ensureLogs = async (): Promise<string | null> => {
+    if (logs !== null) return logs;
+    if (!bug.hasLogs) return "";
+
+    setLogsLoading(true);
+    setLogsError(null);
+    try {
+      const value = await onLoadLogs(bug.id);
+      setLogs(value);
+      return value;
+    } catch (requestError) {
+      setLogsError(
+        (requestError as Error)?.message ?? "Could not load the local log.",
+      );
+      return null;
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const toggleLogs = async () => {
+    if (logsOpen) {
+      setLogsOpen(false);
+      return;
+    }
+    setLogsOpen(true);
+    await ensureLogs();
+  };
+
+  const copyLogs = async () => {
+    const value = await ensureLogs();
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1_800);
+    } catch {
+      setLogsError("Could not copy the local log.");
+    }
+  };
 
   return (
     <article className="rounded-lg border border-line bg-surface p-4 shadow-soft sm:p-5">
@@ -65,7 +115,7 @@ function BugReportCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
             <div className="min-w-0 flex-1">
-              <h3 className="font-display text-base font-bold text-ink sm:text-lg">
+              <h3 className="break-words font-display text-base font-bold text-ink [overflow-wrap:anywhere] sm:text-lg">
                 {bug.title}
               </h3>
               <p className="mt-1 text-xs text-ink-muted">
@@ -79,7 +129,7 @@ function BugReportCard({
               aria-label={
                 bug.done ? `Reopen ${bug.title}` : `Mark ${bug.title} resolved`
               }
-              className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-3 text-sm font-semibold transition-colors disabled:cursor-wait disabled:opacity-60 ${
+              className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border px-3 text-sm font-semibold transition-colors disabled:cursor-wait disabled:opacity-60 sm:w-auto ${
                 bug.done
                   ? "border-ok bg-ok-tint text-ok hover:bg-surface-2"
                   : "border-line-strong text-ink hover:bg-surface-2"
@@ -99,19 +149,23 @@ function BugReportCard({
               <dt className="text-xs font-semibold uppercase text-ink-faint">
                 Screen
               </dt>
-              <dd className="mt-1 text-ink">{bug.screen || "Not provided"}</dd>
+              <dd className="mt-1 break-words text-ink [overflow-wrap:anywhere]">
+                {bug.screen || "Not provided"}
+              </dd>
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase text-ink-faint">
                 Reporter
               </dt>
-              <dd className="mt-1 text-ink">{bug.userName || "Unknown"}</dd>
+              <dd className="mt-1 break-words text-ink [overflow-wrap:anywhere]">
+                {bug.userName || "Unknown"}
+              </dd>
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase text-ink-faint">
                 User ID
               </dt>
-              <dd className="mt-1 break-all font-mono text-xs text-ink">
+              <dd className="mt-1 break-all font-mono text-xs text-ink [overflow-wrap:anywhere]">
                 {bug.userId || "Unavailable"}
               </dd>
             </div>
@@ -121,7 +175,7 @@ function BugReportCard({
             <h4 className="text-xs font-semibold uppercase text-ink-faint">
               Description
             </h4>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink">
+            <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-ink [overflow-wrap:anywhere]">
               {bug.description || "No description provided."}
             </p>
           </div>
@@ -130,21 +184,21 @@ function BugReportCard({
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => setLogsOpen((open) => !open)}
+                onClick={() => void toggleLogs()}
                 aria-expanded={logsOpen}
                 className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-ink transition-colors hover:text-profile"
               >
                 <span>{logsOpen ? "Hide local log" : "Show local log"}</span>
                 <span className="font-mono text-xs font-normal text-ink-faint">
-                  {bug.logs
-                    ? `${bug.logs.length.toLocaleString("en-IN")} chars`
+                  {bug.hasLogs
+                    ? `${bug.logCharacters.toLocaleString("en-IN")} chars`
                     : "none"}
                 </span>
               </button>
-              {bug.logs ? (
+              {bug.hasLogs ? (
                 <button
                   type="button"
-                  onClick={() => onCopyLogs(bug)}
+                  onClick={() => void copyLogs()}
                   title="Copy local log"
                   className="ml-auto inline-flex h-11 w-11 items-center justify-center rounded-full border border-line text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink"
                 >
@@ -161,9 +215,17 @@ function BugReportCard({
             </div>
 
             {logsOpen ? (
-              bug.logs ? (
+              logsLoading ? (
+                <p className="mt-2 text-sm text-ink-muted">
+                  Loading local log…
+                </p>
+              ) : logsError ? (
+                <p role="alert" className="mt-2 text-sm text-down">
+                  {logsError}
+                </p>
+              ) : logs ? (
                 <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words border-l-2 border-profile bg-bg-elev px-4 py-3 font-mono text-[11px] leading-5 text-ink">
-                  {bug.logs}
+                  {logs}
                 </pre>
               ) : (
                 <p className="mt-2 text-sm text-ink-muted">
@@ -179,43 +241,79 @@ function BugReportCard({
 }
 
 export default function BugHouse({ active }: { active: boolean }) {
-  const [bugs, setBugs] = useState<AdminBug[]>([]);
   const [filter, setFilter] = useState<BugFilter>("open");
+  const [page, setPage] = useState(1);
+  const [result, setResult] = useState<AdminBugPage | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const requestGate = useRef(createLatestRequestGate());
+  const filterRef = useRef<BugFilter>(filter);
+  const pageRef = useRef(page);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setBugs(await getAdminBugs());
-    } catch (requestError) {
-      setError(
-        (requestError as Error)?.message ?? "Could not load bug reports.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const load = useCallback(
+    async (
+      requestedFilter = filter,
+      requestedPage = page,
+    ): Promise<AdminBugPage | null> => {
+      const requestId = requestGate.current.begin();
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await getAdminBugs(requestedFilter, requestedPage);
+        if (!requestGate.current.isCurrent(requestId)) return null;
+        setResult(response);
+        return response;
+      } catch (requestError) {
+        if (requestGate.current.isCurrent(requestId)) {
+          setError(
+            (requestError as Error)?.message ?? "Could not load bug reports.",
+          );
+        }
+        return null;
+      } finally {
+        if (requestGate.current.isCurrent(requestId)) setLoading(false);
+      }
+    },
+    [filter, page],
+  );
 
   useEffect(() => {
-    if (!active) return undefined;
+    const gate = requestGate.current;
+    if (!active) {
+      gate.invalidate();
+      return undefined;
+    }
     const timer = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      gate.invalidate();
+    };
   }, [active, load]);
 
-  const toggleDone = async (bug: AdminBug) => {
+  const toggleDone = async (bug: AdminBugSummary) => {
     setBusyId(bug.id);
     setError(null);
     try {
-      const updated = await setAdminBugDone(bug.id, !bug.done);
-      setBugs((current) =>
-        current.map((item) => (item.id === bug.id ? updated : item)),
+      await setAdminBugDone(bug.id, !bug.done);
+      const target = selectBugHouseReloadTarget(
+        filterRef.current,
+        pageRef.current,
       );
+      const refreshed = await load(target.filter, target.page);
+      if (refreshed?.items.length === 0) {
+        const previous = selectBugHouseReloadTarget(
+          filterRef.current,
+          pageRef.current,
+          true,
+        );
+        if (previous.page !== pageRef.current) {
+          pageRef.current = previous.page;
+          setPage(previous.page);
+        }
+      }
     } catch (requestError) {
       setError(
         (requestError as Error)?.message ?? "Could not update the bug report.",
@@ -226,7 +324,7 @@ export default function BugHouse({ active }: { active: boolean }) {
   };
 
   const deleteResolved = async () => {
-    const resolvedCount = bugs.filter((bug) => bug.done).length;
+    const resolvedCount = result?.counts.resolved ?? 0;
     if (resolvedCount === 0) return;
     if (
       !window.confirm(
@@ -240,10 +338,12 @@ export default function BugHouse({ active }: { active: boolean }) {
     setError(null);
     setNotice(null);
     try {
-      const result = await deleteAdminDoneBugs();
-      setBugs((current) => current.filter((bug) => !bug.done));
+      const deleted = await deleteAdminDoneBugs();
+      pageRef.current = 1;
+      setPage(1);
+      await load(filterRef.current, 1);
       setNotice(
-        `${result.deleted} resolved report${result.deleted === 1 ? "" : "s"} deleted.`,
+        `${deleted.deleted} resolved report${deleted.deleted === 1 ? "" : "s"} deleted.`,
       );
     } catch (requestError) {
       setError(
@@ -255,27 +355,23 @@ export default function BugHouse({ active }: { active: boolean }) {
     }
   };
 
-  const copyLogs = async (bug: AdminBug) => {
-    if (!bug.logs) return;
-    try {
-      await navigator.clipboard.writeText(bug.logs);
-      setCopiedId(bug.id);
-      window.setTimeout(
-        () => setCopiedId((current) => (current === bug.id ? null : current)),
-        1800,
-      );
-    } catch {
-      setError("Could not copy the local log.");
-    }
+  const chooseFilter = (nextFilter: BugFilter) => {
+    requestGate.current.invalidate();
+    setNotice(null);
+    setResult(null);
+    filterRef.current = nextFilter;
+    pageRef.current = 1;
+    setFilter(nextFilter);
+    setPage(1);
   };
 
-  const openCount = bugs.filter((bug) => !bug.done).length;
-  const resolvedCount = bugs.length - openCount;
-  const visibleBugs = bugs.filter((bug) => {
-    if (filter === "open") return !bug.done;
-    if (filter === "resolved") return bug.done;
-    return true;
-  });
+  const choosePage = (nextPage: number) => {
+    pageRef.current = nextPage;
+    setPage(nextPage);
+  };
+
+  const bugs = result?.items ?? [];
+  const counts = result?.counts ?? { all: 0, open: 0, resolved: 0 };
 
   return (
     <section
@@ -296,7 +392,7 @@ export default function BugHouse({ active }: { active: boolean }) {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={load}
+            onClick={() => void load()}
             disabled={loading}
             title="Refresh bug reports"
             className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-wait disabled:opacity-60"
@@ -310,7 +406,7 @@ export default function BugHouse({ active }: { active: boolean }) {
           <button
             type="button"
             onClick={deleteResolved}
-            disabled={deleting || resolvedCount === 0}
+            disabled={deleting || counts.resolved === 0}
             className="inline-flex min-h-11 items-center gap-2 rounded-full border border-down px-4 text-sm font-semibold text-down transition-colors hover:bg-down-tint disabled:cursor-not-allowed disabled:border-line disabled:text-ink-faint"
           >
             <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -327,16 +423,16 @@ export default function BugHouse({ active }: { active: boolean }) {
         {FILTERS.map((option) => {
           const count =
             option.id === "open"
-              ? openCount
+              ? counts.open
               : option.id === "resolved"
-                ? resolvedCount
-                : bugs.length;
+                ? counts.resolved
+                : counts.all;
           return (
             <button
               key={option.id}
               type="button"
               aria-pressed={filter === option.id}
-              onClick={() => setFilter(option.id)}
+              onClick={() => chooseFilter(option.id)}
               className={`min-h-11 rounded-full border px-4 text-sm font-semibold transition-colors ${
                 filter === option.id
                   ? "border-profile bg-profile-tint text-ink"
@@ -366,11 +462,11 @@ export default function BugHouse({ active }: { active: boolean }) {
         </p>
       ) : null}
 
-      {loading && bugs.length === 0 ? (
+      {loading && !result ? (
         <div className="flex min-h-48 items-center justify-center text-sm text-ink-muted">
           Loading bug reports…
         </div>
-      ) : visibleBugs.length === 0 ? (
+      ) : bugs.length === 0 ? (
         <div className="flex min-h-48 flex-col items-center justify-center border-y border-line px-6 text-center">
           <Bug className="h-7 w-7 text-ink-faint" aria-hidden="true" />
           <p className="mt-3 font-display text-base font-bold text-ink">
@@ -382,18 +478,45 @@ export default function BugHouse({ active }: { active: boolean }) {
         </div>
       ) : (
         <div className="space-y-3">
-          {visibleBugs.map((bug) => (
+          {bugs.map((bug) => (
             <BugReportCard
               key={bug.id}
               bug={bug}
               busy={busyId === bug.id}
-              copied={copiedId === bug.id}
               onToggleDone={toggleDone}
-              onCopyLogs={copyLogs}
+              onLoadLogs={async (id) => (await getAdminBug(id)).logs}
             />
           ))}
         </div>
       )}
+
+      {result && result.total > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+          <p className="text-xs text-ink-muted">
+            Showing {(result.page - 1) * result.pageSize + 1}–
+            {Math.min(result.page * result.pageSize, result.total)} of{" "}
+            {result.total}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={loading || page <= 1}
+              onClick={() => choosePage(Math.max(1, pageRef.current - 1))}
+              className="min-h-11 rounded-full border border-line px-4 text-sm font-semibold text-ink transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-ink-faint"
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              disabled={loading || !result.hasNextPage}
+              onClick={() => choosePage(pageRef.current + 1)}
+              className="min-h-11 rounded-full border border-line px-4 text-sm font-semibold text-ink transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-ink-faint"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

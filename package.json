@@ -11,7 +11,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:admin-policy": "node --experimental-strip-types --test web/lib/adminGatewayPolicy.test.mjs web/lib/bugHouseView.test.mjs web/lib/adminGatewayRoute.test.mjs"
   },
   "dependencies": {
     "firebase": "^10.14.1",

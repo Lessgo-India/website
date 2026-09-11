@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useRef } from 'react';
+import { useRef } from "react";
 
 export interface ViewTab {
   id: string;
@@ -31,7 +31,11 @@ export default function ViewTabs({
   };
 
   return (
-    <div role="tablist" aria-label="Dashboard view" className="flex border-b border-line">
+    <div
+      role="tablist"
+      aria-label="Dashboard view"
+      className="flex border-b border-line"
+    >
       {tabs.map((tab, index) => {
         const selected = tab.id === value;
         return (
@@ -48,24 +52,24 @@ export default function ViewTabs({
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(tab.id)}
             onKeyDown={(event) => {
-              if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+              if (event.key === "ArrowRight" || event.key === "ArrowDown") {
                 event.preventDefault();
                 move(index, 1);
-              } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+              } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
                 event.preventDefault();
                 move(index, -1);
-              } else if (event.key === 'Home') {
+              } else if (event.key === "Home") {
                 event.preventDefault();
                 move(0, 0);
-              } else if (event.key === 'End') {
+              } else if (event.key === "End") {
                 event.preventDefault();
                 move(tabs.length - 1, 0);
               }
             }}
             className={`-mb-px min-h-[44px] min-w-0 flex-1 border-b-2 px-2 text-xs font-semibold transition-colors sm:px-4 sm:text-sm ${
               selected
-                ? 'border-profile text-ink'
-                : 'border-transparent text-ink-muted hover:text-ink'
+                ? "border-profile text-ink"
+                : "border-transparent text-ink-muted hover:text-ink"
             }`}
           >
             {tab.label}

@@ -162,16 +162,32 @@ export interface TrendPoint {
   statuses?: number;
 }
 
-export interface AdminBug {
+export type AdminBugStatus = "open" | "resolved" | "all";
+
+export interface AdminBugSummary {
   id: string;
   title: string;
   description: string;
   screen: string | null;
-  logs: string;
   userName: string | null;
   userId: string | null;
   done: boolean;
   createdAt: string;
+  hasLogs: boolean;
+  logCharacters: number;
+}
+
+export interface AdminBugDetails extends AdminBugSummary {
+  logs: string;
+}
+
+export interface AdminBugPage {
+  items: AdminBugSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+  hasNextPage: boolean;
+  counts: { all: number; open: number; resolved: number };
 }
 
 export function getAdminSession(): Promise<AdminSession> {
@@ -199,15 +215,36 @@ export function getAdminTrends(
   return adminRequest<{ series: TrendPoint[] }>(`/gateway/trends?days=${days}`);
 }
 
-export function getAdminBugs(): Promise<AdminBug[]> {
-  return adminRequest<AdminBug[]>("/gateway/bugs");
+export function getAdminBugs(
+  status: AdminBugStatus,
+  page: number,
+  limit = 20,
+): Promise<AdminBugPage> {
+  const query = new URLSearchParams({
+    status,
+    page: String(page),
+    limit: String(limit),
+  });
+  return adminRequest<AdminBugPage>(`/gateway/bugs?${query}`);
 }
 
-export function setAdminBugDone(id: string, done: boolean): Promise<AdminBug> {
-  return adminRequest<AdminBug>(`/gateway/bugs/${encodeURIComponent(id)}`, {
-    method: "PATCH",
-    body: { done },
-  });
+export function getAdminBug(id: string): Promise<AdminBugDetails> {
+  return adminRequest<AdminBugDetails>(
+    `/gateway/bugs/${encodeURIComponent(id)}`,
+  );
+}
+
+export function setAdminBugDone(
+  id: string,
+  done: boolean,
+): Promise<AdminBugSummary> {
+  return adminRequest<AdminBugSummary>(
+    `/gateway/bugs/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: { done },
+    },
+  );
 }
 
 export function deleteAdminDoneBugs(): Promise<{ deleted: number }> {

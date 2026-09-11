@@ -8,6 +8,8 @@ The Lessgo website. It does two jobs:
    drive app installs.
 2. **Web client** — shareable event deep links (`/e/:id`) so an invited guest can
    RSVP in a browser without installing the app.
+3. **Admin portal** — an authenticated operations dashboard with production
+   health, aggregate metrics, and Bug House triage.
 
 ## ✨ What's here
 
@@ -48,6 +50,7 @@ in Next 16.
 ### Installation
 
 1. Clone and install
+
    ```bash
    git clone https://github.com/yourusername/lessgo-website.git
    cd lessgo-website
@@ -55,15 +58,20 @@ in Next 16.
    ```
 
 2. Configure the environment
+
    ```bash
    cp .env.local.example .env.local
    ```
+
    The marketing pages render without any of it. The web client needs
    `NEXT_PUBLIC_BACKEND_API` and the `NEXT_PUBLIC_FIREBASE_*` values; analytics
    needs `NEXT_PUBLIC_POSTHOG_KEY`; the early-access form needs the server-only
-   `MONGODB_URL` and, optionally, `MONGODB_DB`.
+   `MONGODB_URL` and, optionally, `MONGODB_DB`. `/admin` additionally needs
+   `ADMIN_USERS`, `ADMIN_SESSION_SECRET`, `ADMIN_GATEWAY_URL`, and
+   `ADMIN_GATEWAY_KEY` as documented in `.env.local.example`.
 
 3. Run it
+
    ```bash
    npm run dev        # dev server
    npm run lint       # eslint (flat config)
@@ -81,6 +89,11 @@ npm run start   # respects $PORT
 
 `next/font` downloads the Outfit, Inter and Space Mono files at build time, so
 the build step needs network access.
+
+For the Bug House workflow, deploy the gateway first, this website second, and
+mobile `0.0.414` or newer last. The website never receives the gateway admin
+key in browser code; its route handler keeps that credential server-side and
+allowlists only the current dashboard and Bug House operations.
 
 ## 📂 Project structure
 
@@ -118,10 +131,10 @@ components, so adding Hindi later is a config change rather than a rewrite.
 - [ ] Have counsel review `/privacy` and `/terms`, and confirm the Grievance
       Officer contact.
 - [ ] Set the server-only `MONGODB_URL` and optional `MONGODB_DB`. Until MongoDB
-   is configured, the signup form honestly tells visitors to email instead
-   of silently dropping their address.
+      is configured, the signup form honestly tells visitors to email instead
+      of silently dropping their address.
 - [ ] Set `NEXT_PUBLIC_ANDROID_APP_URL` and `NEXT_PUBLIC_IOS_APP_URL` to the live
-   product pages, then flip `site.storesLive` to `true` in `content/site.ts`.
+      product pages, then flip `site.storesLive` to `true` in `content/site.ts`.
 - [ ] Set `NEXT_PUBLIC_SITE_URL` so canonicals, OG tags and the sitemap resolve.
 
 ## 📄 License
