@@ -33,7 +33,7 @@ export default function PrivacyPage() {
               application and this website that help friend groups plan hangouts, collect RSVPs
               and split shared expenses. We are the data fiduciary for the personal data
               described below. You can reach us any time at{' '}
-              <a href="mailto:privacy@lessgo.com">privacy@lessgo.com</a>.
+              <a href="mailto:privacy@lessgo.in">privacy@lessgo.in</a>.
             </p>
 
             <h2>What we collect</h2>
@@ -163,7 +163,7 @@ export default function PrivacyPage() {
             </ul>
             <p>
               To exercise any of these, email{' '}
-              <a href="mailto:privacy@lessgo.com">privacy@lessgo.com</a>. You can also delete
+              <a href="mailto:privacy@lessgo.in">privacy@lessgo.in</a>. You can also delete
               your profile directly in the app under <strong>Profile → Data &amp; Privacy →
               Delete Profile</strong>.
             </p>
@@ -177,7 +177,7 @@ export default function PrivacyPage() {
             <p>
               <strong>Grievance Officer, Lessgo</strong>
               <br />
-              Email: <a href="mailto:grievance@lessgo.com">grievance@lessgo.com</a>
+              Email: <a href="mailto:grievance@lessgo.in">grievance@lessgo.in</a>
               <br />
               India
             </p>
@@ -214,8 +214,8 @@ export default function PrivacyPage() {
 
             <h2>Contact</h2>
             <p>
-              Privacy questions: <a href="mailto:privacy@lessgo.com">privacy@lessgo.com</a>.
-              Anything else: <a href="mailto:hello@lessgo.com">hello@lessgo.com</a>. See also our{' '}
+              Privacy questions: <a href="mailto:privacy@lessgo.in">privacy@lessgo.in</a>.
+              Anything else: <a href="mailto:hello@lessgo.in">hello@lessgo.in</a>. See also our{' '}
               <Link href="/terms">Terms of Use</Link>.
             </p>
           </Prose>

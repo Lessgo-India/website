@@ -373,7 +373,7 @@ export const footer = {
       links: [
         { label: 'Help & FAQ', href: '/help' },
         { label: 'Privacy at Lessgo', href: '/#privacy' },
-        { label: 'Contact us', href: 'mailto:hello@lessgo.com' },
+        { label: 'Contact us', href: 'mailto:hello@lessgo.in' },
       ],
     },
     {

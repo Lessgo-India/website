@@ -3,6 +3,7 @@ import {
   SESSION_COOKIE,
   type SessionPayload,
 } from "./adminSession.server";
+import { randomUUID } from "node:crypto";
 
 /**
  * SERVER ONLY — the browser never learns the gateway's admin key.
@@ -14,7 +15,10 @@ import {
  * and get blocked by Safari outright).
  */
 
-const GATEWAY_TIMEOUT_MS = 10_000;
+// The gateway bounds its notification-service hop at 15s. The outer BFF must
+// wait longer so it never reports an uncertain timeout while that mutation is
+// still running downstream.
+const GATEWAY_TIMEOUT_MS = 20_000;
 
 export function gatewayBaseUrl(): string {
   const raw =
@@ -37,7 +41,7 @@ export async function callGateway(
   search: string,
   session: SessionPayload,
   options: {
-    method?: "GET" | "PATCH" | "DELETE";
+    method?: "GET" | "POST" | "PATCH" | "DELETE";
     body?: unknown;
   } = {},
 ): Promise<{ status: number; body: unknown }> {
@@ -65,6 +69,7 @@ export async function callGateway(
         "x-admin-api-key": key,
         // Audit only — the gateway trusts it because only this server can call.
         "x-admin-user": session.sub,
+        "x-request-id": randomUUID(),
       },
       body:
         options.body === undefined ? undefined : JSON.stringify(options.body),

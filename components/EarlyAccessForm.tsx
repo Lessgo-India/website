@@ -80,7 +80,7 @@ export function EarlyAccessForm({
             maxLength={254}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
+            placeholder="Email address"
             aria-describedby={`${id}-help`}
             aria-invalid={state === 'error' || undefined}
             className="h-[52px] w-full rounded-full border border-line-strong bg-bg-elev px-6 text-base text-ink placeholder:text-ink-faint focus:border-transparent"

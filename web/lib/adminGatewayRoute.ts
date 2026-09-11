@@ -1,8 +1,10 @@
 import {
   isAllowedAdminDelete,
   isAllowedAdminPatch,
+  isAllowedAdminPost,
   isAllowedAdminRead,
   isValidAdminBugPatchBody,
+  isValidAdminPostBody,
 } from "./adminGatewayPolicy.js";
 
 export type AdminGatewayRouteContext = {
@@ -10,7 +12,7 @@ export type AdminGatewayRouteContext = {
 };
 
 interface GatewayCallOptions {
-  method?: "GET" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
 }
 
@@ -29,6 +31,28 @@ function reply(status: number, body: unknown): Response {
     status,
     headers: { "Cache-Control": "no-store" },
   });
+}
+
+function allowedRequestOrigins(request: Request): Set<string> {
+  const url = new URL(request.url);
+  const allowed = new Set([url.origin]);
+  const forwardedHost = request.headers
+    .get("x-forwarded-host")
+    ?.split(",")[0]
+    .trim();
+  const host = forwardedHost || request.headers.get("host")?.trim();
+  const forwardedProtocol = request.headers
+    .get("x-forwarded-proto")
+    ?.split(",")[0]
+    .trim();
+  const protocol = /^(http|https)$/.test(forwardedProtocol ?? "")
+    ? forwardedProtocol
+    : url.protocol.slice(0, -1);
+
+  if (host && /^[a-z0-9.-]+(?::\d+)?$/i.test(host)) {
+    allowed.add(`${protocol}://${host}`);
+  }
+  return allowed;
 }
 
 export function createAdminGatewayHandlers<Session>(
@@ -111,6 +135,63 @@ export function createAdminGatewayHandlers<Session>(
     return reply(result.status, result.body);
   }
 
+  async function POST(
+    request: Request,
+    context: AdminGatewayRouteContext,
+  ): Promise<Response> {
+    const parsed = await readAdminRequest(request, context);
+    if ("response" in parsed) return parsed.response;
+    if (!isAllowedAdminPost(parsed.segments) || new URL(request.url).search) {
+      return reply(404, { message: "Unknown admin endpoint." });
+    }
+    const origin = request.headers.get("origin");
+    const fetchSite = request.headers.get("sec-fetch-site");
+    if (
+      (origin && !allowedRequestOrigins(request).has(origin)) ||
+      (fetchSite && fetchSite !== "same-origin")
+    ) {
+      return reply(403, { message: "Cross-origin admin mutation denied." });
+    }
+
+    const isAction = parsed.segments.length === 4;
+    let body: unknown = undefined;
+    if (!isAction) {
+      if (
+        !(request.headers.get("content-type") ?? "").startsWith(
+          "application/json",
+        )
+      ) {
+        return reply(415, { message: "Admin mutations require JSON." });
+      }
+      const declaredLength = Number(request.headers.get("content-length") ?? 0);
+      if (Number.isFinite(declaredLength) && declaredLength > 32_768) {
+        return reply(413, { message: "Admin request is too large." });
+      }
+      const raw = await request.text();
+      if (raw.length > 32_768) {
+        return reply(413, { message: "Admin request is too large." });
+      }
+      try {
+        body = JSON.parse(raw);
+      } catch {
+        return reply(400, { message: "Invalid campaign request." });
+      }
+      if (!isValidAdminPostBody(parsed.segments, body)) {
+        return reply(400, { message: "Invalid campaign request." });
+      }
+    } else if (request.body !== null) {
+      return reply(400, { message: "This campaign action takes no body." });
+    }
+
+    const result = await deps.callGateway(
+      parsed.segments.join("/"),
+      "",
+      parsed.session,
+      { method: "POST", ...(body === undefined ? {} : { body }) },
+    );
+    return reply(result.status, result.body);
+  }
+
   async function DELETE(
     request: Request,
     context: AdminGatewayRouteContext,
@@ -130,5 +211,5 @@ export function createAdminGatewayHandlers<Session>(
     return reply(result.status, result.body);
   }
 
-  return { GET, PATCH, DELETE };
+  return { GET, POST, PATCH, DELETE };
 }

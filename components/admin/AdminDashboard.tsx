@@ -5,6 +5,7 @@ import Image from "next/image";
 import { LogOut, RefreshCw } from "lucide-react";
 import { ThemeToggle } from "@ui/ThemeToggle";
 import AllTimeCard from "@ui/admin/AllTimeCard";
+import AdminSectionNav from "@ui/admin/AdminSectionNav";
 import BugHouse from "@ui/admin/BugHouse";
 import DomainSection, { type Metric } from "@ui/admin/DomainSection";
 import HealthRail from "@ui/admin/HealthRail";
@@ -212,6 +213,10 @@ export default function AdminDashboard() {
           </button>
         </div>
       </header>
+
+      <div className="mt-4">
+        <AdminSectionNav />
+      </div>
 
       <div className="mt-6 space-y-4">
         {view !== "bugs" ? <TotalsCard data={data} /> : null}

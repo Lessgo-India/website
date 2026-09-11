@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import {
   isAllowedAdminDelete,
   isAllowedAdminPatch,
+  isAllowedAdminPost,
   isAllowedAdminRead,
   isValidAdminBugPatchBody,
+  isValidAdminPostBody,
 } from "./adminGatewayPolicy.js";
 
 const id = "66aa11bb22cc33dd44ee55ff";
@@ -29,6 +31,98 @@ test("allows only known admin reads and their documented query parameters", () =
     true,
   );
   assert.equal(isAllowedAdminRead(["bugs", id], new URLSearchParams()), true);
+});
+
+test("allows only documented notification campaign reads", () => {
+  assert.equal(
+    isAllowedAdminRead(
+      ["notifications", "capabilities"],
+      new URLSearchParams(),
+    ),
+    true,
+  );
+  assert.equal(
+    isAllowedAdminRead(
+      ["notifications", "events"],
+      new URLSearchParams({ query: "Dinner", limit: "30" }),
+    ),
+    true,
+  );
+  assert.equal(
+    isAllowedAdminRead(
+      ["notifications", "campaigns"],
+      new URLSearchParams({ purpose: "marketing", limit: "50" }),
+    ),
+    true,
+  );
+  assert.equal(
+    isAllowedAdminRead(
+      ["notifications", "campaigns", id],
+      new URLSearchParams(),
+    ),
+    true,
+  );
+  assert.equal(
+    isAllowedAdminRead(
+      ["notifications", "campaigns"],
+      new URLSearchParams({ purpose: "internal" }),
+    ),
+    false,
+  );
+});
+
+test("validates exact campaign mutation contracts", () => {
+  const preview = {
+    purpose: "lessgo_update",
+    audience: {
+      eventMode: "recent",
+      lookbackDays: 30,
+      genders: ["F"],
+      roles: [0, 1],
+      rsvpStatuses: [1],
+    },
+  };
+  assert.equal(isAllowedAdminPost(["notifications", "previews"]), true);
+  assert.equal(
+    isValidAdminPostBody(["notifications", "previews"], preview),
+    true,
+  );
+  assert.equal(
+    isValidAdminPostBody(["notifications", "previews"], {
+      ...preview,
+      userIds: ["9999999999"],
+    }),
+    false,
+  );
+  assert.equal(
+    isValidAdminPostBody(["notifications", "test"], {
+      previewId: id,
+      purpose: "marketing",
+      title: "Offer",
+      body: "Available now",
+      destination: "event",
+      destinationId: id,
+    }),
+    true,
+  );
+  assert.equal(
+    isValidAdminPostBody(["notifications", "test"], {
+      previewId: id,
+      purpose: "marketing",
+      title: "Offer",
+      body: "Available now",
+      destination: "https://example.com",
+    }),
+    false,
+  );
+  assert.equal(
+    isAllowedAdminPost(["notifications", "campaigns", id, "cancel"]),
+    true,
+  );
+  assert.equal(
+    isAllowedAdminPost(["notifications", "campaigns", id, "delete"]),
+    false,
+  );
 });
 
 test("rejects future endpoints, unknown parameters, duplicate parameters, and malformed ids", () => {

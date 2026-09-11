@@ -9,9 +9,12 @@ import { ApiError } from "./api";
  * steal.
  */
 
-async function adminRequest<T>(
+export async function adminRequest<T>(
   path: string,
-  options: { method?: "GET" | "PATCH" | "DELETE"; body?: unknown } = {},
+  options: {
+    method?: "GET" | "POST" | "PATCH" | "DELETE";
+    body?: unknown;
+  } = {},
 ): Promise<T> {
   let res: Response;
   try {

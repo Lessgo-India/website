@@ -45,7 +45,7 @@ export default function TermsPage() {
               Accounts are created and verified with your phone number and a one-time code. You
               are responsible for keeping access to that number secure and for activity that
               happens under your account. Tell us at{' '}
-              <a href="mailto:hello@lessgo.com">hello@lessgo.com</a> if you believe your account
+              <a href="mailto:hello@lessgo.in">hello@lessgo.in</a> if you believe your account
               has been compromised.
             </p>
 
@@ -141,7 +141,7 @@ export default function TermsPage() {
 
             <h2>14. Contact</h2>
             <p>
-              Questions about these terms: <a href="mailto:hello@lessgo.com">hello@lessgo.com</a>.
+              Questions about these terms: <a href="mailto:hello@lessgo.in">hello@lessgo.in</a>.
               See also our <Link href="/privacy">Privacy Policy</Link>.
             </p>
           </Prose>
