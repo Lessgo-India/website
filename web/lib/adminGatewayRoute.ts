@@ -19,7 +19,7 @@ interface GatewayCallOptions {
 }
 
 interface AdminGatewayRouteDeps<Session> {
-  readSession: (request: Request) => Session | null;
+  readSession: (request: Request) => Session | null | Promise<Session | null>;
   callGateway: (
     path: string,
     search: string,
@@ -66,13 +66,11 @@ function isSameOriginMutation(request: Request): boolean {
   );
 }
 
-async function readJsonBody(request: Request): Promise<
-  { body: unknown } | { response: Response }
-> {
+async function readJsonBody(
+  request: Request,
+): Promise<{ body: unknown } | { response: Response }> {
   if (
-    !(request.headers.get("content-type") ?? "").startsWith(
-      "application/json",
-    )
+    !(request.headers.get("content-type") ?? "").startsWith("application/json")
   ) {
     return {
       response: reply(415, { message: "Admin mutations require JSON." }),
@@ -102,7 +100,7 @@ export function createAdminGatewayHandlers<Session>(
   ): Promise<
     { response: Response } | { session: Session; segments: string[] }
   > {
-    const session = deps.readSession(request);
+    const session = await deps.readSession(request);
     if (!session) {
       return {
         response: reply(401, {
@@ -165,8 +163,7 @@ export function createAdminGatewayHandlers<Session>(
     const isBugPatch = parsed.segments[0] === "bugs";
     if (
       (isBugPatch && !isValidAdminBugPatchBody(parsedBody.body)) ||
-      (!isBugPatch &&
-        !isValidAdminAlertPreferencesBody(parsedBody.body))
+      (!isBugPatch && !isValidAdminAlertPreferencesBody(parsedBody.body))
     ) {
       return reply(400, { message: "Invalid admin request." });
     }

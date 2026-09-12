@@ -1,6 +1,6 @@
 import {
-  verifySessionToken,
-  SESSION_COOKIE,
+  getAdminSessionToken,
+  verifyAdminSessionToken,
   type SessionPayload,
 } from "./adminSession.server";
 import { randomUUID } from "node:crypto";
@@ -26,14 +26,8 @@ export function gatewayBaseUrl(): string {
   return raw.trim().replace(/\/+$/, "");
 }
 
-export function readSession(req: Request): SessionPayload | null {
-  const header = req.headers.get("cookie") ?? "";
-  const match = header
-    .split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${SESSION_COOKIE}=`));
-
-  return verifySessionToken(match?.slice(SESSION_COOKIE.length + 1));
+export function readSession(req: Request): Promise<SessionPayload | null> {
+  return verifyAdminSessionToken(getAdminSessionToken(req));
 }
 
 export async function callGateway(

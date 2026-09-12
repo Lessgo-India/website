@@ -82,6 +82,17 @@ export interface AdminSession {
   gatewayReachable?: boolean;
 }
 
+export interface AdminActiveSession {
+  id: string;
+  createdAt: string;
+  lastSeenAt: string;
+  expiresAt: string;
+  browser: string;
+  device: string;
+  ipAddress: string;
+  current: boolean;
+}
+
 export interface RsvpMix {
   going: number;
   maybe: number;
@@ -202,6 +213,43 @@ export interface AdminBugPage {
 
 export function getAdminSession(): Promise<AdminSession> {
   return adminRequest<AdminSession>("/session");
+}
+
+export function getAdminSessions(): Promise<{
+  sessions: AdminActiveSession[];
+}> {
+  return adminRequest("/sessions");
+}
+
+export function revokeAdminSessionById(
+  sessionId: string,
+): Promise<{ revoked: boolean; current: boolean }> {
+  return adminRequest("/sessions", {
+    method: "DELETE",
+    body: { sessionId },
+  });
+}
+
+export function revokeOtherSessions(): Promise<{ revoked: number }> {
+  return adminRequest("/sessions/revoke-others", { method: "POST" });
+}
+
+export function requestAdminPasswordChangeOtp(): Promise<{
+  challengeId: string;
+  expiresAt: string;
+}> {
+  return adminRequest("/password/request-otp", { method: "POST" });
+}
+
+export function confirmAdminPasswordChange(input: {
+  challengeId: string;
+  code: string;
+  credential: string;
+}): Promise<{ ok: true }> {
+  return adminRequest("/password/confirm", {
+    method: "POST",
+    body: input,
+  });
 }
 
 export function getAdminHealth(): Promise<HealthSnapshot> {

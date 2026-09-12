@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import {
   BellRing,
   Download,
@@ -9,8 +9,8 @@ import {
   Send,
   ShieldCheck,
   Smartphone,
-} from 'lucide-react';
-import { ThemeToggle } from '@ui/ThemeToggle';
+} from "lucide-react";
+import { ThemeToggle } from "@ui/ThemeToggle";
 import {
   getAdminAlertCapabilities,
   sendAdminTestAlert,
@@ -20,25 +20,28 @@ import {
   updateAdminAlertPreferences,
   type AdminAlertCapabilities,
   type AdminAlertPreferences,
-} from '@web/lib/adminAlertsApi';
-import { useAdminSession } from './AdminGate';
-import { useAdminPwa } from './AdminPwaProvider';
+} from "@web/lib/adminAlertsApi";
+import { useAdminSession } from "./AdminGate";
+import { useAdminPwa } from "./AdminPwaProvider";
+import AdminActiveSessions from "./AdminActiveSessions";
+import AdminPasswordChange from "./AdminPasswordChange";
 
 const VAPID_PUBLIC_KEY =
-  process.env.NEXT_PUBLIC_ADMIN_VAPID_PUBLIC_KEY?.trim() ?? '';
+  process.env.NEXT_PUBLIC_ADMIN_VAPID_PUBLIC_KEY?.trim() ?? "";
 
 export default function AdminSettings() {
   const { session } = useAdminSession();
   const pwa = useAdminPwa();
   const [capabilities, setCapabilities] =
     useState<AdminAlertCapabilities | null>(null);
-  const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>(
-    'unsupported',
-  );
+  const [permission, setPermission] = useState<
+    NotificationPermission | "unsupported"
+  >("unsupported");
   const [localSubscribed, setLocalSubscribed] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sessionReloadKey, setSessionReloadKey] = useState(0);
 
   async function load() {
     setError(null);
@@ -50,7 +53,9 @@ export default function AdminSettings() {
   }
 
   useEffect(() => {
-    setPermission('Notification' in window ? Notification.permission : 'unsupported');
+    setPermission(
+      "Notification" in window ? Notification.permission : "unsupported",
+    );
     void load();
   }, []);
 
@@ -63,18 +68,18 @@ export default function AdminSettings() {
   }, [pwa.registration]);
 
   async function enableAlerts() {
-    if (!pwa.registration || !VAPID_PUBLIC_KEY || !('Notification' in window)) {
-      setError('Browser alerts are unavailable on this device.');
+    if (!pwa.registration || !VAPID_PUBLIC_KEY || !("Notification" in window)) {
+      setError("Browser alerts are unavailable on this device.");
       return;
     }
-    setBusy('subscribe');
+    setBusy("subscribe");
     setError(null);
     setMessage(null);
     try {
       const nextPermission = await Notification.requestPermission();
       setPermission(nextPermission);
-      if (nextPermission !== 'granted') {
-        setError('Notification permission was not granted.');
+      if (nextPermission !== "granted") {
+        setError("Notification permission was not granted.");
         return;
       }
       const current = await pwa.registration.pushManager.getSubscription();
@@ -88,7 +93,7 @@ export default function AdminSettings() {
         await subscribeAdminAlerts(serializePushSubscription(subscription)),
       );
       setLocalSubscribed(true);
-      setMessage('Browser alerts are enabled on this device.');
+      setMessage("Browser alerts are enabled on this device.");
     } catch (requestError) {
       setError((requestError as Error).message);
     } finally {
@@ -97,22 +102,22 @@ export default function AdminSettings() {
   }
 
   async function disableAlerts() {
-    setBusy('unsubscribe');
+    setBusy("unsubscribe");
     setError(null);
     setMessage(null);
     try {
       const cleanup = await unsubscribeCurrentAdminDevice(pwa.registration);
       if (!cleanup.safe) {
         throw new Error(
-          'Could not disable this device. Check your connection and try again.',
+          "Could not disable this device. Check your connection and try again.",
         );
       }
       setLocalSubscribed(false);
       await load();
       setMessage(
         cleanup.serverRemoved && cleanup.browserRemoved
-          ? 'This device will no longer receive admin alerts.'
-          : 'Alerts are disabled. Remaining provider cleanup will complete automatically.',
+          ? "This device will no longer receive admin alerts."
+          : "Alerts are disabled. Remaining provider cleanup will complete automatically.",
       );
     } catch (requestError) {
       setError((requestError as Error).message);
@@ -140,15 +145,15 @@ export default function AdminSettings() {
   }
 
   async function sendTest() {
-    setBusy('test');
+    setBusy("test");
     setError(null);
     setMessage(null);
     try {
       const result = await sendAdminTestAlert();
       setMessage(
         result.accepted
-          ? 'Test alert queued for this administrator.'
-          : `Test alert unavailable${result.reason ? `: ${result.reason}` : '.'}`,
+          ? "Test alert queued for this administrator."
+          : `Test alert unavailable${result.reason ? `: ${result.reason}` : "."}`,
       );
     } catch (requestError) {
       setError((requestError as Error).message);
@@ -160,10 +165,10 @@ export default function AdminSettings() {
   const activeDevices = capabilities?.activeDevices ?? 0;
   const pushReady = Boolean(
     capabilities?.enabled &&
-      capabilities.configured &&
-      capabilities.allowed &&
-      VAPID_PUBLIC_KEY &&
-      pwa.registration,
+    capabilities.configured &&
+    capabilities.allowed &&
+    VAPID_PUBLIC_KEY &&
+    pwa.registration,
   );
 
   return (
@@ -176,12 +181,18 @@ export default function AdminSettings() {
       </div>
 
       {error ? (
-        <p role="alert" className="mt-5 border-l-2 border-down bg-down-tint px-4 py-3 text-sm text-ink">
+        <p
+          role="alert"
+          className="mt-5 border-l-2 border-down bg-down-tint px-4 py-3 text-sm text-ink"
+        >
           {error}
         </p>
       ) : null}
       {message ? (
-        <p role="status" className="mt-5 border-l-2 border-ok bg-ok-tint px-4 py-3 text-sm text-ink">
+        <p
+          role="status"
+          className="mt-5 border-l-2 border-ok bg-ok-tint px-4 py-3 text-sm text-ink"
+        >
           {message}
         </p>
       ) : null}
@@ -200,7 +211,7 @@ export default function AdminSettings() {
               className="inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-bg disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Download className="h-4 w-4" aria-hidden="true" />
-              {pwa.standalone ? 'Installed' : 'Install admin app'}
+              {pwa.standalone ? "Installed" : "Install admin app"}
             </button>
             {!pwa.standalone && !pwa.installAvailable && isIos() ? (
               <p className="text-sm text-ink-muted">
@@ -210,14 +221,23 @@ export default function AdminSettings() {
           </div>
         </SettingsSection>
 
+        <AdminPasswordChange
+          onChanged={async () => {
+            setSessionReloadKey((value) => value + 1);
+          }}
+        />
+
+        <AdminActiveSessions reloadKey={sessionReloadKey} />
+
         <SettingsSection
           icon={<BellRing className="h-5 w-5" aria-hidden="true" />}
           title="Browser alerts"
-          description={`${activeDevices} active ${activeDevices === 1 ? 'device' : 'devices'} for this administrator.`}
+          description={`${activeDevices} active ${activeDevices === 1 ? "device" : "devices"} for this administrator.`}
         >
           {!pushReady ? (
             <p className="text-sm text-ink-muted">
-              Browser alert delivery is not available in this deployment or for this administrator.
+              Browser alert delivery is not available in this deployment or for
+              this administrator.
             </p>
           ) : (
             <div className="space-y-4">
@@ -226,17 +246,20 @@ export default function AdminSettings() {
                   <button
                     type="button"
                     onClick={() => void enableAlerts()}
-                    disabled={busy !== null || permission === 'denied'}
+                    disabled={busy !== null || permission === "denied"}
                     className="inline-flex min-h-11 items-center gap-2 rounded-md bg-profile px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {busy === 'subscribe' ? (
-                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    {busy === "subscribe" ? (
+                      <Loader2
+                        className="h-4 w-4 animate-spin"
+                        aria-hidden="true"
+                      />
                     ) : (
                       <BellRing className="h-4 w-4" aria-hidden="true" />
                     )}
                     Enable on this device
                   </button>
-                  {permission === 'denied' ? (
+                  {permission === "denied" ? (
                     <p className="mt-2 text-sm text-warn">
                       Notifications are blocked in this browser’s site settings.
                     </p>
@@ -249,26 +272,30 @@ export default function AdminSettings() {
                   <ToggleRow
                     label="Browser alerts"
                     checked={capabilities!.preferences.enabled}
-                    onChange={(value) => void changePreference('enabled', value)}
+                    onChange={(value) =>
+                      void changePreference("enabled", value)
+                    }
                   />
                   <ToggleRow
                     label="New bug reports"
                     checked={capabilities!.preferences.bugs}
                     disabled={!capabilities!.preferences.enabled}
-                    onChange={(value) => void changePreference('bugs', value)}
+                    onChange={(value) => void changePreference("bugs", value)}
                   />
                   <ToggleRow
                     label="My campaign outcomes"
                     checked={capabilities!.preferences.campaigns}
                     disabled={!capabilities!.preferences.enabled}
-                    onChange={(value) => void changePreference('campaigns', value)}
+                    onChange={(value) =>
+                      void changePreference("campaigns", value)
+                    }
                   />
                   <ToggleRow
                     label="Service outages and recoveries"
                     checked={capabilities!.preferences.serviceHealth}
                     disabled={!capabilities!.preferences.enabled}
                     onChange={(value) =>
-                      void changePreference('serviceHealth', value)
+                      void changePreference("serviceHealth", value)
                     }
                   />
                 </div>
@@ -371,34 +398,36 @@ function ToggleRow({
         aria-checked={checked}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={`relative h-7 w-12 flex-none rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${checked ? 'border-profile bg-profile' : 'border-line-strong bg-surface-2'}`}
+        className={`relative h-7 w-12 flex-none rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${checked ? "border-profile bg-profile" : "border-line-strong bg-surface-2"}`}
       >
         <span
-          className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-5' : 'translate-x-1'}`}
+          className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${checked ? "translate-x-5" : "translate-x-1"}`}
         />
-        <span className="sr-only">{checked ? 'Disable' : 'Enable'} {label}</span>
+        <span className="sr-only">
+          {checked ? "Disable" : "Enable"} {label}
+        </span>
       </button>
     </div>
   );
 }
 
 function decodeVapidPublicKey(value: string): Uint8Array<ArrayBuffer> {
-  const padding = '='.repeat((4 - (value.length % 4)) % 4);
-  const base64 = `${value}${padding}`.replace(/-/g, '+').replace(/_/g, '/');
+  const padding = "=".repeat((4 - (value.length % 4)) % 4);
+  const base64 = `${value}${padding}`.replace(/-/g, "+").replace(/_/g, "/");
   const raw = window.atob(base64);
   return Uint8Array.from(raw, (character) => character.charCodeAt(0));
 }
 
 function formatSessionExpiry(value?: number): string {
-  if (!value) return 'the current session expires';
-  return new Intl.DateTimeFormat('en-IN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: 'Asia/Kolkata',
+  if (!value) return "the current session expires";
+  return new Intl.DateTimeFormat("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Kolkata",
   }).format(new Date(value));
 }
 
 function isIos(): boolean {
-  if (typeof navigator === 'undefined') return false;
+  if (typeof navigator === "undefined") return false;
   return /iPad|iPhone|iPod/.test(navigator.userAgent);
 }
