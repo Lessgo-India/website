@@ -6,7 +6,7 @@ import { PageHeader, Prose } from '@ui/PageHeader';
 // NOTE FOR THE TEAM: this policy is drafted to reflect what the product
 // actually does. Have qualified counsel review it, and confirm the Grievance
 // Officer details below, before the public launch.
-const LAST_UPDATED = '5 September 2026';
+const LAST_UPDATED = '12 September 2026';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -45,6 +45,12 @@ export default function PrivacyPage() {
                 the normalized address, signup source and submission timestamps in our signup
                 database so we can tell you when the app is available. We do not use it for
                 anything else.
+              </li>
+              <li>
+                <strong>Phone verification and account deletion.</strong> If you use our account
+                deletion page, Google Firebase processes the phone number you enter, the one-time
+                verification result, reCAPTCHA signals, and related security metadata so we can
+                authenticate you and prevent someone from deleting another person&rsquo;s account.
               </li>
               <li>
                 <strong>Analytics.</strong> Only if you agree. If you select
@@ -141,6 +147,10 @@ export default function PrivacyPage() {
               We keep your account data for as long as your account is active. When you delete
               your profile, we delete or anonymise your personal data, except where we are
               required to retain something to meet a legal obligation or resolve a dispute.
+              As part of deletion, we request immediate deactivation of device-token records so
+              pushes stop; those records may remain in inactive form for security and
+              delivery-suppression purposes. If automated cleanup cannot be confirmed, the
+              deletion page directs you to privacy support for manual review.
               Early-access emails are deleted once the launch communication is complete or when
               you ask us to remove them, whichever comes first.
             </p>
@@ -163,9 +173,10 @@ export default function PrivacyPage() {
             </ul>
             <p>
               To exercise any of these, email{' '}
-              <a href="mailto:privacy@lessgo.in">privacy@lessgo.in</a>. You can also delete
-              your profile directly in the app under <strong>Profile → Data &amp; Privacy →
-              Delete Profile</strong>.
+              <a href="mailto:privacy@lessgo.in">privacy@lessgo.in</a>. You can also delete your
+              account through our <Link href="/delete-account">account deletion page</Link> or
+              directly in the app under{' '}
+              <strong>Profile → Danger Zone → Delete Profile</strong>.
             </p>
 
             <h2 id="grievance">Grievance Officer</h2>

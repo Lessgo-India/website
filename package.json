@@ -12,6 +12,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "test:delete-account": "node --experimental-strip-types --test components/analytics.test.mjs",
     "test:admin-policy": "node --experimental-strip-types --test web/lib/adminGatewayPolicy.test.mjs web/lib/bugHouseView.test.mjs web/lib/adminGatewayRoute.test.mjs"
   },
   "dependencies": {

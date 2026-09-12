@@ -27,7 +27,15 @@ type AuthState = {
   sendOtp: (e164Phone: string, containerId: string) => Promise<ConfirmationResult>;
   getToken: (forceRefresh?: boolean) => Promise<string | null>;
   signOut: () => Promise<void>;
+  signOutConfirmed: (expectedUid?: string) => Promise<void>;
 };
+
+export class AuthIdentityChangedError extends Error {
+  constructor() {
+    super('The authenticated Firebase user changed.');
+    this.name = 'AuthIdentityChangedError';
+  }
+}
 
 const AuthContext = createContext<AuthState | null>(null);
 
@@ -69,15 +77,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [user],
   );
 
-  const signOut = useCallback(async () => {
-    try {
-      await fbSignOut(getFirebaseAuth());
-    } catch {
-      /* ignore */
+  const signOutConfirmed = useCallback(async (expectedUid?: string) => {
+    const auth = getFirebaseAuth();
+    if (!auth.currentUser) {
+      resetRecaptcha();
+      setUser(null);
+      return;
     }
-    resetRecaptcha();
+    if (expectedUid && auth.currentUser.uid !== expectedUid) {
+      throw new AuthIdentityChangedError();
+    }
+    try {
+      await fbSignOut(auth);
+    } finally {
+      resetRecaptcha();
+    }
     setUser(null);
   }, []);
+
+  const signOut = useCallback(async () => {
+    try {
+      await signOutConfirmed();
+    } catch {
+      // Regular sign-out remains best-effort for existing callers. Account
+      // deletion uses signOutConfirmed so it can report a local cleanup error.
+      resetRecaptcha();
+      setUser(null);
+    }
+  }, [signOutConfirmed]);
 
   const value = useMemo<AuthState>(
     () => ({
@@ -88,8 +115,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       sendOtp: fbSendOtp,
       getToken,
       signOut,
+      signOutConfirmed,
     }),
-    [ready, user, getToken, signOut],
+    [ready, user, getToken, signOut, signOutConfirmed],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

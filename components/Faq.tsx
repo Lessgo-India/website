@@ -1,14 +1,21 @@
 'use client';
 
+import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { track } from '@ui/analytics';
+
+type FaqItem = {
+  q: string;
+  a: string;
+  link?: { label: string; href: string };
+};
 
 /**
  * Native <details>/<summary> so the FAQ is keyboard-operable, screen-reader
  * friendly and fully functional without JavaScript. The client boundary exists
  * only to report opens to analytics.
  */
-export function Faq({ items }: { items: readonly { q: string; a: string }[] }) {
+export function Faq({ items }: { items: readonly FaqItem[] }) {
   return (
     <div className="mx-auto max-w-3xl divide-y divide-line overflow-hidden rounded-[28px] border border-line bg-surface">
       {items.map((item) => (
@@ -28,7 +35,15 @@ export function Faq({ items }: { items: readonly { q: string; a: string }[] }) {
             </span>
           </summary>
           <div className="px-6 pb-6 pr-14 text-[0.95rem] leading-relaxed text-ink-muted">
-            {item.a}
+            <p>{item.a}</p>
+            {item.link ? (
+              <Link
+                href={item.link.href}
+                className="mt-3 inline-flex min-h-[40px] items-center font-semibold text-ink underline underline-offset-4 hover:text-profile"
+              >
+                {item.link.label}
+              </Link>
+            ) : null}
           </div>
         </details>
       ))}

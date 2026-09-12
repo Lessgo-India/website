@@ -107,6 +107,35 @@ export function getMuo(userId: string, auth: TokenProvider): Promise<Muo> {
   return request<Muo>(`/users/getMUO/${encodeURIComponent(userId)}`, { auth });
 }
 
+type DeleteAccountResponse = {
+  success?: boolean;
+  report?: Record<string, string>;
+};
+
+export type DeleteAccountResult = {
+  cleanupComplete: boolean;
+};
+
+export async function deleteUserAccount(
+  userId: string,
+  getToken: TokenProvider,
+): Promise<DeleteAccountResult> {
+  const response = await request<DeleteAccountResponse>(
+    `/users/${encodeURIComponent(userId)}/account`,
+    { method: 'DELETE', auth: getToken },
+  );
+
+  if (response.success !== true) {
+    throw new ApiError('Account deletion could not be confirmed.', 502);
+  }
+
+  return {
+    cleanupComplete:
+      response.report !== undefined &&
+      Object.values(response.report).every((result) => !result.startsWith('failed:')),
+  };
+}
+
 /** `null` means "no Lessgo account yet" — the signal that onboarding is needed. */
 export async function getProfileOrNull(
   userId: string,

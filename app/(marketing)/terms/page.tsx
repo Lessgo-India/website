@@ -5,7 +5,7 @@ import { PageHeader, Prose } from '@ui/PageHeader';
 
 // NOTE FOR THE TEAM: drafted to match what the product actually does. Have
 // qualified counsel review before the public launch.
-const LAST_UPDATED = '23 August 2026';
+const LAST_UPDATED = '12 September 2026';
 
 export const metadata: Metadata = {
   title: 'Terms of Use',
@@ -111,8 +111,9 @@ export default function TermsPage() {
             <h2>10. Ending your use</h2>
             <p>
               You can stop using Lessgo and delete your profile at any time from{' '}
-              <strong>Profile → Data &amp; Privacy → Delete Profile</strong>. We may suspend or
-              end your access if you breach these terms or if we are legally required to.
+              <strong>Profile → Danger Zone → Delete Profile</strong>, or through our{' '}
+              <Link href="/delete-account">account deletion page</Link>. We may suspend or end
+              your access if you breach these terms or if we are legally required to.
             </p>
 
             <h2>11. Disclaimers</h2>

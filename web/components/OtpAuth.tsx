@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode, type Ref } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, ArrowLeft, Check, Copy, Loader2 } from 'lucide-react';
 import { track } from '@ui/analytics';
@@ -42,7 +42,22 @@ const primaryClass =
   'transition-transform duration-200 ease-spring hover:-translate-y-px active:scale-[0.97] ' +
   'disabled:pointer-events-none disabled:opacity-55';
 
-export default function OtpAuth({ heading = 'Sign in with your phone' }: { heading?: string }) {
+type OtpAuthProps = {
+  heading?: string;
+  headingLevel?: 'h1' | 'h2';
+  headingRef?: Ref<HTMLHeadingElement>;
+  phoneHelperText?: ReactNode;
+  trackMilestones?: boolean;
+};
+
+export default function OtpAuth({
+  heading = 'Sign in with your phone',
+  headingLevel = 'h1',
+  headingRef,
+  phoneHelperText = "We'll text you a 6-digit code. Use the number your invite was sent to.",
+  trackMilestones = true,
+}: OtpAuthProps) {
+  const Heading = headingLevel;
   const { sendOtp, configured } = useAuth();
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phone, setPhone] = useState('');
@@ -89,7 +104,7 @@ export default function OtpAuth({ heading = 'Sign in with your phone' }: { headi
         setConfirmation(result);
         setStep('otp');
         setCooldown(RESEND_SECONDS);
-        track(isResend ? 'web_otp_resent' : 'web_otp_requested');
+        if (trackMilestones) track(isResend ? 'web_otp_resent' : 'web_otp_requested');
       } catch (e) {
         // A failed reCAPTCHA leaves a stale verifier; clear it so the next
         // attempt renders a fresh one instead of erroring again.
@@ -100,7 +115,7 @@ export default function OtpAuth({ heading = 'Sign in with your phone' }: { headi
         setBusy(false);
       }
     },
-    [phone, sendOtp],
+    [phone, sendOtp, trackMilestones],
   );
 
   const verify = useCallback(async () => {
@@ -113,13 +128,13 @@ export default function OtpAuth({ heading = 'Sign in with your phone' }: { headi
     setBusy(true);
     try {
       await confirmation.confirm(code.trim());
-      track('web_otp_verified');
+      if (trackMilestones) track('web_otp_verified');
       // The auth listener takes over from here and advances the flow.
     } catch {
       setError('That code didn’t work. Check it and try again.');
       setBusy(false);
     }
-  }, [code, confirmation]);
+  }, [code, confirmation, trackMilestones]);
 
   if (!configured) {
     return (
@@ -133,7 +148,9 @@ export default function OtpAuth({ heading = 'Sign in with your phone' }: { headi
   return (
     <div className="space-y-4">
       {step === 'phone' ? <PhoneArt /> : <OtpArt />}
-      <h1 className="font-display text-2xl font-bold text-ink">{heading}</h1>
+      <Heading ref={headingRef} tabIndex={-1} className="font-display text-2xl font-bold text-ink outline-none">
+        {heading}
+      </Heading>
 
       {inApp ? (
         <div className="rounded-lg border border-line-strong bg-bg-elev p-4">
@@ -169,9 +186,7 @@ export default function OtpAuth({ heading = 'Sign in with your phone' }: { headi
 
       {step === 'phone' ? (
         <>
-          <p className="text-sm text-ink-muted">
-            We&apos;ll text you a 6-digit code. Use the number your invite was sent to.
-          </p>
+          <p className="text-sm text-ink-muted">{phoneHelperText}</p>
           <div className="space-y-2">
             <label className="block text-sm font-medium text-ink-muted" htmlFor="lessgo-phone">
               Phone number

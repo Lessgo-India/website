@@ -3,7 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { loadAnalytics, readConsent, writeConsent, type Consent } from './analytics';
+import {
+  isAnalyticsSuppressedPath,
+  loadAnalytics,
+  readConsent,
+  writeConsent,
+  type Consent,
+} from './analytics';
 import { Button } from './Button';
 
 /**
@@ -17,15 +23,21 @@ export function ConsentBanner() {
   // marketing analytics, so there is nothing here to consent to.
   const pathname = usePathname();
   const isInternal = pathname === '/admin' || (pathname?.startsWith('/admin/') ?? false);
+  const analyticsDisabled = isInternal || isAnalyticsSuppressedPath(pathname);
 
   useEffect(() => {
+    if (analyticsDisabled) {
+      setVisible(false);
+      return;
+    }
     const existing = readConsent();
     if (existing === 'granted') {
+      setVisible(false);
       loadAnalytics();
       return;
     }
-    if (existing === null) setVisible(true);
-  }, []);
+    setVisible(existing === null);
+  }, [analyticsDisabled]);
 
   function choose(value: Consent) {
     writeConsent(value);
@@ -33,7 +45,7 @@ export function ConsentBanner() {
     if (value === 'granted') loadAnalytics();
   }
 
-  if (!visible || isInternal) return null;
+  if (!visible || analyticsDisabled) return null;
 
   return (
     <div

@@ -13,6 +13,10 @@ const HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://eu.i.posthog.com';
 export const CONSENT_STORAGE_KEY = 'lessgo.consent.analytics';
 export type Consent = 'granted' | 'denied';
 
+export function isAnalyticsSuppressedPath(pathname: string): boolean {
+  return pathname === '/delete-account' || pathname.startsWith('/delete-account/');
+}
+
 type PostHog = {
   init: (key: string, config: Record<string, unknown>) => void;
   capture: (event: string, props?: Record<string, unknown>) => void;
@@ -43,6 +47,7 @@ export function writeConsent(value: Consent): void {
 }
 
 let loading = false;
+let initialized = false;
 
 /**
  * Events raised while the PostHog script is still downloading. Without this,
@@ -51,10 +56,48 @@ let loading = false;
  */
 let pending: Array<[string, Record<string, unknown>]> = [];
 
+function initializeAnalytics(): void {
+  if (typeof window === 'undefined') return;
+  if (isAnalyticsSuppressedPath(window.location.pathname)) {
+    pending = [];
+    return;
+  }
+  if (initialized || readConsent() !== 'granted' || !window.posthog) return;
+
+  window.posthog.init(KEY!, {
+    api_host: HOST,
+    // No cross-site cookies, session recording, page-leave events, or input capture.
+    persistence: 'localStorage',
+    autocapture: false,
+    disable_session_recording: true,
+    capture_pageview: false,
+    capture_pageleave: false,
+    mask_all_text: true,
+    respect_dnt: true,
+  });
+  initialized = true;
+  const currentPath = window.location.pathname;
+  const currentPageViewQueued = pending.some(
+    ([event, props]) => event === 'page_view' && props.path === currentPath,
+  );
+  if (!currentPageViewQueued) window.posthog.capture('page_view', { path: currentPath });
+  pending.forEach(([event, props]) => window.posthog?.capture(event, props));
+  pending = [];
+}
+
 export function loadAnalytics(): void {
   if (typeof window === 'undefined') return;
-  if (!KEY || loading || window.posthog) return;
+  if (isAnalyticsSuppressedPath(window.location.pathname)) {
+    pending = [];
+    return;
+  }
+  if (!KEY || loading || initialized) return;
   if (readConsent() !== 'granted') return;
+
+  if (window.posthog) {
+    initializeAnalytics();
+    return;
+  }
 
   loading = true;
 
@@ -63,19 +106,11 @@ export function loadAnalytics(): void {
   script.async = true;
   script.crossOrigin = 'anonymous';
   script.onload = () => {
-    window.posthog?.init(KEY, {
-      api_host: HOST,
-      // No cross-site cookies, no session recording, no autocapture of inputs.
-      persistence: 'localStorage',
-      autocapture: false,
-      disable_session_recording: true,
-      capture_pageview: false,
-      mask_all_text: true,
-      respect_dnt: true,
-    });
-    window.posthog?.capture('page_view', { path: window.location.pathname });
-    pending.forEach(([event, props]) => window.posthog?.capture(event, props));
-    pending = [];
+    loading = false;
+    initializeAnalytics();
+  };
+  script.onerror = () => {
+    loading = false;
   };
 
   document.head.appendChild(script);
@@ -84,8 +119,12 @@ export function loadAnalytics(): void {
 /** Fire an event. Silently no-ops without consent or configuration. */
 export function track(event: string, props: Record<string, unknown> = {}): void {
   if (typeof window === 'undefined') return;
+  if (isAnalyticsSuppressedPath(window.location.pathname)) {
+    pending = [];
+    return;
+  }
   if (readConsent() !== 'granted') return;
-  if (!window.posthog) {
+  if (!initialized || !window.posthog) {
     if (KEY && pending.length < 20) pending.push([event, props]);
     return;
   }

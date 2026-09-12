@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
-import { track } from './analytics';
+import { isAnalyticsSuppressedPath, track } from './analytics';
 
 /**
  * Reports client-side route changes. The first page view is sent by
@@ -18,6 +18,7 @@ export function PageViewTracker() {
       first.current = false;
       return;
     }
+    if (isAnalyticsSuppressedPath(pathname)) return;
     track('page_view', { path: pathname });
   }, [pathname]);
 
