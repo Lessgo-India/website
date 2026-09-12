@@ -22,6 +22,7 @@ const CAMPAIGN_STATES = new Set([
   "cancelled",
   "failed",
 ]);
+const URL_SAFE_BASE64 = /^[A-Za-z0-9_-]+={0,2}$/;
 
 function hasOnlyParams(params, allowed) {
   const seen = new Set();
@@ -78,6 +79,13 @@ export function isAllowedAdminRead(segments, params) {
   }
 
   if (segments[0] === "notifications") {
+    if (
+      segments.length === 3 &&
+      segments[1] === "alerts" &&
+      segments[2] === "capabilities"
+    ) {
+      return hasOnlyParams(params, new Set());
+    }
     if (segments.length === 2 && segments[1] === "capabilities") {
       return hasOnlyParams(params, new Set());
     }
@@ -123,6 +131,13 @@ export function isAllowedAdminRead(segments, params) {
 export function isAllowedAdminPost(segments) {
   if (segments[0] !== "notifications") return false;
   if (
+    segments.length === 3 &&
+    segments[1] === "alerts" &&
+    ["subscriptions", "test"].includes(segments[2])
+  ) {
+    return true;
+  }
+  if (
     segments.length === 2 &&
     ["previews", "test", "campaigns"].includes(segments[1])
   ) {
@@ -138,6 +153,13 @@ export function isAllowedAdminPost(segments) {
 
 export function isValidAdminPostBody(segments, body) {
   if (!isPlainObject(body)) return false;
+  if (
+    segments.length === 3 &&
+    segments[1] === "alerts" &&
+    segments[2] === "subscriptions"
+  ) {
+    return validWebPushSubscription(body);
+  }
   if (segments[1] === "previews") {
     return (
       exactKeys(body, ["purpose", "audience"]) &&
@@ -318,6 +340,14 @@ function optionalEnumArray(value, allowedValues, maximum) {
 }
 
 export function isAllowedAdminPatch(segments) {
+  if (
+    segments.length === 3 &&
+    segments[0] === "notifications" &&
+    segments[1] === "alerts" &&
+    segments[2] === "preferences"
+  ) {
+    return true;
+  }
   return (
     segments.length === 2 &&
     segments[0] === "bugs" &&
@@ -326,6 +356,14 @@ export function isAllowedAdminPatch(segments) {
 }
 
 export function isAllowedAdminDelete(segments) {
+  if (
+    segments.length === 3 &&
+    segments[0] === "notifications" &&
+    segments[1] === "alerts" &&
+    segments[2] === "subscriptions"
+  ) {
+    return true;
+  }
   return (
     segments.length === 2 && segments[0] === "bugs" && segments[1] === "done"
   );
@@ -338,5 +376,57 @@ export function isValidAdminBugPatchBody(body) {
     !Array.isArray(body) &&
     Object.keys(body).length === 1 &&
     typeof body.done === "boolean"
+  );
+}
+
+export function isValidAdminAlertPreferencesBody(body) {
+  return (
+    isPlainObject(body) &&
+    exactKeys(body, [
+      "enabled",
+      "bugs",
+      "campaigns",
+      "serviceHealth",
+    ]) &&
+    ["enabled", "bugs", "campaigns", "serviceHealth"].every(
+      (key) => typeof body[key] === "boolean",
+    )
+  );
+}
+
+export function isValidAdminAlertUnsubscribeBody(body) {
+  return (
+    isPlainObject(body) &&
+    exactKeys(body, ["endpoint"]) &&
+    validPushEndpoint(body.endpoint)
+  );
+}
+
+function validWebPushSubscription(body) {
+  return (
+    exactKeys(body, ["endpoint", "keys"]) &&
+    validPushEndpoint(body.endpoint) &&
+    isPlainObject(body.keys) &&
+    exactKeys(body.keys, ["p256dh", "auth"]) &&
+    validBase64Url(body.keys.p256dh, 20, 512) &&
+    validBase64Url(body.keys.auth, 8, 128)
+  );
+}
+
+function validPushEndpoint(value) {
+  if (typeof value !== "string" || value.length > 2_048) return false;
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function validBase64Url(value, minimum, maximum) {
+  return (
+    typeof value === "string" &&
+    value.length >= minimum &&
+    value.length <= maximum &&
+    URL_SAFE_BASE64.test(value)
   );
 }

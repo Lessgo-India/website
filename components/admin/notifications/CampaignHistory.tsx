@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw, RotateCcw, StopCircle } from "lucide-react";
 import {
   cancelCampaign,
@@ -8,8 +8,10 @@ import {
   getCampaigns,
   retryCampaignFailures,
   type AdminCampaign,
+  type CampaignPurpose,
   type CampaignState,
 } from "@web/lib/adminNotificationsApi";
+import AdminConfirmDialog from "@ui/admin/AdminConfirmDialog";
 
 const ACTIVE_STATES = new Set<CampaignState>([
   "scheduled",
@@ -23,59 +25,235 @@ export default function CampaignHistory({ canSend }: { canSend: boolean }) {
   const [items, setItems] = useState<AdminCampaign[]>([]);
   const [selected, setSelected] = useState<AdminCampaign | null>(null);
   const [loading, setLoading] = useState(true);
+  const [replacing, setReplacing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [stateFilter, setStateFilter] = useState<CampaignState | "all">("all");
+  const [purposeFilter, setPurposeFilter] = useState<CampaignPurpose | "all">(
+    "all",
+  );
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const selectedId = selected?.id;
+  const [confirmation, setConfirmation] = useState<{
+    action: "cancel" | "retry";
+    campaign: AdminCampaign;
+  } | null>(null);
+  const selectedRef = useRef<HTMLDivElement>(null);
+  const selectedIdRef = useRef<string | null>(null);
+  const deepLinkHandled = useRef(false);
+  const replaceRequestSequence = useRef(0);
+  const appendRequestSequence = useRef(0);
+  const paginationInFlight = useRef(false);
+  const loadedItemCount = useRef(0);
+  const replacementInFlight = useRef(false);
+  const replacementRerunSource = useRef<"replace" | "poll" | null>(null);
+  const loadRef = useRef<(
+    before?: string,
+    source?: "replace" | "append" | "poll",
+  ) => Promise<void>>(async () => undefined);
+  const detailRequestSequence = useRef(0);
+  const hasActiveCampaigns = items.some((item) =>
+    ACTIVE_STATES.has(item.state),
+  );
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (
+    before?: string,
+    source: "replace" | "append" | "poll" = before ? "append" : "replace",
+  ) => {
+    const append = source === "append";
+    if (append && (replacementInFlight.current || paginationInFlight.current)) {
+      return;
+    }
+    if (source === "poll" && paginationInFlight.current) return;
+    if (!append && replacementInFlight.current) {
+      if (source === "replace" || replacementRerunSource.current === null) {
+        replacementRerunSource.current = source;
+      }
+      if (source === "replace") setLoading(true);
+      return;
+    }
+    const parentReplaceId = replaceRequestSequence.current;
+    const requestId = append
+      ? ++appendRequestSequence.current
+      : ++replaceRequestSequence.current;
+    if (append) {
+      paginationInFlight.current = true;
+      setLoadingMore(true);
+    } else if (source === "replace") {
+      replacementInFlight.current = true;
+      setReplacing(true);
+      appendRequestSequence.current += 1;
+      paginationInFlight.current = false;
+      setLoadingMore(false);
+      setLoading(true);
+    } else {
+      replacementInFlight.current = true;
+      setReplacing(true);
+    }
     setError(null);
     try {
-      const result = await getCampaigns();
-      setItems(result.items);
-      if (selectedId) {
-        const detail = await getCampaign(selectedId);
-        setSelected(detail);
+      const filters = {
+        ...(stateFilter === "all" ? {} : { state: stateFilter }),
+        ...(purposeFilter === "all" ? {} : { purpose: purposeFilter }),
+        ...(before ? { before } : {}),
+      };
+      let result = await getCampaigns(filters);
+      if (source === "poll") {
+        const targetCount = Math.max(loadedItemCount.current, result.items.length);
+        const refreshed = [...result.items];
+        let cursor = result.nextCursor;
+        while (
+          cursor &&
+          refreshed.length < targetCount &&
+          requestId === replaceRequestSequence.current
+        ) {
+          const next = await getCampaigns({
+            ...(stateFilter === "all" ? {} : { state: stateFilter }),
+            ...(purposeFilter === "all" ? {} : { purpose: purposeFilter }),
+            before: cursor,
+          });
+          const seen = new Set(refreshed.map((item) => item.id));
+          refreshed.push(...next.items.filter((item) => !seen.has(item.id)));
+          cursor = next.nextCursor;
+        }
+        result = { items: refreshed, nextCursor: cursor };
+      }
+      const current = append
+        ? requestId === appendRequestSequence.current &&
+          parentReplaceId === replaceRequestSequence.current
+        : requestId === replaceRequestSequence.current;
+      if (!current) return;
+      setItems((current) => {
+        const next = append
+          ? [
+              ...current,
+              ...result.items.filter(
+                (item) => !current.some((existing) => existing.id === item.id),
+              ),
+            ]
+          : result.items;
+        loadedItemCount.current = next.length;
+        return next;
+      });
+      setNextCursor(result.nextCursor);
+      const currentSelectedId = selectedIdRef.current;
+      if (currentSelectedId) {
+        const detail = await getCampaign(currentSelectedId);
+        const stillCurrent = append
+          ? requestId === appendRequestSequence.current &&
+            parentReplaceId === replaceRequestSequence.current
+          : requestId === replaceRequestSequence.current;
+        if (
+          stillCurrent &&
+          selectedIdRef.current === currentSelectedId
+        ) {
+          setSelected(detail);
+        }
       }
     } catch (requestError) {
-      setError((requestError as Error).message);
+      const current = append
+        ? requestId === appendRequestSequence.current &&
+          parentReplaceId === replaceRequestSequence.current
+        : requestId === replaceRequestSequence.current;
+      if (current) {
+        setError((requestError as Error).message);
+      }
     } finally {
-      setLoading(false);
+      if (append && requestId === appendRequestSequence.current) {
+        paginationInFlight.current = false;
+        setLoadingMore(false);
+      } else if (
+        !append &&
+        requestId === replaceRequestSequence.current
+      ) {
+        replacementInFlight.current = false;
+        setReplacing(false);
+        if (source === "replace") setLoading(false);
+        const rerunSource = replacementRerunSource.current;
+        replacementRerunSource.current = null;
+        if (rerunSource) void loadRef.current(undefined, rerunSource);
+      }
     }
-  }, [selectedId]);
+  }, [purposeFilter, stateFilter]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(timer);
+    loadRef.current = load;
   }, [load]);
 
   useEffect(() => {
-    if (!items.some((item) => ACTIVE_STATES.has(item.state))) return;
-    const timer = window.setInterval(() => void load(), 5_000);
-    return () => window.clearInterval(timer);
-  }, [items, load]);
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => {
+      window.clearTimeout(timer);
+      replaceRequestSequence.current += 1;
+      appendRequestSequence.current += 1;
+      paginationInFlight.current = false;
+      replacementInFlight.current = false;
+      setReplacing(false);
+      replacementRerunSource.current = null;
+    };
+  }, [load]);
 
-  const open = async (id: string) => {
+  useEffect(() => {
+    if (!hasActiveCampaigns) return;
+    let cancelled = false;
+    let timer: number | undefined;
+    const poll = async () => {
+      await load(undefined, "poll");
+      if (!cancelled) timer = window.setTimeout(() => void poll(), 5_000);
+    };
+    timer = window.setTimeout(() => void poll(), 5_000);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [hasActiveCampaigns, load]);
+
+  const open = useCallback(async (id: string) => {
+    const requestId = ++detailRequestSequence.current;
+    selectedIdRef.current = id;
     setBusy(id);
     try {
-      setSelected(await getCampaign(id));
+      const detail = await getCampaign(id);
+      if (
+        requestId !== detailRequestSequence.current ||
+        selectedIdRef.current !== id
+      ) {
+        return;
+      }
+      setSelected(detail);
     } catch (requestError) {
-      setError((requestError as Error).message);
+      if (requestId === detailRequestSequence.current) {
+        setError((requestError as Error).message);
+      }
     } finally {
-      setBusy(null);
+      if (requestId === detailRequestSequence.current) setBusy(null);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!selected?.id) return;
+    const frame = window.requestAnimationFrame(() =>
+      selectedRef.current?.focus(),
+    );
+    return () => window.cancelAnimationFrame(frame);
+  }, [selected?.id]);
+
+  useEffect(() => {
+    if (deepLinkHandled.current) return;
+    const campaignId = new URLSearchParams(window.location.search).get(
+      "campaign",
+    );
+    if (!campaignId || !/^[a-f0-9]{24}$/i.test(campaignId)) return;
+    deepLinkHandled.current = true;
+    void open(campaignId);
+  }, [open]);
 
   const cancel = async (campaign: AdminCampaign) => {
-    if (
-      !window.confirm(
-        `Cancel "${campaign.name}"? Pushes already sent cannot be recalled.`,
-      )
-    )
-      return;
     setBusy(campaign.id);
     try {
       setSelected(await cancelCampaign(campaign.id));
       await load();
+      setConfirmation(null);
     } catch (requestError) {
       setError((requestError as Error).message);
     } finally {
@@ -84,16 +262,11 @@ export default function CampaignHistory({ canSend }: { canSend: boolean }) {
   };
 
   const retry = async (campaign: AdminCampaign) => {
-    if (
-      !window.confirm(
-        `Retry failed and unknown recipients for "${campaign.name}"?`,
-      )
-    )
-      return;
     setBusy(campaign.id);
     try {
       setSelected(await retryCampaignFailures(campaign.id));
       await load();
+      setConfirmation(null);
     } catch (requestError) {
       setError((requestError as Error).message);
     } finally {
@@ -130,6 +303,44 @@ export default function CampaignHistory({ canSend }: { canSend: boolean }) {
           />
           <span className="sr-only">Refresh campaigns</span>
         </button>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2" aria-label="Campaign filters">
+        <label className="space-y-1.5 text-sm font-semibold text-ink">
+          State
+          <select
+            value={stateFilter}
+            onChange={(event) =>
+              setStateFilter(event.target.value as CampaignState | "all")
+            }
+            className="min-h-11 w-full rounded-md border border-line bg-surface px-3 font-normal text-ink"
+          >
+            <option value="all">All states</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="materializing">Materializing</option>
+            <option value="queued">Queued</option>
+            <option value="sending">Sending</option>
+            <option value="completed">Completed</option>
+            <option value="completed_with_failures">Completed with failures</option>
+            <option value="cancel_requested">Cancel requested</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="failed">Failed</option>
+          </select>
+        </label>
+        <label className="space-y-1.5 text-sm font-semibold text-ink">
+          Purpose
+          <select
+            value={purposeFilter}
+            onChange={(event) =>
+              setPurposeFilter(event.target.value as CampaignPurpose | "all")
+            }
+            className="min-h-11 w-full rounded-md border border-line bg-surface px-3 font-normal text-ink"
+          >
+            <option value="all">All purposes</option>
+            <option value="lessgo_update">Announcements</option>
+            <option value="marketing">Marketing</option>
+          </select>
+        </label>
       </div>
 
       {error ? (
@@ -181,7 +392,9 @@ export default function CampaignHistory({ canSend }: { canSend: boolean }) {
                   {canSend && ACTIVE_STATES.has(campaign.state) ? (
                     <button
                       type="button"
-                      onClick={() => void cancel(campaign)}
+                      onClick={() =>
+                        setConfirmation({ action: "cancel", campaign })
+                      }
                       disabled={busy === campaign.id}
                       title="Cancel campaign"
                       className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-down text-down hover:bg-down-tint disabled:opacity-50"
@@ -193,7 +406,9 @@ export default function CampaignHistory({ canSend }: { canSend: boolean }) {
                   {canSend && campaign.state === "completed_with_failures" ? (
                     <button
                       type="button"
-                      onClick={() => void retry(campaign)}
+                      onClick={() =>
+                        setConfirmation({ action: "retry", campaign })
+                      }
                       disabled={busy === campaign.id}
                       title="Retry failed recipients"
                       className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line text-ink-muted hover:bg-surface-2 disabled:opacity-50"
@@ -235,18 +450,43 @@ export default function CampaignHistory({ canSend }: { canSend: boolean }) {
         </div>
       )}
 
+      {nextCursor ? (
+        <div className="flex justify-center border-t border-line pt-4">
+          <button
+            type="button"
+            onClick={() => void load(nextCursor)}
+            disabled={loadingMore || loading || replacing}
+            className="inline-flex min-h-11 items-center gap-2 rounded-md border border-line px-4 text-sm font-semibold text-ink hover:bg-surface-2 disabled:opacity-50"
+          >
+            {loadingMore ? (
+              <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : null}
+            {loadingMore ? "Loading…" : "Load more"}
+          </button>
+        </div>
+      ) : null}
+
       {selected ? (
-        <div className="border-l-2 border-profile bg-profile-tint px-5 py-4">
+        <div
+          ref={selectedRef}
+          tabIndex={-1}
+          aria-labelledby="selected-campaign-heading"
+          className="border-l-2 border-profile bg-profile-tint px-5 py-4"
+        >
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="font-display font-bold text-ink">
+              <h3 id="selected-campaign-heading" className="font-display font-bold text-ink">
                 {selected.name}
               </h3>
               <p className="mt-1 text-sm text-ink-muted">{selected.title}</p>
             </div>
             <button
               type="button"
-              onClick={() => setSelected(null)}
+              onClick={() => {
+                detailRequestSequence.current += 1;
+                selectedIdRef.current = null;
+                setSelected(null);
+              }}
               className="min-h-11 px-2 text-sm font-semibold text-ink-muted hover:text-ink"
             >
               Close
@@ -273,6 +513,29 @@ export default function CampaignHistory({ canSend }: { canSend: boolean }) {
           ) : null}
         </div>
       ) : null}
+
+      <AdminConfirmDialog
+        open={confirmation !== null}
+        title={
+          confirmation?.action === "cancel"
+            ? "Cancel campaign?"
+            : "Retry failed deliveries?"
+        }
+        body={
+          confirmation?.action === "cancel"
+            ? `Pushes already sent for “${confirmation.campaign.name}” cannot be recalled.`
+            : `Only failed and unknown recipients for “${confirmation?.campaign.name ?? "this campaign"}” will be retried.`
+        }
+        confirmLabel={confirmation?.action === "cancel" ? "Cancel campaign" : "Retry deliveries"}
+        destructive={confirmation?.action === "cancel"}
+        busy={Boolean(confirmation && busy === confirmation.campaign.id)}
+        onCancel={() => setConfirmation(null)}
+        onConfirm={() => {
+          if (!confirmation) return;
+          if (confirmation.action === "cancel") void cancel(confirmation.campaign);
+          else void retry(confirmation.campaign);
+        }}
+      />
     </section>
   );
 }

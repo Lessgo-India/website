@@ -23,6 +23,7 @@ import {
   createLatestRequestGate,
   selectBugHouseReloadTarget,
 } from "@web/lib/bugHouseView";
+import AdminConfirmDialog from "@ui/admin/AdminConfirmDialog";
 
 type BugFilter = AdminBugStatus;
 
@@ -45,11 +46,13 @@ function formatFiledAt(value: string): string {
 function BugReportCard({
   bug,
   busy,
+  focused,
   onToggleDone,
   onLoadLogs,
 }: {
   bug: AdminBugSummary;
   busy: boolean;
+  focused: boolean;
   onToggleDone: (bug: AdminBugSummary) => void;
   onLoadLogs: (id: string) => Promise<string>;
 }) {
@@ -101,7 +104,13 @@ function BugReportCard({
   };
 
   return (
-    <article className="rounded-lg border border-line bg-surface p-4 shadow-soft sm:p-5">
+    <article
+      id={`bug-${bug.id}`}
+      tabIndex={-1}
+      className={`rounded-lg border bg-surface p-4 shadow-soft sm:p-5 ${
+        focused ? "border-profile ring-2 ring-profile" : "border-line"
+      }`}
+    >
       <div className="flex items-start gap-3">
         <div
           className={`mt-0.5 flex h-10 w-10 flex-none items-center justify-center rounded-sm ${
@@ -112,7 +121,7 @@ function BugReportCard({
           <Bug className="h-5 w-5" />
         </div>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto">
           <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
             <div className="min-w-0 flex-1">
               <h3 className="break-words font-display text-base font-bold text-ink [overflow-wrap:anywhere] sm:text-lg">
@@ -240,7 +249,7 @@ function BugReportCard({
   );
 }
 
-export default function BugHouse({ active }: { active: boolean }) {
+export default function BugHouse() {
   const [filter, setFilter] = useState<BugFilter>("open");
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<AdminBugPage | null>(null);
@@ -249,6 +258,8 @@ export default function BugHouse({ active }: { active: boolean }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
   const requestGate = useRef(createLatestRequestGate());
   const filterRef = useRef<BugFilter>(filter);
   const pageRef = useRef(page);
@@ -282,16 +293,26 @@ export default function BugHouse({ active }: { active: boolean }) {
 
   useEffect(() => {
     const gate = requestGate.current;
-    if (!active) {
-      gate.invalidate();
-      return undefined;
-    }
     const timer = window.setTimeout(() => void load(), 0);
     return () => {
       window.clearTimeout(timer);
       gate.invalidate();
     };
-  }, [active, load]);
+  }, [load]);
+
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("bug");
+    if (requested && /^[a-f0-9]{24}$/i.test(requested)) setFocusedId(requested);
+  }, []);
+
+  useEffect(() => {
+    if (!focusedId || !result?.items.some((bug) => bug.id === focusedId)) return;
+    window.requestAnimationFrame(() => {
+      const card = document.getElementById(`bug-${focusedId}`);
+      card?.scrollIntoView({ behavior: "smooth", block: "center" });
+      card?.focus({ preventScroll: true });
+    });
+  }, [focusedId, result]);
 
   const toggleDone = async (bug: AdminBugSummary) => {
     setBusyId(bug.id);
@@ -326,14 +347,6 @@ export default function BugHouse({ active }: { active: boolean }) {
   const deleteResolved = async () => {
     const resolvedCount = result?.counts.resolved ?? 0;
     if (resolvedCount === 0) return;
-    if (
-      !window.confirm(
-        `Delete ${resolvedCount} resolved bug report${resolvedCount === 1 ? "" : "s"}?`,
-      )
-    ) {
-      return;
-    }
-
     setDeleting(true);
     setError(null);
     setNotice(null);
@@ -345,6 +358,7 @@ export default function BugHouse({ active }: { active: boolean }) {
       setNotice(
         `${deleted.deleted} resolved report${deleted.deleted === 1 ? "" : "s"} deleted.`,
       );
+      setConfirmDeleteOpen(false);
     } catch (requestError) {
       setError(
         (requestError as Error)?.message ??
@@ -375,21 +389,18 @@ export default function BugHouse({ active }: { active: boolean }) {
 
   return (
     <section
-      role="tabpanel"
-      id="bugs-panel"
-      aria-labelledby="bugs-tab"
-      hidden={!active}
-      className="mt-6 space-y-4"
+      aria-labelledby="bug-reports-heading"
+      className="space-y-4"
     >
       <div className="flex flex-wrap items-end gap-3 border-b border-line pb-4">
         <div className="min-w-0 flex-1">
-          <h2 className="font-display text-lg font-bold text-ink">Bug House</h2>
+          <h2 id="bug-reports-heading" className="font-display text-lg font-bold text-ink">Reports</h2>
           <p className="mt-1 text-sm text-ink-muted">
             Reports sent from the mobile app, including the selected screen and
             sanitized local log.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
           <button
             type="button"
             onClick={() => void load()}
@@ -405,7 +416,7 @@ export default function BugHouse({ active }: { active: boolean }) {
           </button>
           <button
             type="button"
-            onClick={deleteResolved}
+            onClick={() => setConfirmDeleteOpen(true)}
             disabled={deleting || counts.resolved === 0}
             className="inline-flex min-h-11 items-center gap-2 rounded-full border border-down px-4 text-sm font-semibold text-down transition-colors hover:bg-down-tint disabled:cursor-not-allowed disabled:border-line disabled:text-ink-faint"
           >
@@ -483,6 +494,7 @@ export default function BugHouse({ active }: { active: boolean }) {
               key={bug.id}
               bug={bug}
               busy={busyId === bug.id}
+              focused={focusedId === bug.id}
               onToggleDone={toggleDone}
               onLoadLogs={async (id) => (await getAdminBug(id)).logs}
             />
@@ -517,6 +529,17 @@ export default function BugHouse({ active }: { active: boolean }) {
           </div>
         </div>
       ) : null}
+
+      <AdminConfirmDialog
+        open={confirmDeleteOpen}
+        title="Delete resolved reports?"
+        body={`This permanently removes ${counts.resolved} resolved report${counts.resolved === 1 ? "" : "s"}. Open reports are not affected.`}
+        confirmLabel="Delete resolved"
+        destructive
+        busy={deleting}
+        onCancel={() => setConfirmDeleteOpen(false)}
+        onConfirm={() => void deleteResolved()}
+      />
     </section>
   );
 }

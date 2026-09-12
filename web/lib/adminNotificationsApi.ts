@@ -181,11 +181,22 @@ export function createCampaign(input: {
   });
 }
 
-export function getCampaigns(): Promise<{
+export function getCampaigns(filters: {
+  state?: CampaignState;
+  purpose?: CampaignPurpose;
+  limit?: number;
+  before?: string;
+} = {}): Promise<{
   items: AdminCampaign[];
   nextCursor: string | null;
 }> {
-  return adminRequest("/gateway/notifications/campaigns?limit=50");
+  const params = new URLSearchParams({
+    limit: String(filters.limit ?? 25),
+  });
+  if (filters.state) params.set("state", filters.state);
+  if (filters.purpose) params.set("purpose", filters.purpose);
+  if (filters.before) params.set("before", filters.before);
+  return adminRequest(`/gateway/notifications/campaigns?${params}`);
 }
 
 export function getCampaign(id: string): Promise<AdminCampaign> {

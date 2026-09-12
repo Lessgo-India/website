@@ -13,7 +13,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:delete-account": "node --experimental-strip-types --test components/analytics.test.mjs",
-    "test:admin-policy": "node --experimental-strip-types --test web/lib/adminGatewayPolicy.test.mjs web/lib/bugHouseView.test.mjs web/lib/adminGatewayRoute.test.mjs"
+    "test:admin-policy": "node --experimental-strip-types --test web/lib/adminGatewayPolicy.test.mjs web/lib/adminLoginRateLimitPolicy.test.mjs web/lib/boundedJsonBody.test.mjs web/lib/bugHouseView.test.mjs web/lib/adminGatewayRoute.test.mjs",
+    "test:admin-e2e": "playwright test tests/admin-pwa.spec.ts"
   },
   "dependencies": {
     "firebase": "^10.14.1",
@@ -25,6 +26,7 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^22.10.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

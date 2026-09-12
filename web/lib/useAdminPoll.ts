@@ -30,17 +30,18 @@ export function usePoll<T>(
     error: null,
     loading: true,
   });
-  const [nonce, setNonce] = useState(0);
-
   const fetcherRef = useRef(fetcher);
+  const refreshRef = useRef<() => void>(() => undefined);
   useEffect(() => {
     fetcherRef.current = fetcher;
   });
 
-  const refresh = useCallback(() => setNonce((n) => n + 1), []);
+  const refresh = useCallback(() => refreshRef.current(), []);
 
   useEffect(() => {
     let cancelled = false;
+    let inFlight = false;
+    let rerunRequested = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     setState((previous) => ({ ...previous, loading: true }));
@@ -51,37 +52,61 @@ export function usePoll<T>(
     };
 
     const run = async () => {
+      if (cancelled) return;
+      if (document.visibilityState === 'hidden') {
+        clearTimeout(timer);
+        return;
+      }
+      if (inFlight) {
+        rerunRequested = true;
+        return;
+      }
+      inFlight = true;
+      clearTimeout(timer);
       try {
         const data = await fetcherRef.current();
         if (!cancelled) setState({ data, error: null, loading: false });
       } catch (error) {
         if (!cancelled) {
+          const unauthorized = (error as { status?: number })?.status === 401;
           setState((previous) => ({
-            ...previous,
+            data: unauthorized ? null : previous.data,
             loading: false,
             error: (error as Error)?.message ?? 'Request failed.',
           }));
         }
       } finally {
-        schedule();
+        inFlight = false;
+        if (cancelled) return;
+        if (rerunRequested) {
+          rerunRequested = false;
+          void run();
+        } else {
+          schedule();
+        }
       }
     };
 
     const onVisibilityChange = () => {
-      if (document.visibilityState !== 'visible') return;
       clearTimeout(timer);
+      if (document.visibilityState !== 'visible') return;
       void run();
     };
 
+    refreshRef.current = onVisibilityChange;
+
     document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('admin:reconnect', onVisibilityChange);
     void run();
 
     return () => {
       cancelled = true;
+      refreshRef.current = () => undefined;
       clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('admin:reconnect', onVisibilityChange);
     };
-  }, [key, nonce, intervalMs]);
+  }, [key, intervalMs]);
 
   return { ...state, refresh };
 }

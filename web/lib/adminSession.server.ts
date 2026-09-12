@@ -112,6 +112,9 @@ export function verifySessionToken(token: string | undefined): SessionPayload | 
   try {
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString()) as SessionPayload;
     if (typeof payload.exp !== 'number' || payload.exp * 1000 < Date.now()) return null;
+    if (typeof payload.sub !== 'string' || !loadAdmins().has(normalisePhone(payload.sub))) {
+      return null;
+    }
     return payload;
   } catch {
     return null;

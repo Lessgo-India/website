@@ -1,44 +1,23 @@
 import { NextResponse } from 'next/server';
 import { normalisePhone } from '@web/lib/adminCredential';
 import {
+  consumeAdminLoginAddressRateLimit,
+  consumeAdminLoginPhoneRateLimit,
+} from '@web/lib/adminLoginRateLimit.server';
+import {
   createSessionToken,
   isAdminAuthConfigured,
   SESSION_COOKIE,
   SESSION_TTL_SECONDS,
   verifyCredential,
 } from '@web/lib/adminSession.server';
+import { readBoundedJson } from '@web/lib/boundedJsonBody';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const WINDOW_MS = 5 * 60_000;
-const MAX_ATTEMPTS = 5;
 const CREDENTIAL_PATTERN = /^[0-9a-f]{64}$/;
-
-// Per-instance throttle. Not a substitute for an edge rate limit, but it turns
-// online password guessing from cheap into impractical.
-const attempts = new Map<string, { count: number; resetAt: number }>();
-
-function rateLimited(key: string): boolean {
-  const now = Date.now();
-  const entry = attempts.get(key);
-
-  if (!entry || now > entry.resetAt) {
-    attempts.set(key, { count: 1, resetAt: now + WINDOW_MS });
-    if (attempts.size > 5_000) {
-      for (const [k, v] of attempts) if (now > v.resetAt) attempts.delete(k);
-    }
-    return false;
-  }
-
-  entry.count += 1;
-  return entry.count > MAX_ATTEMPTS;
-}
-
-function clientKey(req: Request): string {
-  const forwarded = req.headers.get('x-forwarded-for') ?? '';
-  return forwarded.split(',')[0].trim() || req.headers.get('x-real-ip') || 'unknown';
-}
+const MAX_LOGIN_BODY_BYTES = 4_096;
 
 export async function POST(req: Request) {
   if (!isAdminAuthConfigured()) {
@@ -48,19 +27,41 @@ export async function POST(req: Request) {
     );
   }
 
-  if (rateLimited(clientKey(req))) {
-    return json({ ok: false, message: 'Too many attempts. Try again in a few minutes.' }, 429);
+  const addressLimit = await consumeAdminLoginAddressRateLimit(req);
+  const limitedResponse = rateLimitResponse(addressLimit);
+  if (limitedResponse) return limitedResponse;
+
+  if (
+    !(req.headers.get('content-type') ?? '').startsWith('application/json')
+  ) {
+    return json({ ok: false, message: 'Admin sign-in requires JSON.' }, 415);
+  }
+  const declaredLength = Number(req.headers.get('content-length') ?? 0);
+  if (
+    Number.isFinite(declaredLength) &&
+    declaredLength > MAX_LOGIN_BODY_BYTES
+  ) {
+    return json({ ok: false, message: 'Sign-in request is too large.' }, 413);
   }
 
-  let body: { phone?: unknown; credential?: unknown };
-  try {
-    body = await req.json();
-  } catch {
+  const parsed = await readBoundedJson<{
+    phone?: unknown;
+    credential?: unknown;
+  }>(req.body, MAX_LOGIN_BODY_BYTES);
+  if (!parsed.ok) {
+    if (parsed.reason === 'too-large') {
+      return json({ ok: false, message: 'Sign-in request is too large.' }, 413);
+    }
     return json({ ok: false, message: 'Invalid request.' }, 400);
   }
+  const body = parsed.value;
 
   const phone = typeof body.phone === 'string' ? normalisePhone(body.phone) : '';
   const credential = typeof body.credential === 'string' ? body.credential : '';
+
+  const phoneLimit = await consumeAdminLoginPhoneRateLimit(req, phone);
+  const phoneLimitedResponse = rateLimitResponse(phoneLimit);
+  if (phoneLimitedResponse) return phoneLimitedResponse;
 
   // The client always sends a PBKDF2 digest, never a password. Anything else is
   // a malformed or hand-rolled request.
@@ -92,4 +93,21 @@ function json(body: unknown, status: number) {
     status,
     headers: { 'Cache-Control': 'no-store' },
   });
+}
+
+function rateLimitResponse(
+  result:
+    | { allowed: true }
+    | { allowed: false; reason: 'limited' | 'unavailable' },
+) {
+  if (result.allowed) return null;
+  return result.reason === 'unavailable'
+    ? json(
+        { ok: false, message: 'Admin sign-in is temporarily unavailable.' },
+        503,
+      )
+    : json(
+        { ok: false, message: 'Too many attempts. Try again in a few minutes.' },
+        429,
+      );
 }

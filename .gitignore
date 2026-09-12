@@ -20,6 +20,8 @@ dist-ssr
 # Next.js build output
 .next
 out
+playwright-report
+test-results
 
 # TypeScript incremental build cache. Must not be committed: Nixpacks mounts a
 # cache directory at this path and the build fails if a file is already there.

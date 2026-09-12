@@ -1,12 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Image from "next/image";
-import { LogOut, RefreshCw } from "lucide-react";
-import { ThemeToggle } from "@ui/ThemeToggle";
+import { useRouter } from "next/navigation";
+import { RefreshCw } from "lucide-react";
 import AllTimeCard from "@ui/admin/AllTimeCard";
-import AdminSectionNav from "@ui/admin/AdminSectionNav";
-import BugHouse from "@ui/admin/BugHouse";
 import DomainSection, { type Metric } from "@ui/admin/DomainSection";
 import HealthRail from "@ui/admin/HealthRail";
 import StatCard from "@ui/admin/StatCard";
@@ -18,7 +15,6 @@ import {
   getAdminHealth,
   getAdminStats,
   getAdminTrends,
-  adminLogout,
   type AdminStats,
 } from "@web/lib/adminApi";
 import {
@@ -42,24 +38,39 @@ const VIEW_STORAGE_KEY = "lessgo.admin.view";
 const VIEWS = [
   { id: "overview", label: "Overview" },
   { id: "all-time", label: "All time" },
-  { id: "bugs", label: "Bug House" },
 ] as const;
 
 type ViewId = (typeof VIEWS)[number]["id"];
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const [days, setDays] = useState<WindowDays>(7);
   const [view, setView] = useState<ViewId>("overview");
   const [now, setNow] = useState(() => Date.now());
+  const [focusService, setFocusService] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = Number(window.localStorage.getItem(WINDOW_STORAGE_KEY));
     if ([1, 7, 15, 30].includes(stored)) setDays(stored as WindowDays);
 
     const storedView = window.localStorage.getItem(VIEW_STORAGE_KEY);
+    if (storedView === "bugs") {
+      window.localStorage.setItem(VIEW_STORAGE_KEY, "overview");
+      router.replace("/admin/bugs");
+      return;
+    }
     if (VIEWS.some((option) => option.id === storedView))
       setView(storedView as ViewId);
-  }, []);
+    const params = new URLSearchParams(window.location.search);
+    const requestedService = params.get("service");
+    if (
+      params.get("focus") === "health" &&
+      requestedService &&
+      /^[a-z0-9-]{1,80}$/i.test(requestedService)
+    ) {
+      setFocusService(requestedService);
+    }
+  }, [router]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 5_000);
@@ -153,35 +164,22 @@ export default function AdminDashboard() {
     trends.refresh();
   };
 
-  const signOut = async () => {
-    await adminLogout();
-    window.location.reload();
-  };
-
   return (
-    <div className="container-page py-6">
-      <header className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-line pb-5">
-        <Image
-          src="/admin-icon.png"
-          alt=""
-          width={53}
-          height={48}
-          priority
-          className="h-12 w-auto flex-none object-contain"
-        />
-        <div className="min-w-0">
-          <h1 className="font-display text-xl font-extrabold text-ink">
-            Admin<span className="text-gradient"> · </span>Operations
+    <div className="mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <header className="flex flex-wrap items-end gap-4 border-b border-line pb-5">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold uppercase text-gold">Platform</p>
+          <h1 className="mt-2 font-display text-2xl font-extrabold text-ink sm:text-3xl">
+            Operations
           </h1>
-          <p className="text-xs text-ink-muted">
+          <p className="mt-1 text-xs text-ink-muted">
             {data
               ? `Counts updated ${formatAgo(data.generatedAt, now)}`
               : "Loading counts…"}{" "}
             · health refreshes every 30s
           </p>
         </div>
-
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+        <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-end">
           {view === "overview" ? (
             <WindowPicker
               value={days}
@@ -189,52 +187,32 @@ export default function AdminDashboard() {
               disabled={stats.loading && !data}
             />
           ) : null}
-          {view !== "bugs" ? (
-            <button
-              type="button"
-              onClick={refreshAll}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line text-ink-muted transition-colors hover:bg-surface-2"
-            >
-              <span className="sr-only">Refresh now</span>
-              <RefreshCw
-                className={`h-4 w-4 ${stats.loading || health.loading ? "animate-spin" : ""}`}
-                aria-hidden="true"
-              />
-            </button>
-          ) : null}
-          <ThemeToggle />
           <button
             type="button"
-            onClick={signOut}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line text-ink-muted transition-colors hover:bg-surface-2"
+            onClick={refreshAll}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-line text-ink-muted transition-colors hover:bg-surface-2"
           >
-            <span className="sr-only">Sign out</span>
-            <LogOut className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only">Refresh operations</span>
+            <RefreshCw
+              className={`h-4 w-4 ${stats.loading || health.loading ? "animate-spin" : ""}`}
+              aria-hidden="true"
+            />
           </button>
         </div>
       </header>
 
-      <div className="mt-4">
-        <AdminSectionNav />
-      </div>
-
       <div className="mt-6 space-y-4">
-        {view !== "bugs" ? <TotalsCard data={data} /> : null}
+        <TotalsCard data={data} />
         <ViewTabs tabs={VIEWS} value={view} onChange={chooseView} />
       </div>
 
-      <BugHouse active={view === "bugs"} />
-
-      <div
-        className={`mt-6 gap-6 lg:grid-cols-[280px_minmax(0,1fr)] ${
-          view === "bugs" ? "hidden" : "grid"
-        }`}
-      >
+      <div className="mt-6 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-6 lg:self-start">
           <HealthRail
             health={health.data}
             loading={health.loading}
             error={health.error}
+            focusService={focusService}
           />
         </div>
 

@@ -77,6 +77,12 @@ export default function AudienceFilters({
 
   return (
     <section className="border-t border-line pt-6">
+      <div className="mb-5">
+        <h2 className="font-display text-base font-bold text-ink">Audience</h2>
+        <p className="mt-1 text-sm text-ink-muted">
+          Aggregate targeting filters; individual recipients are never shown.
+        </p>
+      </div>
       <div className="grid gap-5 lg:grid-cols-2">
         <label className="space-y-2 text-sm font-semibold text-ink">
           Event activity

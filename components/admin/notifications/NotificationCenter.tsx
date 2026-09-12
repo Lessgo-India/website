@@ -1,11 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
-import { BellRing, FlaskConical, LogOut, RefreshCw, Send } from "lucide-react";
-import AdminSectionNav from "@ui/admin/AdminSectionNav";
-import { ThemeToggle } from "@ui/ThemeToggle";
-import { adminLogout } from "@web/lib/adminApi";
+import { BellRing, FlaskConical, RefreshCw, Send } from "lucide-react";
+import { useAdminPwa } from "@ui/admin/AdminPwaProvider";
 import {
   createCampaign,
   createCampaignPreview,
@@ -34,6 +31,7 @@ const DEFAULT_AUDIENCE: CampaignAudience = {
 };
 
 export default function NotificationCenter() {
+  const { online } = useAdminPwa();
   const [view, setView] = useState<View>("compose");
   const [capabilities, setCapabilities] = useState<CampaignCapabilities | null>(
     null,
@@ -68,16 +66,27 @@ export default function NotificationCenter() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const idempotencyKey = useRef<string | null>(null);
+  const capabilityRequestSequence = useRef(0);
+  const eventSearchSequence = useRef(0);
+  const viewTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const loadCapabilities = useCallback(async () => {
+    const requestId = ++capabilityRequestSequence.current;
     setCapabilityLoading(true);
     setCapabilityError(null);
     try {
-      setCapabilities(await getCampaignCapabilities());
+      const next = await getCampaignCapabilities();
+      if (requestId === capabilityRequestSequence.current) {
+        setCapabilities(next);
+      }
     } catch (requestError) {
-      setCapabilityError((requestError as Error).message);
+      if (requestId === capabilityRequestSequence.current) {
+        setCapabilityError((requestError as Error).message);
+      }
     } finally {
-      setCapabilityLoading(false);
+      if (requestId === capabilityRequestSequence.current) {
+        setCapabilityLoading(false);
+      }
     }
   }, []);
 
@@ -85,6 +94,31 @@ export default function NotificationCenter() {
     const timer = window.setTimeout(() => void loadCapabilities(), 0);
     return () => window.clearTimeout(timer);
   }, [loadCapabilities]);
+
+  useEffect(() => {
+    const requestedView = new URLSearchParams(window.location.search).get("view");
+    if (requestedView === "history") setView("history");
+  }, []);
+
+  const hasDraft = Boolean(
+    name.trim() ||
+      title.trim() ||
+      body.trim() ||
+      destination !== "home" ||
+      destinationId ||
+      JSON.stringify(sanitizeAudience(audience)) !==
+        JSON.stringify(sanitizeAudience(DEFAULT_AUDIENCE)),
+  );
+
+  useEffect(() => {
+    if (!hasDraft || view !== "compose") return;
+    const warnBeforeExit = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeExit);
+    return () => window.removeEventListener("beforeunload", warnBeforeExit);
+  }, [hasDraft, view]);
 
   const normalizedAudience = useMemo(
     () => sanitizeAudience(audience),
@@ -118,17 +152,29 @@ export default function NotificationCenter() {
     ) {
       return;
     }
-    const timer = window.setInterval(async () => {
+    let cancelled = false;
+    let timer: number | undefined;
+    const poll = async () => {
       try {
         const next = await getCampaignPreview(previewId);
-        setPreviewRecord((current) =>
-          current?.data.id === previewId ? { ...current, data: next } : current,
-        );
+        if (!cancelled) {
+          setPreviewRecord((current) =>
+            current?.data.id === previewId
+              ? { ...current, data: next }
+              : current,
+          );
+        }
       } catch (requestError) {
-        setError((requestError as Error).message);
+        if (!cancelled) setError((requestError as Error).message);
+      } finally {
+        if (!cancelled) timer = window.setTimeout(() => void poll(), 1_500);
       }
-    }, 1_500);
-    return () => window.clearInterval(timer);
+    };
+    timer = window.setTimeout(() => void poll(), 1_500);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [previewId, previewState]);
 
   const infrastructureReady = Boolean(
@@ -162,14 +208,18 @@ export default function NotificationCenter() {
   };
 
   const searchEvents = async () => {
+    const requestId = ++eventSearchSequence.current;
     setEventsLoading(true);
     setError(null);
     try {
-      setEvents(await searchCampaignEvents(eventQuery));
+      const next = await searchCampaignEvents(eventQuery);
+      if (requestId === eventSearchSequence.current) setEvents(next);
     } catch (requestError) {
-      setError((requestError as Error).message);
+      if (requestId === eventSearchSequence.current) {
+        setError((requestError as Error).message);
+      }
     } finally {
-      setEventsLoading(false);
+      if (requestId === eventSearchSequence.current) setEventsLoading(false);
     }
   };
 
@@ -259,6 +309,7 @@ export default function NotificationCenter() {
       ? /^[a-f0-9]{24}$/i.test(destinationId)
       : !destinationId;
   const canTest = Boolean(
+    online &&
     previewFresh &&
     preview?.state === "ready" &&
     preview.counts?.pushReachableUsers &&
@@ -266,6 +317,7 @@ export default function NotificationCenter() {
     destinationValid,
   );
   const canLaunch = Boolean(
+    online &&
     capabilities?.canSend &&
     canTest &&
     testedFingerprint === messageFingerprint &&
@@ -275,59 +327,31 @@ export default function NotificationCenter() {
       Number.isFinite(parseIstInput(scheduledAt).getTime())),
   );
 
-  const signOut = async () => {
-    await adminLogout();
-    window.location.reload();
-  };
-
   return (
-    <div className="container-page py-6">
-      <header className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-line pb-5">
-        <Image
-          src="/admin-icon.png"
-          alt=""
-          width={53}
-          height={48}
-          priority
-          className="h-12 w-auto flex-none object-contain"
-        />
-        <div className="min-w-0">
-          <h1 className="font-display text-xl font-extrabold text-ink">
-            Admin<span className="text-gradient"> · </span>Notification Centre
+    <div className="mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <header className="flex flex-wrap items-end gap-4 border-b border-line pb-5">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold uppercase text-gold">Engagement</p>
+          <h1 className="mt-2 font-display text-2xl font-extrabold text-ink sm:text-3xl">
+            Notification Centre
           </h1>
-          <p className="text-xs text-ink-muted">
+          <p className="mt-1 text-sm text-ink-muted">
             Push campaigns and aggregate delivery outcomes
           </p>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void loadCapabilities()}
-            title="Refresh readiness"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line text-ink-muted hover:bg-surface-2"
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${capabilityLoading ? "animate-spin" : ""}`}
-              aria-hidden="true"
-            />
-            <span className="sr-only">Refresh readiness</span>
-          </button>
-          <ThemeToggle />
-          <button
-            type="button"
-            onClick={signOut}
-            title="Sign out"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line text-ink-muted hover:bg-surface-2"
-          >
-            <LogOut className="h-4 w-4" aria-hidden="true" />
-            <span className="sr-only">Sign out</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => void loadCapabilities()}
+          title="Refresh readiness"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-line text-ink-muted hover:bg-surface-2"
+        >
+          <RefreshCw
+            className={`h-4 w-4 ${capabilityLoading ? "animate-spin" : ""}`}
+            aria-hidden="true"
+          />
+          <span className="sr-only">Refresh readiness</span>
+        </button>
       </header>
-
-      <div className="mt-4">
-        <AdminSectionNav />
-      </div>
 
       {capabilityError ? (
         <p
@@ -357,15 +381,38 @@ export default function NotificationCenter() {
         role="tablist"
         aria-label="Notification Centre views"
       >
-        {(["compose", "history"] as const).map((item) => (
+        {(["compose", "history"] as const).map((item, index, tabs) => (
           <button
             key={item}
+            ref={(node) => {
+              viewTabRefs.current[index] = node;
+            }}
             id={`campaign-${item}-tab`}
             type="button"
             role="tab"
             aria-selected={view === item}
             aria-controls={`campaign-${item}-panel`}
+            tabIndex={view === item ? 0 : -1}
             onClick={() => setView(item)}
+            onKeyDown={(event) => {
+              let nextIndex: number | null = null;
+              if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+                nextIndex = (index + 1) % tabs.length;
+              } else if (
+                event.key === "ArrowLeft" ||
+                event.key === "ArrowUp"
+              ) {
+                nextIndex = (index - 1 + tabs.length) % tabs.length;
+              } else if (event.key === "Home") {
+                nextIndex = 0;
+              } else if (event.key === "End") {
+                nextIndex = tabs.length - 1;
+              }
+              if (nextIndex === null) return;
+              event.preventDefault();
+              setView(tabs[nextIndex]);
+              viewTabRefs.current[nextIndex]?.focus();
+            }}
             className={`min-h-11 border-b-2 px-4 text-sm font-semibold capitalize ${view === item ? "border-profile text-ink" : "border-transparent text-ink-muted hover:text-ink"}`}
           >
             {item}
@@ -378,7 +425,7 @@ export default function NotificationCenter() {
           <CampaignHistory canSend={capabilities?.canSend ?? false} />
         </div>
       ) : (
-        <main
+        <section
           role="tabpanel"
           id="campaign-compose-panel"
           aria-labelledby="campaign-compose-tab"
@@ -390,6 +437,10 @@ export default function NotificationCenter() {
               onSubmit={(event) => event.preventDefault()}
             >
               <section className="grid gap-5 sm:grid-cols-2">
+                <SectionHeading
+                  title="Campaign"
+                  description="Internal identity and notification purpose."
+                />
                 <TextField
                   label="Campaign name"
                   value={name}
@@ -416,6 +467,10 @@ export default function NotificationCenter() {
               </section>
 
               <section className="space-y-5 border-t border-line pt-6">
+                <SectionHeading
+                  title="Message"
+                  description="What recipients see and where a tap opens."
+                />
                 <TextField
                   label="Push title"
                   value={title}
@@ -517,6 +572,10 @@ export default function NotificationCenter() {
               </section>
 
               <section className="grid gap-5 sm:grid-cols-2">
+                <SectionHeading
+                  title="Delivery"
+                  description="Send immediately or schedule in India Standard Time."
+                />
                 <fieldset>
                   <legend className="text-sm font-semibold text-ink">
                     Send time
@@ -527,7 +586,10 @@ export default function NotificationCenter() {
                         type="radio"
                         name="schedule"
                         checked={scheduleMode === "now"}
-                        onChange={() => setScheduleMode("now")}
+                        onChange={() => {
+                          setScheduleMode("now");
+                          idempotencyKey.current = null;
+                        }}
                         className="accent-profile"
                       />
                       Now
@@ -537,7 +599,10 @@ export default function NotificationCenter() {
                         type="radio"
                         name="schedule"
                         checked={scheduleMode === "later"}
-                        onChange={() => setScheduleMode("later")}
+                        onChange={() => {
+                          setScheduleMode("later");
+                          idempotencyKey.current = null;
+                        }}
                         className="accent-profile"
                       />
                       Schedule
@@ -550,7 +615,10 @@ export default function NotificationCenter() {
                     <input
                       type="datetime-local"
                       value={scheduledAt}
-                      onChange={(event) => setScheduledAt(event.target.value)}
+                      onChange={(event) => {
+                        setScheduledAt(event.target.value);
+                        idempotencyKey.current = null;
+                      }}
                       className="min-h-11 w-full rounded-md border border-line bg-surface px-3 text-sm font-normal text-ink outline-none focus:border-profile"
                     />
                   </label>
@@ -558,6 +626,10 @@ export default function NotificationCenter() {
               </section>
 
               <section className="space-y-4 border-t border-line pt-6">
+                <SectionHeading
+                  title="Confirm and send"
+                  description="Test this exact message before launching it."
+                />
                 <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
@@ -660,7 +732,7 @@ export default function NotificationCenter() {
               </div>
             </aside>
           </div>
-        </main>
+        </section>
       )}
     </div>
   );
@@ -688,6 +760,21 @@ function TextField({
         className="min-h-11 w-full rounded-md border border-line bg-surface px-3 text-sm font-normal text-ink outline-none focus:border-profile"
       />
     </label>
+  );
+}
+
+function SectionHeading({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="sm:col-span-2">
+      <h2 className="font-display text-base font-bold text-ink">{title}</h2>
+      <p className="mt-1 text-sm text-ink-muted">{description}</p>
+    </div>
   );
 }
 

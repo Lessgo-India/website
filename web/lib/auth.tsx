@@ -8,6 +8,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
+import { usePathname } from 'next/navigation';
 import { isFirebaseConfigured } from './config';
 import {
   getFirebaseAuth,
@@ -47,12 +48,19 @@ function phoneToUserId(user: User | null): string | null {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isAdminRoute =
+    pathname === '/admin' || (pathname?.startsWith('/admin/') ?? false);
   const [user, setUser] = useState<User | null>(null);
   // When Firebase isn't configured we are immediately "ready" with no session.
   const [ready, setReady] = useState<boolean>(!isFirebaseConfigured);
 
   useEffect(() => {
-    if (!isFirebaseConfigured) return;
+    if (!isFirebaseConfigured || isAdminRoute) {
+      setReady(true);
+      return;
+    }
+    setReady(false);
     let unsub = () => {};
     try {
       unsub = onAuthStateChanged(getFirebaseAuth(), (u) => {
@@ -63,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setReady(true);
     }
     return () => unsub();
-  }, []);
+  }, [isAdminRoute]);
 
   const getToken = useCallback(
     async (forceRefresh = false) => {
@@ -111,13 +119,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ready,
       user,
       userId: phoneToUserId(user),
-      configured: isFirebaseConfigured,
+      configured: isFirebaseConfigured && !isAdminRoute,
       sendOtp: fbSendOtp,
       getToken,
       signOut,
       signOutConfirmed,
     }),
-    [ready, user, getToken, signOut, signOutConfirmed],
+    [ready, user, isAdminRoute, getToken, signOut, signOutConfirmed],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

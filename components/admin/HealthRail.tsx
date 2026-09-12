@@ -32,10 +32,12 @@ export default function HealthRail({
   health,
   loading,
   error,
+  focusService,
 }: {
   health: HealthSnapshot | null;
   loading: boolean;
   error: string | null;
+  focusService?: string | null;
 }) {
   const announcement = useStatusChangeAnnouncement(health);
   const [now, setNow] = useState(() => Date.now());
@@ -48,6 +50,16 @@ export default function HealthRail({
     const id = setInterval(() => setNow(Date.now()), 5_000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    if (!health || !focusService) return;
+    setMobileOpen(true);
+    window.requestAnimationFrame(() => {
+      const row = document.getElementById(`health-service-${focusService}`);
+      row?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      row?.focus({ preventScroll: true });
+    });
+  }, [focusService, health]);
 
   const services = health
     ? [...health.services].sort(
@@ -102,7 +114,11 @@ export default function HealthRail({
       <div id="health-list" className={mobileOpen ? '' : 'hidden lg:block'}>
         <ul className="divide-y divide-line">
           {services.map((service) => (
-            <HealthRow key={service.name} service={service} />
+            <HealthRow
+              key={service.name}
+              service={service}
+              focused={service.name === focusService}
+            />
           ))}
           {!health && !error
             ? Array.from({ length: 5 }).map((_, index) => (
@@ -144,11 +160,21 @@ function Summary({ health }: { health: HealthSnapshot | null }) {
   );
 }
 
-function HealthRow({ service }: { service: ServiceHealth }) {
+function HealthRow({
+  service,
+  focused,
+}: {
+  service: ServiceHealth;
+  focused: boolean;
+}) {
   const { label, text, dot, Icon } = PRESENTATION[service.status];
 
   return (
-    <li className="flex items-center gap-3 px-4 py-2.5">
+    <li
+      id={`health-service-${service.name}`}
+      tabIndex={-1}
+      className={`flex items-center gap-3 px-4 py-2.5 ${focused ? 'bg-profile-tint ring-1 ring-inset ring-profile' : ''}`}
+    >
       <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
       <span className="min-w-0 flex-1 truncate font-mono text-[0.8rem] text-ink">
         {service.name}

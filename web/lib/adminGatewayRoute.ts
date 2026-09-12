@@ -3,6 +3,8 @@ import {
   isAllowedAdminPatch,
   isAllowedAdminPost,
   isAllowedAdminRead,
+  isValidAdminAlertPreferencesBody,
+  isValidAdminAlertUnsubscribeBody,
   isValidAdminBugPatchBody,
   isValidAdminPostBody,
 } from "./adminGatewayPolicy.js";
@@ -53,6 +55,42 @@ function allowedRequestOrigins(request: Request): Set<string> {
     allowed.add(`${protocol}://${host}`);
   }
   return allowed;
+}
+
+function isSameOriginMutation(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  const fetchSite = request.headers.get("sec-fetch-site");
+  return !(
+    (origin && !allowedRequestOrigins(request).has(origin)) ||
+    (fetchSite && fetchSite !== "same-origin")
+  );
+}
+
+async function readJsonBody(request: Request): Promise<
+  { body: unknown } | { response: Response }
+> {
+  if (
+    !(request.headers.get("content-type") ?? "").startsWith(
+      "application/json",
+    )
+  ) {
+    return {
+      response: reply(415, { message: "Admin mutations require JSON." }),
+    };
+  }
+  const declaredLength = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > 32_768) {
+    return { response: reply(413, { message: "Admin request is too large." }) };
+  }
+  const raw = await request.text();
+  if (raw.length > 32_768) {
+    return { response: reply(413, { message: "Admin request is too large." }) };
+  }
+  try {
+    return { body: JSON.parse(raw) };
+  } catch {
+    return { response: reply(400, { message: "Invalid admin request." }) };
+  }
 }
 
 export function createAdminGatewayHandlers<Session>(
@@ -118,19 +156,26 @@ export function createAdminGatewayHandlers<Session>(
     if (new URL(request.url).search) {
       return reply(404, { message: "Unknown admin endpoint." });
     }
+    if (!isSameOriginMutation(request)) {
+      return reply(403, { message: "Cross-origin admin mutation denied." });
+    }
+    const parsedBody = await readJsonBody(request);
+    if ("response" in parsedBody) return parsedBody.response;
 
-    const body = (await request.json().catch(() => null)) as {
-      done?: unknown;
-    } | null;
-    if (!isValidAdminBugPatchBody(body)) {
-      return reply(400, { message: "A boolean done value is required." });
+    const isBugPatch = parsed.segments[0] === "bugs";
+    if (
+      (isBugPatch && !isValidAdminBugPatchBody(parsedBody.body)) ||
+      (!isBugPatch &&
+        !isValidAdminAlertPreferencesBody(parsedBody.body))
+    ) {
+      return reply(400, { message: "Invalid admin request." });
     }
 
     const result = await deps.callGateway(
-      `bugs/${parsed.segments[1]}`,
+      parsed.segments.join("/"),
       "",
       parsed.session,
-      { method: "PATCH", body: { done: body!.done } },
+      { method: "PATCH", body: parsedBody.body },
     );
     return reply(result.status, result.body);
   }
@@ -144,40 +189,20 @@ export function createAdminGatewayHandlers<Session>(
     if (!isAllowedAdminPost(parsed.segments) || new URL(request.url).search) {
       return reply(404, { message: "Unknown admin endpoint." });
     }
-    const origin = request.headers.get("origin");
-    const fetchSite = request.headers.get("sec-fetch-site");
-    if (
-      (origin && !allowedRequestOrigins(request).has(origin)) ||
-      (fetchSite && fetchSite !== "same-origin")
-    ) {
+    if (!isSameOriginMutation(request)) {
       return reply(403, { message: "Cross-origin admin mutation denied." });
     }
 
-    const isAction = parsed.segments.length === 4;
+    const isAction =
+      parsed.segments.length === 4 ||
+      parsed.segments.join("/") === "notifications/alerts/test";
     let body: unknown = undefined;
     if (!isAction) {
-      if (
-        !(request.headers.get("content-type") ?? "").startsWith(
-          "application/json",
-        )
-      ) {
-        return reply(415, { message: "Admin mutations require JSON." });
-      }
-      const declaredLength = Number(request.headers.get("content-length") ?? 0);
-      if (Number.isFinite(declaredLength) && declaredLength > 32_768) {
-        return reply(413, { message: "Admin request is too large." });
-      }
-      const raw = await request.text();
-      if (raw.length > 32_768) {
-        return reply(413, { message: "Admin request is too large." });
-      }
-      try {
-        body = JSON.parse(raw);
-      } catch {
-        return reply(400, { message: "Invalid campaign request." });
-      }
+      const parsedBody = await readJsonBody(request);
+      if ("response" in parsedBody) return parsedBody.response;
+      body = parsedBody.body;
       if (!isValidAdminPostBody(parsed.segments, body)) {
-        return reply(400, { message: "Invalid campaign request." });
+        return reply(400, { message: "Invalid admin request." });
       }
     } else if (request.body !== null) {
       return reply(400, { message: "This campaign action takes no body." });
@@ -204,10 +229,31 @@ export function createAdminGatewayHandlers<Session>(
     if (new URL(request.url).search) {
       return reply(404, { message: "Unknown admin endpoint." });
     }
+    if (!isSameOriginMutation(request)) {
+      return reply(403, { message: "Cross-origin admin mutation denied." });
+    }
+    const isSubscriptionDelete = parsed.segments[0] === "notifications";
+    let body: unknown = undefined;
+    if (isSubscriptionDelete) {
+      const parsedBody = await readJsonBody(request);
+      if ("response" in parsedBody) return parsedBody.response;
+      if (!isValidAdminAlertUnsubscribeBody(parsedBody.body)) {
+        return reply(400, { message: "Invalid admin request." });
+      }
+      body = parsedBody.body;
+    } else if (request.body !== null) {
+      return reply(400, { message: "This admin action takes no body." });
+    }
 
-    const result = await deps.callGateway("bugs/done", "", parsed.session, {
-      method: "DELETE",
-    });
+    const result = await deps.callGateway(
+      parsed.segments.join("/"),
+      "",
+      parsed.session,
+      {
+        method: "DELETE",
+        ...(body === undefined ? {} : { body }),
+      },
+    );
     return reply(result.status, result.body);
   }
 

@@ -204,3 +204,108 @@ test("allows only empty-body campaign actions", async () => {
   assert.equal(rejected.status, 400);
   assert.equal(calls.length, 1);
 });
+
+test("forwards exact same-origin browser-alert mutations", async () => {
+  const headers = {
+    "content-type": "application/json",
+    origin: "http://local",
+    "sec-fetch-site": "same-origin",
+  };
+  const subscription = {
+    endpoint: "https://push.example/subscriptions/device-1",
+    keys: { p256dh: "A".repeat(88), auth: "B".repeat(24) },
+  };
+  const preferences = {
+    enabled: true,
+    bugs: true,
+    campaigns: true,
+    serviceHealth: true,
+  };
+
+  const subscribed = await route.POST(
+    new Request(
+      "http://local/api/admin/gateway/notifications/alerts/subscriptions",
+      { method: "POST", headers, body: JSON.stringify(subscription) },
+    ),
+    context("notifications", "alerts", "subscriptions"),
+  );
+  const updated = await route.PATCH(
+    new Request(
+      "http://local/api/admin/gateway/notifications/alerts/preferences",
+      { method: "PATCH", headers, body: JSON.stringify(preferences) },
+    ),
+    context("notifications", "alerts", "preferences"),
+  );
+  const removed = await route.DELETE(
+    new Request(
+      "http://local/api/admin/gateway/notifications/alerts/subscriptions",
+      {
+        method: "DELETE",
+        headers,
+        body: JSON.stringify({ endpoint: subscription.endpoint }),
+      },
+    ),
+    context("notifications", "alerts", "subscriptions"),
+  );
+  const tested = await route.POST(
+    new Request("http://local/api/admin/gateway/notifications/alerts/test", {
+      method: "POST",
+      headers: {
+        origin: "http://local",
+        "sec-fetch-site": "same-origin",
+      },
+    }),
+    context("notifications", "alerts", "test"),
+  );
+
+  assert.equal(subscribed.status, 200);
+  assert.equal(updated.status, 200);
+  assert.equal(removed.status, 200);
+  assert.equal(tested.status, 200);
+  assert.deepEqual(calls.map((call) => call[0]), [
+    "notifications/alerts/subscriptions",
+    "notifications/alerts/preferences",
+    "notifications/alerts/subscriptions",
+    "notifications/alerts/test",
+  ]);
+  assert.deepEqual(calls[1][3], { method: "PATCH", body: preferences });
+  assert.deepEqual(calls[2][3], {
+    method: "DELETE",
+    body: { endpoint: subscription.endpoint },
+  });
+});
+
+test("rejects cross-origin PATCH and DELETE mutations", async () => {
+  const attackHeaders = {
+    "content-type": "application/json",
+    origin: "https://attacker.example",
+    "sec-fetch-site": "cross-site",
+  };
+  const patched = await route.PATCH(
+    new Request(
+      "http://local/api/admin/gateway/notifications/alerts/preferences",
+      {
+        method: "PATCH",
+        headers: attackHeaders,
+        body: JSON.stringify({
+          enabled: true,
+          bugs: true,
+          campaigns: true,
+          serviceHealth: true,
+        }),
+      },
+    ),
+    context("notifications", "alerts", "preferences"),
+  );
+  const deleted = await route.DELETE(
+    new Request("http://local/api/admin/gateway/bugs/done", {
+      method: "DELETE",
+      headers: attackHeaders,
+    }),
+    context("bugs", "done"),
+  );
+
+  assert.equal(patched.status, 403);
+  assert.equal(deleted.status, 403);
+  assert.equal(calls.length, 0);
+});

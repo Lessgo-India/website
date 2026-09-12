@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 import { Inter, Outfit, Space_Mono } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@web/lib/auth';
@@ -73,9 +74,6 @@ export const viewport: Viewport = {
   colorScheme: 'light dark',
 };
 
-// Apply the persisted/system theme before first paint to avoid a flash.
-const themeScript = `(function(){try{var s=localStorage.getItem('theme');var t=(s==='dark'||s==='light')?s:(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();`;
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
@@ -84,11 +82,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${display.variable} ${sans.variable} ${mono.variable}`}
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <Script src="/theme-init.js" strategy="beforeInteractive" />
         {/* Scroll-reveal entrances start hidden and are shown by JS. Without
             JS they must never hide content. */}
         <noscript>
-          <style>{`[data-reveal]{opacity:1 !important;transform:none !important}`}</style>
+          <link rel="stylesheet" href="/no-js.css" />
         </noscript>
       </head>
       <body>

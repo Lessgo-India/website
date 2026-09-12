@@ -5,6 +5,8 @@ import {
   isAllowedAdminPatch,
   isAllowedAdminPost,
   isAllowedAdminRead,
+  isValidAdminAlertPreferencesBody,
+  isValidAdminAlertUnsubscribeBody,
   isValidAdminBugPatchBody,
   isValidAdminPostBody,
 } from "./adminGatewayPolicy.js";
@@ -67,6 +69,69 @@ test("allows only documented notification campaign reads", () => {
       ["notifications", "campaigns"],
       new URLSearchParams({ purpose: "internal" }),
     ),
+    false,
+  );
+});
+
+test("allows only exact admin browser-alert contracts", () => {
+  const subscription = {
+    endpoint: "https://push.example/subscriptions/device-1",
+    keys: {
+      p256dh: "A".repeat(88),
+      auth: "B".repeat(24),
+    },
+  };
+  const preferences = {
+    enabled: true,
+    bugs: true,
+    campaigns: false,
+    serviceHealth: true,
+  };
+
+  assert.equal(
+    isAllowedAdminRead(
+      ["notifications", "alerts", "capabilities"],
+      new URLSearchParams(),
+    ),
+    true,
+  );
+  assert.equal(
+    isAllowedAdminPost(["notifications", "alerts", "subscriptions"]),
+    true,
+  );
+  assert.equal(
+    isValidAdminPostBody(
+      ["notifications", "alerts", "subscriptions"],
+      subscription,
+    ),
+    true,
+  );
+  assert.equal(
+    isValidAdminPostBody(
+      ["notifications", "alerts", "subscriptions"],
+      { ...subscription, operatorId: "9999999999" },
+    ),
+    false,
+  );
+  assert.equal(
+    isAllowedAdminPatch(["notifications", "alerts", "preferences"]),
+    true,
+  );
+  assert.equal(isValidAdminAlertPreferencesBody(preferences), true);
+  assert.equal(
+    isValidAdminAlertPreferencesBody({ ...preferences, admin: true }),
+    false,
+  );
+  assert.equal(
+    isAllowedAdminDelete(["notifications", "alerts", "subscriptions"]),
+    true,
+  );
+  assert.equal(
+    isValidAdminAlertUnsubscribeBody({ endpoint: subscription.endpoint }),
+    true,
+  );
+  assert.equal(
+    isValidAdminAlertUnsubscribeBody({ endpoint: "http://push.example" }),
     false,
   );
 });

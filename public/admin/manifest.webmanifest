@@ -1,0 +1,52 @@
+{
+  "id": "/admin",
+  "name": "Lessgo Admin",
+  "short_name": "Admin",
+  "description": "Lessgo operations, bug triage, and notification campaigns.",
+  "start_url": "/admin",
+  "scope": "/admin",
+  "display": "standalone",
+  "background_color": "#0e0e12",
+  "theme_color": "#0e0e12",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/admin/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/admin/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/admin/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Operations",
+      "short_name": "Operations",
+      "url": "/admin",
+      "icons": [{ "src": "/admin/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Bug House",
+      "short_name": "Bugs",
+      "url": "/admin/bugs",
+      "icons": [{ "src": "/admin/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Notification Centre",
+      "short_name": "Alerts",
+      "url": "/admin/notifications",
+      "icons": [{ "src": "/admin/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

@@ -42,6 +42,13 @@ export async function adminRequest<T>(
     message?: string;
   } | null;
   if (!res.ok) {
+    if (
+      res.status === 401 &&
+      path !== "/session" &&
+      typeof window !== "undefined"
+    ) {
+      window.dispatchEvent(new Event("admin:unauthorized"));
+    }
     throw new ApiError(
       body?.message ?? `Request failed (${res.status})`,
       res.status,
