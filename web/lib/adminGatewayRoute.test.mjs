@@ -113,6 +113,40 @@ test("rejects broad mutation bodies and forwards exact Bug House writes", async 
   assert.equal(queriedCleanup.status, 404);
 });
 
+test("forwards exact same-origin user report reviews", async () => {
+  const id = "66aa11bb22cc33dd44ee55ff";
+  const body = {
+    status: "resolved",
+    note: "Reviewed the submitted context",
+    revision: 3,
+  };
+  const accepted = await route.PATCH(
+    new Request(`http://local/api/admin/gateway/reports/${id}`, {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        origin: "http://local",
+        "sec-fetch-site": "same-origin",
+      },
+      body: JSON.stringify(body),
+    }),
+    context("reports", id),
+  );
+  assert.equal(accepted.status, 200);
+  assert.deepEqual(calls[0][3], { method: "PATCH", body });
+
+  const broad = await route.PATCH(
+    new Request(`http://local/api/admin/gateway/reports/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...body, suspendUser: true }),
+    }),
+    context("reports", id),
+  );
+  assert.equal(broad.status, 400);
+  assert.equal(calls.length, 1);
+});
+
 test("forwards only same-origin, JSON campaign mutations", async () => {
   const body = {
     purpose: "lessgo_update",

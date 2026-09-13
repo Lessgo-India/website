@@ -85,6 +85,12 @@ export default function PrivacyPage() {
                 expenses, photos and documents you choose to upload.
               </li>
               <li>
+                <strong>Safety reports,</strong> when you report another user. We retain the
+                selected category, any details you provide, the accounts involved, review status,
+                and restricted internal reviewer notes. Reports are not shown to the reported
+                user.
+              </li>
+              <li>
                 <strong>Location,</strong> only when you use it to set a meeting point. We do not
                 track your location in the background.
               </li>
@@ -151,6 +157,11 @@ export default function PrivacyPage() {
               pushes stop; those records may remain in inactive form for security and
               delivery-suppression purposes. If automated cleanup cannot be confirmed, the
               deletion page directs you to privacy support for manual review.
+              Open safety reports remain available until they are reviewed. Resolved and
+              dismissed reports are normally deleted after 180 days. If either account is
+              deleted before then, its identifier is removed from the retained report. We may
+              keep a report longer where required by law or needed for an active safety or legal
+              dispute.
               Early-access emails are deleted once the launch communication is complete or when
               you ask us to remove them, whichever comes first.
             </p>

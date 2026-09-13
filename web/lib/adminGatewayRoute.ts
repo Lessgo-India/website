@@ -6,6 +6,7 @@ import {
   isValidAdminAlertPreferencesBody,
   isValidAdminAlertUnsubscribeBody,
   isValidAdminBugPatchBody,
+  isValidAdminReportPatchBody,
   isValidAdminPostBody,
 } from "./adminGatewayPolicy.js";
 
@@ -161,9 +162,13 @@ export function createAdminGatewayHandlers<Session>(
     if ("response" in parsedBody) return parsedBody.response;
 
     const isBugPatch = parsed.segments[0] === "bugs";
+    const isReportPatch = parsed.segments[0] === "reports";
     if (
       (isBugPatch && !isValidAdminBugPatchBody(parsedBody.body)) ||
-      (!isBugPatch && !isValidAdminAlertPreferencesBody(parsedBody.body))
+      (isReportPatch && !isValidAdminReportPatchBody(parsedBody.body)) ||
+      (!isBugPatch &&
+        !isReportPatch &&
+        !isValidAdminAlertPreferencesBody(parsedBody.body))
     ) {
       return reply(400, { message: "Invalid admin request." });
     }

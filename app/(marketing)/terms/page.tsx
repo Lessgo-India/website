@@ -60,10 +60,17 @@ export default function TermsPage() {
                 infrastructure.
               </li>
               <li>Use another person&rsquo;s contact details without a legitimate reason to.</li>
+              <li>Submit knowingly false, misleading or abusive safety reports.</li>
             </ul>
             <p>
               We may suspend or terminate accounts that breach these terms, and remove content
               that does.
+            </p>
+            <p>
+              You can report another user in good faith when you believe their conduct creates a
+              safety or abuse concern. We review reports privately. Submitting a report does not
+              guarantee a particular action or entitle either user to another person&rsquo;s identity
+              or our internal review notes.
             </p>
 
             <h2>5. Your content</h2>

@@ -3,13 +3,27 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 const now = new Date("2026-09-12T10:00:00.000Z").toISOString();
 const bugId = "66aa11bb22cc33dd44ee55ff";
 const campaignId = "77aa11bb22cc33dd44ee55ff";
+const userReportId = "88aa11bb22cc33dd44ee55ff";
 
 interface AdminMockState {
   unauthorized: boolean;
   expiresAt: number;
   sessionDelayMs: number;
   activeSessions: Array<Record<string, unknown>>;
+  userReport: UserReportMock;
   passwordConfirmation?: Record<string, unknown>;
+}
+
+interface UserReportMock extends Record<string, unknown> {
+  status: string;
+  revision: number;
+  reviewHistory: Array<{
+    fromStatus: string;
+    toStatus: string;
+    note: string | null;
+    operatorId: string;
+    reviewedAt: string;
+  }>;
 }
 
 const mockStates = new WeakMap<Page, AdminMockState>();
@@ -41,6 +55,7 @@ async function mockAdminApi(page: Page): Promise<void> {
         current: false,
       },
     ],
+    userReport: userReport(),
   };
   mockStates.set(page, state);
   await page.route("**/api/admin/**", async (route) => {
@@ -144,6 +159,52 @@ async function mockAdminApi(page: Page): Promise<void> {
         counts: { all: 1, open: 1, resolved: 0 },
       });
     }
+    if (path.endsWith(`/gateway/reports/${userReportId}`)) {
+      if (route.request().method() === "PATCH") {
+        const body = route.request().postDataJSON() as {
+          status?: string;
+          note?: string;
+          revision: number;
+        };
+        if (body.revision !== state.userReport.revision) {
+          return respond(route, { message: "This report changed." }, 409);
+        }
+        const previous = state.userReport.status;
+        state.userReport = {
+          ...state.userReport,
+          status: body.status ?? previous,
+          revision: state.userReport.revision + 1,
+          reviewHistory: [
+            ...state.userReport.reviewHistory,
+            {
+              fromStatus: previous,
+              toStatus: body.status ?? previous,
+              note: body.note ?? null,
+              operatorId: "9999999999",
+              reviewedAt: now,
+            },
+          ],
+        };
+      }
+      return respond(route, state.userReport);
+    }
+    if (path.endsWith("/gateway/reports")) {
+      const requestedStatus = new URL(route.request().url()).searchParams.get("status");
+      const statuses = ["open", "in_review", "resolved", "dismissed"];
+      return respond(route, {
+        items:
+          requestedStatus === state.userReport.status
+            ? [state.userReport]
+            : [],
+        nextCursor: null,
+        counts: Object.fromEntries(
+          statuses.map((status) => [
+            status,
+            status === state.userReport.status ? 1 : 0,
+          ]),
+        ),
+      });
+    }
     if (path.endsWith("/gateway/notifications/capabilities")) {
       return respond(route, campaignCapabilities());
     }
@@ -205,6 +266,7 @@ test("every admin route fits a phone viewport", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   for (const [path, heading] of [
     ["/admin", "Operations"],
+    ["/admin/reports", "User Reports"],
     ["/admin/bugs", "Bug House"],
     ["/admin/notifications", "Notification Centre"],
     ["/admin/settings", "Settings"],
@@ -226,6 +288,29 @@ test("every admin route fits a phone viewport", async ({ page }, testInfo) => {
       fullPage: true,
     });
   }
+});
+
+test("reviews a user report with an internal audit note", async ({ page }) => {
+  await page.goto("/admin/reports");
+  await expect(page.getByText("Reported Person").first()).toBeVisible();
+  await page
+    .getByRole("button")
+    .filter({ hasText: "Reported Person" })
+    .first()
+    .click();
+  await expect(page.getByRole("heading", { name: "Spam or scam" })).toBeVisible();
+
+  const reviewPanel = page.locator('section[aria-label="Selected user report"]');
+  await reviewPanel.locator("select").selectOption("in_review");
+  await reviewPanel.locator("textarea").fill("Checking account activity");
+  await page.getByRole("button", { name: "Save review" }).click();
+
+  await expect(page.getByText("Review saved.")).toBeVisible();
+  expect(mockStates.get(page)!.userReport).toMatchObject({
+    status: "in_review",
+    revision: 1,
+  });
+  expect(mockStates.get(page)!.userReport.reviewHistory).toHaveLength(1);
 });
 
 test("session expiry unmounts previously visible admin data", async ({
@@ -417,6 +502,43 @@ function bugSummary() {
     createdAt: now,
     hasLogs: true,
     logCharacters: 842,
+  };
+}
+
+function userReport(): UserReportMock {
+  return {
+    id: userReportId,
+    status: "open",
+    category: "spam_or_scam",
+    detailsPreview: "Repeated unsolicited invitations and payment requests.",
+    details: "Repeated unsolicited invitations and payment requests.",
+    createdAt: now,
+    updatedAt: now,
+    revision: 0,
+    reporter: {
+      userId: "9000000001",
+      name: "Reporting Person",
+      dpUrl: null,
+      deleted: false,
+    },
+    reportedUser: {
+      userId: "9000000002",
+      name: "Reported Person",
+      dpUrl: null,
+      deleted: false,
+    },
+    reportsAgainstUser: 1,
+    finalizedAt: null,
+    expiresAt: null,
+    reviewHistory: [],
+    recentReportsAgainstUser: [
+      {
+        id: userReportId,
+        category: "spam_or_scam",
+        status: "open",
+        createdAt: now,
+      },
+    ],
   };
 }
 

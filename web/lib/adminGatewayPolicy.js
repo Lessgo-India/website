@@ -22,6 +22,20 @@ const CAMPAIGN_STATES = new Set([
   "cancelled",
   "failed",
 ]);
+const USER_REPORT_STATUSES = new Set([
+  "open",
+  "in_review",
+  "resolved",
+  "dismissed",
+]);
+const USER_REPORT_CATEGORIES = new Set([
+  "harassment_or_bullying",
+  "impersonation",
+  "spam_or_scam",
+  "inappropriate_content_or_behavior",
+  "safety_concern",
+  "other",
+]);
 const URL_SAFE_BASE64 = /^[A-Za-z0-9_-]+={0,2}$/;
 
 function hasOnlyParams(params, allowed) {
@@ -75,6 +89,22 @@ export function isAllowedAdminRead(segments, params) {
           integerInRange(params.get("limit") ?? "", 1, 50))
       );
     }
+    if (resource === "reports") {
+      return (
+        hasOnlyParams(
+          params,
+          new Set(["status", "category", "cursor", "limit"]),
+        ) &&
+        (!params.has("status") ||
+          USER_REPORT_STATUSES.has(params.get("status") ?? "")) &&
+        (!params.has("category") ||
+          USER_REPORT_CATEGORIES.has(params.get("category") ?? "")) &&
+        (!params.has("cursor") ||
+          OBJECT_ID.test(params.get("cursor") ?? "")) &&
+        (!params.has("limit") ||
+          integerInRange(params.get("limit") ?? "", 1, 50))
+      );
+    }
     return false;
   }
 
@@ -122,7 +152,7 @@ export function isAllowedAdminRead(segments, params) {
 
   return (
     segments.length === 2 &&
-    segments[0] === "bugs" &&
+    ["bugs", "reports"].includes(segments[0]) &&
     OBJECT_ID.test(segments[1]) &&
     hasOnlyParams(params, new Set())
   );
@@ -348,6 +378,13 @@ export function isAllowedAdminPatch(segments) {
   ) {
     return true;
   }
+  if (
+    segments.length === 2 &&
+    segments[0] === "reports" &&
+    OBJECT_ID.test(segments[1])
+  ) {
+    return true;
+  }
   return (
     segments.length === 2 &&
     segments[0] === "bugs" &&
@@ -377,6 +414,27 @@ export function isValidAdminBugPatchBody(body) {
     Object.keys(body).length === 1 &&
     typeof body.done === "boolean"
   );
+}
+
+export function isValidAdminReportPatchBody(body) {
+  if (!isPlainObject(body)) return false;
+  if (!hasAllowedExactKeys(body, ["status", "note", "revision"])) {
+    return false;
+  }
+  if (!Number.isInteger(body.revision) || body.revision < 0) return false;
+  if (
+    body.status !== undefined &&
+    !USER_REPORT_STATUSES.has(body.status)
+  ) {
+    return false;
+  }
+  if (
+    body.note !== undefined &&
+    (typeof body.note !== "string" || body.note.length > 2_000)
+  ) {
+    return false;
+  }
+  return body.status !== undefined || body.note?.trim().length > 0;
 }
 
 export function isValidAdminAlertPreferencesBody(body) {

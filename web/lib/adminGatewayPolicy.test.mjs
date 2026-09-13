@@ -8,6 +8,7 @@ import {
   isValidAdminAlertPreferencesBody,
   isValidAdminAlertUnsubscribeBody,
   isValidAdminBugPatchBody,
+  isValidAdminReportPatchBody,
   isValidAdminPostBody,
 } from "./adminGatewayPolicy.js";
 
@@ -33,6 +34,19 @@ test("allows only known admin reads and their documented query parameters", () =
     true,
   );
   assert.equal(isAllowedAdminRead(["bugs", id], new URLSearchParams()), true);
+  assert.equal(
+    isAllowedAdminRead(
+      ["reports"],
+      new URLSearchParams({
+        status: "in_review",
+        category: "safety_concern",
+        cursor: id,
+        limit: "25",
+      }),
+    ),
+    true,
+  );
+  assert.equal(isAllowedAdminRead(["reports", id], new URLSearchParams()), true);
 });
 
 test("allows only documented notification campaign reads", () => {
@@ -222,4 +236,38 @@ test("allows only the two documented Bug House mutation shapes", () => {
   assert.equal(isValidAdminBugPatchBody({ done: true }), true);
   assert.equal(isValidAdminBugPatchBody({ done: "yes" }), false);
   assert.equal(isValidAdminBugPatchBody({ done: true, role: "admin" }), false);
+});
+
+test("allows only exact user report review mutations", () => {
+  assert.equal(isAllowedAdminPatch(["reports", id]), true);
+  assert.equal(isAllowedAdminPatch(["reports", "not-an-id"]), false);
+  assert.equal(
+    isValidAdminReportPatchBody({
+      status: "in_review",
+      note: "Reviewing context",
+      revision: 0,
+    }),
+    true,
+  );
+  assert.equal(
+    isValidAdminReportPatchBody({ note: "Internal note", revision: 2 }),
+    true,
+  );
+  assert.equal(
+    isValidAdminReportPatchBody({
+      status: "banned",
+      note: "No",
+      revision: 0,
+    }),
+    false,
+  );
+  assert.equal(
+    isValidAdminReportPatchBody({
+      status: "resolved",
+      note: "Reviewed",
+      revision: 0,
+      role: "owner",
+    }),
+    false,
+  );
 });

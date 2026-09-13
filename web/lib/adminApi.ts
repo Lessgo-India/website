@@ -211,6 +211,74 @@ export interface AdminBugPage {
   counts: { all: number; open: number; resolved: number };
 }
 
+export const ADMIN_USER_REPORT_CATEGORIES = [
+  "harassment_or_bullying",
+  "impersonation",
+  "spam_or_scam",
+  "inappropriate_content_or_behavior",
+  "safety_concern",
+  "other",
+] as const;
+
+export const ADMIN_USER_REPORT_STATUSES = [
+  "open",
+  "in_review",
+  "resolved",
+  "dismissed",
+] as const;
+
+export type AdminUserReportCategory =
+  (typeof ADMIN_USER_REPORT_CATEGORIES)[number];
+export type AdminUserReportStatus =
+  (typeof ADMIN_USER_REPORT_STATUSES)[number];
+
+export interface AdminReportProfileSummary {
+  userId: string | null;
+  name: string | null;
+  dpUrl: string | null;
+  deleted: boolean;
+}
+
+export interface AdminUserReportSummary {
+  id: string;
+  status: AdminUserReportStatus;
+  category: AdminUserReportCategory;
+  detailsPreview: string | null;
+  createdAt: string;
+  updatedAt: string;
+  revision: number;
+  reporter: AdminReportProfileSummary;
+  reportedUser: AdminReportProfileSummary;
+  reportsAgainstUser: number;
+}
+
+export interface AdminUserReportReview {
+  fromStatus: AdminUserReportStatus;
+  toStatus: AdminUserReportStatus;
+  note: string | null;
+  operatorId: string;
+  reviewedAt: string;
+}
+
+export interface AdminUserReportDetails extends AdminUserReportSummary {
+  details: string | null;
+  finalizedAt: string | null;
+  expiresAt: string | null;
+  reviewHistory: AdminUserReportReview[];
+  recentReportsAgainstUser: Array<{
+    id: string;
+    category: AdminUserReportCategory;
+    status: AdminUserReportStatus;
+    createdAt: string;
+  }>;
+}
+
+export interface AdminUserReportPage {
+  items: AdminUserReportSummary[];
+  nextCursor: string | null;
+  counts: Record<AdminUserReportStatus, number>;
+}
+
 export function getAdminSession(): Promise<AdminSession> {
   return adminRequest<AdminSession>("/session");
 }
@@ -309,6 +377,40 @@ export function deleteAdminDoneBugs(): Promise<{ deleted: number }> {
   return adminRequest<{ deleted: number }>("/gateway/bugs/done", {
     method: "DELETE",
   });
+}
+
+export function getAdminUserReports(
+  status: AdminUserReportStatus,
+  category: AdminUserReportCategory | "all" = "all",
+  cursor?: string,
+  limit = 20,
+): Promise<AdminUserReportPage> {
+  const query = new URLSearchParams({ status, limit: String(limit) });
+  if (category !== "all") query.set("category", category);
+  if (cursor) query.set("cursor", cursor);
+  return adminRequest<AdminUserReportPage>(`/gateway/reports?${query}`);
+}
+
+export function getAdminUserReport(
+  id: string,
+): Promise<AdminUserReportDetails> {
+  return adminRequest<AdminUserReportDetails>(
+    `/gateway/reports/${encodeURIComponent(id)}`,
+  );
+}
+
+export function reviewAdminUserReport(
+  id: string,
+  input: {
+    status?: AdminUserReportStatus;
+    note?: string;
+    revision: number;
+  },
+): Promise<AdminUserReportDetails> {
+  return adminRequest<AdminUserReportDetails>(
+    `/gateway/reports/${encodeURIComponent(id)}`,
+    { method: "PATCH", body: input },
+  );
 }
 
 export async function adminLogin(

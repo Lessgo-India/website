@@ -11,6 +11,7 @@ import {
   LogOut,
   RefreshCw,
   Settings,
+  ShieldAlert,
   WifiOff,
 } from 'lucide-react';
 import { ThemeToggle } from '@ui/ThemeToggle';
@@ -22,6 +23,7 @@ import { useState, type ReactNode } from 'react';
 
 const NAVIGATION = [
   { href: '/admin', label: 'Operations', icon: Gauge },
+  { href: '/admin/reports', label: 'Reports', icon: ShieldAlert },
   { href: '/admin/bugs', label: 'Bugs', icon: Bug },
   { href: '/admin/notifications', label: 'Notifications', icon: BellRing },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
@@ -185,7 +187,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="Admin sections"
-        className="admin-bottom-nav fixed inset-x-0 bottom-0 z-50 grid grid-cols-4 border-t border-line bg-surface/95 px-2 pt-2 backdrop-blur lg:hidden"
+        className="admin-bottom-nav fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-line bg-surface/95 px-2 pt-2 backdrop-blur lg:hidden"
       >
         {NAVIGATION.map((item) => (
           <AdminNavLink
