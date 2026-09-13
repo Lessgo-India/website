@@ -6,16 +6,7 @@ import {
   useMotionValue,
   useSpring,
 } from 'framer-motion';
-import {
-  ArrowRight,
-  CalendarDays,
-  Check,
-  CircleUserRound,
-  Sparkles,
-  Users,
-  WalletCards,
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { ArrowRight, Check } from 'lucide-react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
@@ -31,7 +22,6 @@ type StoryDomain = {
   screenshot: AppScreenshotName;
   accent: string;
   tint: string;
-  onAccent: string;
 };
 
 const STORY_DOMAINS: Record<Domain, StoryDomain> = {
@@ -39,50 +29,32 @@ const STORY_DOMAINS: Record<Domain, StoryDomain> = {
     screenshot: 'events',
     accent: 'var(--events)',
     tint: 'var(--events-tint)',
-    onAccent: 'var(--events-on)',
   },
   split: {
     screenshot: 'balances',
     accent: 'var(--split)',
     tint: 'var(--split-tint)',
-    onAccent: 'var(--split-on)',
   },
   vibes: {
     screenshot: 'vibes',
     accent: 'var(--vibes)',
     tint: 'var(--vibes-tint)',
-    onAccent: 'var(--vibes-on)',
   },
   groups: {
     screenshot: 'groups',
     accent: 'var(--groups)',
     tint: 'var(--groups-tint)',
-    onAccent: 'var(--groups-on)',
   },
   profile: {
     screenshot: 'profile',
     accent: 'var(--profile)',
     tint: 'var(--profile-tint)',
-    onAccent: 'var(--profile-on)',
   },
 };
 
 const CHAPTERS = features.map((feature) => ({
   ...feature,
   ...STORY_DOMAINS[feature.domain],
-}));
-
-const HERO_ICONS: Record<Domain, LucideIcon> = {
-  events: CalendarDays,
-  split: WalletCards,
-  vibes: Sparkles,
-  groups: Users,
-  profile: CircleUserRound,
-};
-
-const HERO_SCREENS = CHAPTERS.map((chapter) => ({
-  ...chapter,
-  Icon: HERO_ICONS[chapter.domain],
 }));
 
 const MOBILE_STORY_QUERY = '(max-width: 767px)';
@@ -175,58 +147,12 @@ function BrandWave({ reduceMotion }: { reduceMotion: boolean }) {
   );
 }
 
-function HeroPhoneDock({ activeIndex, onSelect }: { activeIndex: number; onSelect: (index: number) => void }) {
-  return (
-    <div
-      role="tablist"
-      aria-label="Choose app preview"
-      className="relative z-30 mx-auto mt-3 flex w-[calc(100%+20px)] items-center justify-between gap-[2px] rounded-[22px] border p-[5px] shadow-pop backdrop-blur-xl"
-      style={{ background: 'var(--glass-strong)', borderColor: 'var(--line)' }}
-    >
-      {HERO_SCREENS.map((screen, index) => {
-        const selected = index === activeIndex;
-        const Icon = screen.Icon;
-
-        return (
-          <button
-            key={screen.id}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            aria-label={`Show ${screen.tab}`}
-            title={screen.tab}
-            onClick={() => onSelect(index)}
-            className={`relative flex h-6 min-w-0 items-center justify-center overflow-hidden rounded-full sm:h-8 ${
-              selected ? 'flex-1 sm:flex-none sm:gap-1 sm:px-2.5' : 'flex-1 sm:w-7 sm:flex-none'
-            }`}
-            style={{ color: selected ? screen.onAccent : screen.accent }}
-          >
-            {selected ? (
-              <motion.span
-                layoutId="hero-phone-active-tab"
-                className="absolute inset-0 rounded-full"
-                style={{ background: screen.accent }}
-                transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-              />
-            ) : null}
-            <Icon className="relative z-10 h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" strokeWidth={2.5} aria-hidden="true" />
-            {selected ? (
-              <span className="relative z-10 hidden text-[0.58rem] font-extrabold sm:inline">{screen.tab}</span>
-            ) : null}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 function HeroPhoneShowcase({ reduceMotion }: { reduceMotion: boolean }) {
-  const [activeIndex, setActiveIndex] = useState(0);
   const tiltX = useMotionValue(0);
   const tiltY = useMotionValue(0);
   const rotateX = useSpring(tiltX, { stiffness: 180, damping: 22, mass: 0.45 });
   const rotateY = useSpring(tiltY, { stiffness: 180, damping: 22, mass: 0.45 });
-  const activeScreen = HERO_SCREENS[activeIndex];
+  const events = STORY_DOMAINS.events;
 
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
     if (reduceMotion) return;
@@ -250,17 +176,10 @@ function HeroPhoneShowcase({ reduceMotion }: { reduceMotion: boolean }) {
       onPointerCancel={resetTilt}
       className="relative flex h-full min-h-0 items-center justify-center"
     >
-      <AnimatePresence initial={false}>
-        <motion.div
-          key={activeScreen.id}
-          className="absolute left-1/2 top-1/2 h-[72%] w-[78%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] blur-[82px]"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 0.3 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.7 }}
-          style={{ background: activeScreen.accent }}
-        />
-      </AnimatePresence>
+      <div
+        className="absolute left-1/2 top-1/2 h-[72%] w-[78%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] blur-[82px]"
+        style={{ background: events.accent, opacity: 0.3 }}
+      />
 
       <motion.div
         style={{ rotateX, rotateY, transformPerspective: 1200 }}
@@ -268,29 +187,23 @@ function HeroPhoneShowcase({ reduceMotion }: { reduceMotion: boolean }) {
       >
         <div
           className="absolute -inset-4 -z-10 rounded-[54px] opacity-70 blur-2xl"
-          style={{ background: `radial-gradient(circle, ${activeScreen.accent}, transparent 68%)` }}
+          style={{ background: `radial-gradient(circle, ${events.accent}, transparent 68%)` }}
         />
         <PhoneFrame size="hero" decorative={false}>
           <div className="relative h-full w-full bg-black" aria-label="Interactive Lessgo app preview">
-            <AnimatePresence initial={false}>
-              <motion.div
-                key={activeScreen.id}
-                data-hero-screen={activeScreen.id}
-                aria-hidden="true"
-                className="absolute inset-0"
-                initial={reduceMotion ? false : { opacity: 0, y: 22, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={reduceMotion ? undefined : { opacity: 0, y: -18, scale: 1.015 }}
-                transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <AppScreenshot name={activeScreen.screenshot} decorative={false} eager />
-              </motion.div>
-            </AnimatePresence>
+            <motion.div
+              data-hero-screen="events"
+              aria-hidden="true"
+              className="absolute inset-0"
+              initial={reduceMotion ? false : { opacity: 0, y: 22, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <AppScreenshot name="events" decorative={false} eager />
+            </motion.div>
           </div>
         </PhoneFrame>
-        <HeroPhoneDock activeIndex={activeIndex} onSelect={setActiveIndex} />
       </motion.div>
-      <span className="sr-only" aria-live="polite">{activeScreen.tab} preview selected</span>
     </div>
   );
 }
@@ -528,7 +441,6 @@ function StickyStory() {
     height: `${CHAPTERS.length * 100 + 40}svh`,
     '--story-accent': activeChapter.accent,
     '--story-tint': activeChapter.tint,
-    '--story-on-accent': activeChapter.onAccent,
   } as CSSProperties;
   const backdropStyle = {
     background: `
