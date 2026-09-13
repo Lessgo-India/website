@@ -363,6 +363,7 @@ export const footer = {
     {
       title: 'Product',
       links: [
+        { label: 'Home', href: '/' },
         { label: 'Features', href: '/features' },
         { label: 'How it works', href: '/#how-it-works' },
         { label: 'Get the app', href: '/download' },
@@ -382,7 +383,7 @@ export const footer = {
       links: [
         { label: 'Privacy Policy', href: '/privacy' },
         { label: 'Terms of Use', href: '/terms' },
-        { label: 'Delete Account', href: '/delete-account' },
+        { label: 'Account Deletion', href: '/delete-account' },
         { label: 'Grievance Officer', href: '/privacy#grievance' },
       ],
     },

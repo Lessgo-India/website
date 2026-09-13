@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:delete-account": "node --experimental-strip-types --test components/analytics.test.mjs",
+    "test:footer-links": "node --experimental-strip-types --test content/site.test.mjs",
     "test:admin-policy": "node --experimental-strip-types --test web/lib/adminGatewayPolicy.test.mjs web/lib/adminLoginRateLimitPolicy.test.mjs web/lib/boundedJsonBody.test.mjs web/lib/bugHouseView.test.mjs web/lib/adminGatewayRoute.test.mjs",
     "test:admin-e2e": "playwright test tests/admin-pwa.spec.ts"
   },
