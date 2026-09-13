@@ -26,7 +26,7 @@ type StoryDomain = {
 
 const STORY_DOMAINS: Record<Domain, StoryDomain> = {
   events: {
-    screenshot: 'events',
+    screenshot: 'event-detail',
     accent: 'var(--events)',
     tint: 'var(--events-tint)',
   },
