@@ -62,7 +62,14 @@ export function StoreBadges({ className = '' }: { className?: string }) {
           rel="noopener noreferrer"
           className="inline-flex min-h-16 items-center justify-center p-2"
         >
-          <Image src={src} alt={alt} width={width} height={height} className="h-auto" />
+          <Image
+            src={src}
+            alt={alt}
+            width={width}
+            height={height}
+            unoptimized={src.endsWith('.svg')}
+            className="h-auto"
+          />
         </a>
       ))}
     </div>

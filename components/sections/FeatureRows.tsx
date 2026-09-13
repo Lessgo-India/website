@@ -1,19 +1,13 @@
 import { Check } from 'lucide-react';
-import type { CSSProperties, ReactElement } from 'react';
+import type { CSSProperties } from 'react';
 import { features, type Domain } from '@content/site';
 import { DomainGlow } from '@ui/Aurora';
 import { GlowIcons } from '@ui/GlowIcons';
 import { Spotlight } from '@ui/Spotlight';
 import { Container } from '@ui/Section';
 import { Reveal } from '@ui/Reveal';
+import { AppScreenshot, type AppScreenshotName } from '@ui/phone/AppScreenshot';
 import { PhoneFrame } from '@ui/phone/PhoneFrame';
-import {
-  BalancesScreen,
-  EventsScreen,
-  GroupsScreen,
-  ProfileScreen,
-  VibesScreen,
-} from '@ui/phone/screens';
 
 /**
  * Each domain wears the accent of its tab in the native app, so scrolling the
@@ -21,14 +15,14 @@ import {
  */
 const DOMAINS: Record<
   Domain,
-  { screen: () => ReactElement; glow: string; accent: string; tint: string }
+  { screenshot: AppScreenshotName; glow: string; accent: string; tint: string }
 > = {
-  events: { screen: EventsScreen, glow: '#C7F04A', accent: 'text-events', tint: 'bg-events-tint' },
-  split: { screen: BalancesScreen, glow: '#4ADE80', accent: 'text-split', tint: 'bg-split-tint' },
-  vibes: { screen: VibesScreen, glow: '#FF7A7A', accent: 'text-vibes', tint: 'bg-vibes-tint' },
-  groups: { screen: GroupsScreen, glow: '#FF9F45', accent: 'text-groups', tint: 'bg-groups-tint' },
+  events: { screenshot: 'events', glow: '#C7F04A', accent: 'text-events', tint: 'bg-events-tint' },
+  split: { screenshot: 'balances', glow: '#4ADE80', accent: 'text-split', tint: 'bg-split-tint' },
+  vibes: { screenshot: 'vibes', glow: '#FF7A7A', accent: 'text-vibes', tint: 'bg-vibes-tint' },
+  groups: { screenshot: 'groups', glow: '#FF9F45', accent: 'text-groups', tint: 'bg-groups-tint' },
   profile: {
-    screen: ProfileScreen,
+    screenshot: 'profile',
     glow: '#C9A7FF',
     accent: 'text-profile',
     tint: 'bg-profile-tint',
@@ -40,7 +34,6 @@ export function FeatureRows({ id = 'features' }: { id?: string }) {
     <div id={id} className="relative">
       {features.map((feature, i) => {
         const domain = DOMAINS[feature.domain];
-        const Screen = domain.screen;
         const flipped = i % 2 === 1;
 
         return (
@@ -109,7 +102,7 @@ export function FeatureRows({ id = 'features' }: { id?: string }) {
                     className="mx-auto max-w-[300px]"
                     glow={`radial-gradient(circle, ${domain.glow}, transparent 65%)`}
                   >
-                    <Screen />
+                    <AppScreenshot name={domain.screenshot} />
                   </PhoneFrame>
                 </Reveal>
               </div>

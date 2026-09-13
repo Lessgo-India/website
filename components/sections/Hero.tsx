@@ -6,8 +6,8 @@ import { ButtonLink } from '@ui/Button';
 import { CtaButton } from '@ui/CtaButton';
 import { Container } from '@ui/Section';
 import { Reveal } from '@ui/Reveal';
+import { AppScreenshot } from '@ui/phone/AppScreenshot';
 import { PhoneFrame } from '@ui/phone/PhoneFrame';
-import { BalancesScreen, EventsScreen } from '@ui/phone/screens';
 
 export function Hero() {
   return (
@@ -73,13 +73,13 @@ export function Hero() {
               {/* Secondary device, desktop only so mobile stays light */}
               <div className="absolute -left-2 top-10 hidden w-[62%] -rotate-[9deg] opacity-90 lg:block">
                 <PhoneFrame glow="radial-gradient(circle, #4ADE80, transparent 65%)">
-                  <BalancesScreen />
+                  <AppScreenshot name="balances" />
                 </PhoneFrame>
               </div>
 
               <div className="relative z-10 w-[78%] translate-x-0 sm:w-[72%] lg:ml-24 lg:w-[86%]">
                 <PhoneFrame float glow="radial-gradient(circle, #8E54E9, transparent 65%)">
-                  <EventsScreen />
+                  <AppScreenshot name="events" eager />
                 </PhoneFrame>
               </div>
             </div>

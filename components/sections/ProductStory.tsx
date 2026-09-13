@@ -16,7 +16,7 @@ import {
   WalletCards,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { CSSProperties, ComponentType, PointerEvent as ReactPointerEvent } from 'react';
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import { features, hero, productStory, type Domain } from '@content/site';
@@ -24,17 +24,11 @@ import { ButtonLink } from '@ui/Button';
 import { CtaButton } from '@ui/CtaButton';
 import { GlowIcons } from '@ui/GlowIcons';
 import { Container } from '@ui/Section';
+import { AppScreenshot, type AppScreenshotName } from '@ui/phone/AppScreenshot';
 import { PhoneFrame } from '@ui/phone/PhoneFrame';
-import {
-  BalancesScreen,
-  EventsScreen,
-  GroupsScreen,
-  ProfileScreen,
-  VibesScreen,
-} from '@ui/phone/screens';
 
 type StoryDomain = {
-  Screen: ComponentType;
+  screenshot: AppScreenshotName;
   accent: string;
   tint: string;
   onAccent: string;
@@ -42,31 +36,31 @@ type StoryDomain = {
 
 const STORY_DOMAINS: Record<Domain, StoryDomain> = {
   events: {
-    Screen: EventsScreen,
+    screenshot: 'events',
     accent: 'var(--events)',
     tint: 'var(--events-tint)',
     onAccent: 'var(--events-on)',
   },
   split: {
-    Screen: BalancesScreen,
+    screenshot: 'balances',
     accent: 'var(--split)',
     tint: 'var(--split-tint)',
     onAccent: 'var(--split-on)',
   },
   vibes: {
-    Screen: VibesScreen,
+    screenshot: 'vibes',
     accent: 'var(--vibes)',
     tint: 'var(--vibes-tint)',
     onAccent: 'var(--vibes-on)',
   },
   groups: {
-    Screen: GroupsScreen,
+    screenshot: 'groups',
     accent: 'var(--groups)',
     tint: 'var(--groups-tint)',
     onAccent: 'var(--groups-on)',
   },
   profile: {
-    Screen: ProfileScreen,
+    screenshot: 'profile',
     accent: 'var(--profile)',
     tint: 'var(--profile-tint)',
     onAccent: 'var(--profile-on)',
@@ -186,8 +180,8 @@ function HeroPhoneDock({ activeIndex, onSelect }: { activeIndex: number; onSelec
     <div
       role="tablist"
       aria-label="Choose app preview"
-      className="absolute inset-x-[7px] bottom-[7px] z-30 flex items-center justify-between gap-[2px] rounded-[22px] border p-[5px] shadow-pop backdrop-blur-xl"
-      style={{ background: 'var(--as-tabbar)', borderColor: 'var(--as-tabline)' }}
+      className="relative z-30 mx-auto mt-3 flex w-[calc(100%+20px)] items-center justify-between gap-[2px] rounded-[22px] border p-[5px] shadow-pop backdrop-blur-xl"
+      style={{ background: 'var(--glass-strong)', borderColor: 'var(--line)' }}
     >
       {HERO_SCREENS.map((screen, index) => {
         const selected = index === activeIndex;
@@ -233,7 +227,6 @@ function HeroPhoneShowcase({ reduceMotion }: { reduceMotion: boolean }) {
   const rotateX = useSpring(tiltX, { stiffness: 180, damping: 22, mass: 0.45 });
   const rotateY = useSpring(tiltY, { stiffness: 180, damping: 22, mass: 0.45 });
   const activeScreen = HERO_SCREENS[activeIndex];
-  const ActiveScreen = activeScreen.Screen;
 
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
     if (reduceMotion) return;
@@ -271,14 +264,14 @@ function HeroPhoneShowcase({ reduceMotion }: { reduceMotion: boolean }) {
 
       <motion.div
         style={{ rotateX, rotateY, transformPerspective: 1200 }}
-        className="relative -top-3 z-10 w-[140px] min-[360px]:w-[160px] sm:top-0 sm:w-[190px] lg:w-[min(29vw,39svh)]"
+        className="relative -top-3 z-10 w-[140px] min-[360px]:w-[160px] sm:top-0 sm:w-[190px] lg:w-[min(29vw,37svh)]"
       >
         <div
           className="absolute -inset-4 -z-10 rounded-[54px] opacity-70 blur-2xl"
           style={{ background: `radial-gradient(circle, ${activeScreen.accent}, transparent 68%)` }}
         />
         <PhoneFrame size="hero" decorative={false}>
-          <div className="app-screen relative h-full w-full bg-black" aria-label="Interactive Lessgo app preview">
+          <div className="relative h-full w-full bg-black" aria-label="Interactive Lessgo app preview">
             <AnimatePresence initial={false}>
               <motion.div
                 key={activeScreen.id}
@@ -290,12 +283,12 @@ function HeroPhoneShowcase({ reduceMotion }: { reduceMotion: boolean }) {
                 exit={reduceMotion ? undefined : { opacity: 0, y: -18, scale: 1.015 }}
                 transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
               >
-                <ActiveScreen />
+                <AppScreenshot name={activeScreen.screenshot} decorative={false} eager />
               </motion.div>
             </AnimatePresence>
-            <HeroPhoneDock activeIndex={activeIndex} onSelect={setActiveIndex} />
           </div>
         </PhoneFrame>
+        <HeroPhoneDock activeIndex={activeIndex} onSelect={setActiveIndex} />
       </motion.div>
       <span className="sr-only" aria-live="polite">{activeScreen.tab} preview selected</span>
     </div>
@@ -414,8 +407,6 @@ function StaticStory() {
   return (
     <section id="features" aria-label={productStory.tour.progressLabel}>
       {CHAPTERS.map((chapter, index) => {
-        const Screen = chapter.Screen;
-
         return (
           <article
             key={chapter.id}
@@ -439,7 +430,7 @@ function StaticStory() {
                   className="mx-auto w-[230px] sm:w-[280px]"
                   glow={`radial-gradient(circle, ${chapter.accent}, transparent 68%)`}
                 >
-                  <Screen />
+                  <AppScreenshot name={chapter.screenshot} />
                 </PhoneFrame>
               </div>
             </Container>
@@ -533,7 +524,6 @@ function StickyStory() {
   }, [storyProgress]);
 
   const activeChapter = CHAPTERS[activeIndex];
-  const ActiveScreen = activeChapter.Screen;
   const storyStyle = {
     height: `${CHAPTERS.length * 100 + 40}svh`,
     '--story-accent': activeChapter.accent,
@@ -646,7 +636,7 @@ function StickyStory() {
                         data-story-screen={activeChapter.id}
                         className="absolute inset-0"
                       >
-                        <ActiveScreen />
+                        <AppScreenshot name={activeChapter.screenshot} />
                       </div>
                     ) : (
                       <AnimatePresence initial={false}>
@@ -659,7 +649,7 @@ function StickyStory() {
                           exit={{ opacity: 0, y: -20, scale: 1.015 }}
                           transition={{ duration: 0.46, ease: [0.22, 1, 0.36, 1] }}
                         >
-                          <ActiveScreen />
+                          <AppScreenshot name={activeChapter.screenshot} />
                         </motion.div>
                       </AnimatePresence>
                     )}

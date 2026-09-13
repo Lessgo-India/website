@@ -7,8 +7,8 @@ import { PageHeader } from '@ui/PageHeader';
 import { EarlyAccessForm } from '@ui/EarlyAccessForm';
 import { StoreBadges } from '@ui/StoreBadges';
 import { JsonLd, appSchema, breadcrumbSchema } from '@ui/JsonLd';
+import { AppScreenshot } from '@ui/phone/AppScreenshot';
 import { PhoneFrame } from '@ui/phone/PhoneFrame';
-import { EventDetailScreen } from '@ui/phone/screens';
 
 const url = SITE_URL || 'https://lessgo.com';
 
@@ -120,7 +120,7 @@ export default function DownloadPage() {
                 className="mx-auto w-[260px] sm:w-[300px]"
                 glow="radial-gradient(circle, #8E54E9, transparent 65%)"
               >
-                <EventDetailScreen />
+                <AppScreenshot name="event-detail" />
               </PhoneFrame>
             </Reveal>
           </div>

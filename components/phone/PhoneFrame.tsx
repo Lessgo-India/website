@@ -44,84 +44,10 @@ export function PhoneFrame({
         {/* Hairline highlight along the bezel edge */}
         <div className="pointer-events-none absolute inset-0 rounded-[46px] ring-1 ring-inset ring-white/12" />
 
-        <div className="relative aspect-[9/19] w-full overflow-hidden rounded-[37px]">
+        <div className="relative aspect-[159/350] w-full overflow-hidden rounded-[37px]">
           {children}
-          {/* Dynamic-island style cutout */}
-          <div className="absolute left-1/2 top-[10px] h-[22px] w-[76px] -translate-x-1/2 rounded-full bg-black/90" />
         </div>
       </div>
-    </div>
-  );
-}
-
-/** Status bar row, matched to the screen's ink colour. */
-export function StatusBar({ ink }: { ink: string }) {
-  return (
-    <div
-      className="flex items-center justify-between px-5 pb-1 pt-[13px] text-[9px] font-semibold"
-      style={{ color: ink }}
-    >
-      <span>9:41</span>
-      <span className="flex items-center gap-[3px]">
-        <span className="inline-block h-[6px] w-[6px] rounded-[1px]" style={{ background: ink, opacity: 0.5 }} />
-        <span className="inline-block h-[7px] w-[7px] rounded-[1px]" style={{ background: ink, opacity: 0.75 }} />
-        <span className="inline-block h-[8px] w-[14px] rounded-[2px] border" style={{ borderColor: ink }} />
-      </span>
-    </div>
-  );
-}
-
-const TABS = [
-  { id: 'events', label: 'Events', glyph: '◈' },
-  { id: 'groups', label: 'Groups', glyph: '◉' },
-  { id: 'split', label: 'Split', glyph: '▤' },
-  { id: 'vibes', label: 'Vibes', glyph: '✦' },
-  { id: 'profile', label: 'You', glyph: '◐' },
-] as const;
-
-/** The app's five-tab bar, with the active tab tinted by its domain accent. */
-export function TabBar({
-  active,
-  accent,
-  ink,
-  surface,
-}: {
-  active: (typeof TABS)[number]['id'];
-  accent: string;
-  ink: string;
-  surface: string;
-}) {
-  return (
-    <div
-      className="absolute inset-x-0 bottom-0 flex items-end justify-around border-t px-2 pb-3 pt-2"
-      style={{
-        background: surface,
-        borderColor: 'rgba(255,255,255,0.08)',
-      }}
-    >
-      {TABS.map((tab) => {
-        const on = tab.id === active;
-        return (
-          <div key={tab.id} className="flex flex-1 flex-col items-center gap-[3px]">
-            <span
-              className="text-[13px] leading-none"
-              style={{ color: on ? accent : ink, opacity: on ? 1 : 0.38 }}
-            >
-              {tab.glyph}
-            </span>
-            <span
-              className="text-[7px] font-semibold tracking-tight"
-              style={{ color: on ? accent : ink, opacity: on ? 1 : 0.38 }}
-            >
-              {tab.label}
-            </span>
-          </div>
-        );
-      })}
-      <div
-        className="absolute bottom-[5px] left-1/2 h-[3px] w-[86px] -translate-x-1/2 rounded-full"
-        style={{ background: ink, opacity: 0.22 }}
-      />
     </div>
   );
 }

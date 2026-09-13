@@ -1,9 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Remote covers/avatars render with plain <img>, so image optimization is
-  // unnecessary and this avoids per-domain allow-listing.
-  images: { unoptimized: true },
 
   async redirects() {
     // Routes from the previous marketing SPA, folded into the new sitemap.
