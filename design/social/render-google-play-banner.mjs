@@ -1,11 +1,12 @@
 /**
- * Google Play / YouTube banners: bold type over the website's faint icon texture.
+ * Branded banners: bold type over the website's faint icon texture.
  * Uses the website's self-hosted Outfit 800 face (or OUTFIT_FONT), not a fallback.
  * Run from the website with Node; requires its existing playwright and sharp.
- * Optional first argument: youtube. Default: google-play (original dimensions).
+ * Optional first argument: youtube or dark (4096 x 2304, JPEG under 1 MB).
+ * Default: google-play (original dimensions).
  */
 import assert from 'node:assert/strict';
-import { readFile, readdir, stat } from 'node:fs/promises';
+import { readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -50,15 +51,36 @@ const presets = {
     maxBytes: 6_000_000,
     label: 'YouTube channel banner',
   },
+  dark: {
+    width: 4096,
+    height: 2304,
+    fontSize: 288,
+    safeWidth: 2472,
+    safeHeight: 676,
+    maxBytes: 1_000_000,
+    label: 'Dark-mode banner',
+    theme: 'dark',
+    format: 'jpeg',
+  },
 };
 const preset = process.argv[2] ?? 'google-play';
-assert.ok(Object.hasOwn(presets, preset), 'Choose a google-play or youtube banner.');
-const { width, height, fontSize, safeWidth, safeHeight, maxBytes, label } = presets[preset];
-const output = resolve(directory, `lessgo-${preset}-banner-${width}x${height}.png`);
+assert.ok(Object.hasOwn(presets, preset), 'Choose a google-play, youtube, or dark banner.');
+const { width, height, fontSize, safeWidth, safeHeight, maxBytes, label,
+  theme = 'light', format = 'png' } = presets[preset];
+const extension = format === 'jpeg' ? 'jpg' : 'png';
+const output = resolve(directory, `lessgo-${preset}-banner-${width}x${height}.${extension}`);
 const foregroundScale = fontSize / 112;
 const backgroundScaleX = width / 1024;
 const backgroundScaleY = height / 500;
-const brandGradient = 'linear-gradient(110deg, #0d9e94 0%, #3a63cc 30%, #7b3fd4 62%, #c60077 100%)';
+const isDark = theme === 'dark';
+const backgroundColor = isDark ? '#000000' : '#ffffff';
+const inkColor = isDark ? '#f4f4f6' : '#0c0c0f';
+const brandGradient = isDark
+  ? 'linear-gradient(110deg, #22d3c5 0%, #4776e6 30%, #8e54e9 62%, #ec008c 100%)'
+  : 'linear-gradient(110deg, #0d9e94 0%, #3a63cc 30%, #7b3fd4 62%, #c60077 100%)';
+const violetGlow = isDark ? '201, 167, 255' : '124, 72, 224';
+const tealGlow = isDark ? '34, 211, 197' : '13, 158, 148';
+const pinkGlow = isDark ? '236, 0, 140' : '198, 0, 119';
 
 /** Same icon family and seeded scatter as components/GlowIcons.tsx. */
 function buildIconTexture() {
@@ -127,7 +149,7 @@ async function readOutfit() {
 const font = (await readOutfit()).toString('base64');
 const textureSource = `data:image/svg+xml;base64,${Buffer.from(buildIconTexture()).toString('base64')}`;
 const html = `<!doctype html>
-<html lang="en">
+<html lang="en" data-theme="${theme}">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -145,8 +167,8 @@ const html = `<!doctype html>
       html, body { width: ${width}px; height: ${height}px; margin: 0; }
 
       body {
-        background: #ffffff;
-        color: #0c0c0f;
+        background: ${backgroundColor};
+        color: ${inkColor};
         -webkit-font-smoothing: antialiased;
         text-rendering: optimizeLegibility;
       }
@@ -159,7 +181,7 @@ const html = `<!doctype html>
         width: ${width}px;
         height: ${height}px;
         overflow: hidden;
-        background: #ffffff;
+        background: ${backgroundColor};
       }
 
       /* The site's ambient glow, kept at the edges to preserve negative space. */
@@ -168,9 +190,9 @@ const html = `<!doctype html>
         inset: 0;
         z-index: -1;
         background:
-          radial-gradient(ellipse ${430 * backgroundScaleX}px ${310 * backgroundScaleY}px at 80% 8%, rgba(124, 72, 224, 0.065), transparent 74%),
-          radial-gradient(ellipse ${410 * backgroundScaleX}px ${285 * backgroundScaleY}px at 14% 92%, rgba(13, 158, 148, 0.055), transparent 74%),
-          radial-gradient(ellipse ${360 * backgroundScaleX}px ${265 * backgroundScaleY}px at 100% 100%, rgba(198, 0, 119, 0.035), transparent 74%);
+          radial-gradient(ellipse ${430 * backgroundScaleX}px ${310 * backgroundScaleY}px at 80% 8%, rgba(${violetGlow}, 0.065), transparent 74%),
+          radial-gradient(ellipse ${410 * backgroundScaleX}px ${285 * backgroundScaleY}px at 14% 92%, rgba(${tealGlow}, 0.055), transparent 74%),
+          radial-gradient(ellipse ${360 * backgroundScaleX}px ${265 * backgroundScaleY}px at 100% 100%, rgba(${pinkGlow}, 0.035), transparent 74%);
       }
 
       /* Nested masks: gradient outlines, feathered away behind the headline. */
@@ -236,7 +258,7 @@ try {
   const page = await browser.newPage({
     viewport: { width, height },
     deviceScaleFactor: 2,
-    colorScheme: 'light',
+    colorScheme: theme,
     reducedMotion: 'reduce',
   });
   await page.setContent(html, { waitUntil: 'load' });
@@ -262,25 +284,43 @@ try {
       `${selector} ends inside the safe area.`);
   }
 
-  // Supersample the type, then export opaque 24-bit RGB PNG (no alpha channel).
+  // Supersample the type; keep full-resolution, opaque RGB in either format.
   const screenshot = await page.screenshot({ type: 'png', animations: 'disabled' });
-  await sharp(screenshot)
+  const image = sharp(screenshot)
     .resize(width, height, { kernel: 'lanczos3' })
-    .flatten({ background: '#ffffff' })
+    .flatten({ background: backgroundColor })
     .removeAlpha()
-    .toColourspace('srgb')
-    .png({ compressionLevel: 9, palette: false })
-    .toFile(output);
+    .toColourspace('srgb');
+  let encoded;
+  if (format === 'jpeg') {
+    // Preserve gradient edges with 4:4:4 chroma; lower quality only if necessary.
+    for (const quality of [98, 96, 94, 92, 90, 88, 86, 84, 82, 80]) {
+      const candidate = await image.clone()
+        .jpeg({ quality, chromaSubsampling: '4:4:4', mozjpeg: true })
+        .toBuffer();
+      if (candidate.length < maxBytes) {
+        encoded = candidate;
+        break;
+      }
+    }
+    assert.ok(encoded, 'Could not meet the file size limit without excessive compression.');
+  } else {
+    encoded = await image.png({ compressionLevel: 9, palette: false }).toBuffer();
+  }
+  assert.ok(encoded.length < maxBytes, 'The banner must fit the platform upload limit.');
+  await writeFile(output, encoded);
 
   const metadata = await sharp(output).metadata();
   const { size } = await stat(output);
   assert.equal(metadata.width, width);
   assert.equal(metadata.height, height);
-  assert.equal(metadata.format, 'png');
+  assert.equal(metadata.format, format);
   assert.equal(metadata.channels, 3);
   assert.equal(metadata.hasAlpha, false);
+  assert.equal(metadata.depth, 'uchar');
+  assert.equal(metadata.space, 'srgb');
   assert.ok(size < maxBytes, 'The banner must fit the platform upload limit.');
-  process.stdout.write(`${output}\n${width} x ${height} | RGB PNG | ${(size / 1024).toFixed(1)} KB | Outfit 800\n`);
+  process.stdout.write(`${output}\n${width} x ${height} | RGB ${format.toUpperCase()} | ${size} bytes | Outfit 800 | ${theme}\n`);
   process.stdout.write(`Headline safe area verified: ${safeWidth} x ${safeHeight}, centered.\n`);
 } finally {
   await browser.close();
