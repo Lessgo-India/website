@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { footer } from './site.ts';
 
 const appDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '../app');
+const footerExcludedPaths = new Set(['/me', '/onboarding']);
 
 function collectPageFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -25,7 +26,8 @@ function staticPublicPath(pageFile) {
     return null;
   }
 
-  return segments.length > 0 ? `/${segments.join('/')}` : '/';
+  const path = segments.length > 0 ? `/${segments.join('/')}` : '/';
+  return footerExcludedPaths.has(path) ? null : path;
 }
 
 const publicPagePaths = collectPageFiles(appDirectory)
@@ -36,9 +38,15 @@ const footerHrefs = footer.columns.flatMap((column) =>
   column.links.map((link) => link.href),
 );
 
-test('footer links to every non-admin static site page', () => {
+test('footer links to every public static site page', () => {
   for (const path of publicPagePaths) {
     assert.ok(footerHrefs.includes(path), `Missing public footer link: ${path}`);
+  }
+});
+
+test('footer omits authenticated utility pages', () => {
+  for (const path of footerExcludedPaths) {
+    assert.equal(footerHrefs.includes(path), false, `Unexpected footer link: ${path}`);
   }
 });
 
