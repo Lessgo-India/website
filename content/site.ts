@@ -373,6 +373,8 @@ export const footer = {
     {
       title: 'Support',
       links: [
+        { label: 'Sign in', href: '/onboarding' },
+        { label: 'Your invites', href: '/me' },
         { label: 'Help & FAQ', href: '/help' },
         { label: 'Privacy at Lessgo', href: '/#privacy' },
         { label: 'Contact us', href: 'mailto:hello@lessgo.in' },
