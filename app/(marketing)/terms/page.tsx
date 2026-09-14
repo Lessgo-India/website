@@ -54,6 +54,10 @@ export default function TermsPage() {
             <ul>
               <li>Harass, threaten, impersonate or abuse anyone.</li>
               <li>Upload content that is unlawful, hateful, or infringes someone&rsquo;s rights.</li>
+              <li>
+                Create, request, upload, store, share, promote or facilitate child sexual abuse
+                or exploitation, including child sexual abuse material, grooming or sextortion.
+              </li>
               <li>Use the Service to send spam or unsolicited bulk invitations.</li>
               <li>
                 Scrape, reverse engineer, probe or interfere with the Service or its
@@ -71,6 +75,11 @@ export default function TermsPage() {
               safety or abuse concern. We review reports privately. Submitting a report does not
               guarantee a particular action or entitle either user to another person&rsquo;s identity
               or our internal review notes.
+            </p>
+            <p>
+              Our <Link href="/child-safety">Child Safety Standards</Link> explain how to report
+              concerns involving a child and how we respond to suspected child sexual abuse and
+              exploitation.
             </p>
 
             <h2>5. Your content</h2>

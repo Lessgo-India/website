@@ -12,6 +12,7 @@ const PUBLIC_PAGE_PATHS = [
   '/whats-new',
   '/privacy',
   '/terms',
+  '/child-safety',
 ];
 
 const footerHrefs = footer.columns.flatMap((column) =>

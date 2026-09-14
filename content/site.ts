@@ -383,6 +383,7 @@ export const footer = {
       links: [
         { label: 'Privacy Policy', href: '/privacy' },
         { label: 'Terms of Use', href: '/terms' },
+        { label: 'Child Safety', href: '/child-safety' },
         { label: 'Account Deletion', href: '/delete-account' },
         { label: 'Grievance Officer', href: '/privacy#grievance' },
       ],
