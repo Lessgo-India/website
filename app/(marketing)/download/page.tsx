@@ -13,9 +13,9 @@ import { PhoneFrame } from '@ui/phone/PhoneFrame';
 const url = SITE_URL || 'https://lessgo.com';
 
 export const metadata: Metadata = {
-  title: 'Get Lessgo — early access',
+  title: 'Get Lessgo — launch updates',
   description:
-    'Lessgo is in early access on Android, with iOS right behind. Join the list and we will send you the download the moment it opens up.',
+    'Lessgo is launching on Android and iOS in India. Join the list and we will send you the store links when they are live.',
   alternates: { canonical: '/download' },
 };
 
@@ -49,13 +49,13 @@ export default function DownloadPage() {
       />
 
       <PageHeader
-        eyebrow="Early access"
+        eyebrow="Launching in India"
         title={
           <>
             Be first in when <span className="text-gradient">Lessgo opens up</span>.
           </>
         }
-        body="Lessgo is in early access on Android right now, with iOS right behind. Leave your email and we will send you the download the moment your platform is ready."
+        body="Lessgo is launching on Android and iOS in India. Leave your email and we will send you the store links when they are live."
       >
         <div className="max-w-lg">
           <EarlyAccessForm source="download-page" />

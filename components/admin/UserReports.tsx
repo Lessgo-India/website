@@ -19,6 +19,7 @@ import {
   getAdminUserReports,
   reviewAdminUserReport,
   type AdminReportProfileSummary,
+  type AdminReportedContentType,
   type AdminUserReportCategory,
   type AdminUserReportDetails,
   type AdminUserReportPage,
@@ -50,6 +51,19 @@ const STATUS_STYLES: Record<AdminUserReportStatus, string> = {
   in_review: "border-profile bg-profile-tint text-profile",
   resolved: "border-ok bg-ok-tint text-ok",
   dismissed: "border-line-strong bg-surface-2 text-ink-muted",
+};
+
+const CONTENT_TYPE_LABELS: Record<AdminReportedContentType, string> = {
+  event: "Event",
+  group: "Group",
+  vibe: "Vibe",
+  buzz: "Buzz",
+  post: "Post",
+  comment: "Comment",
+  poll: "Poll",
+  checkpoint: "Timeline checkpoint",
+  media: "Gallery media",
+  document: "Document",
 };
 
 function formatDate(value: string | null): string {
@@ -187,6 +201,11 @@ function ReportListRow({
               {CATEGORY_LABELS[report.category]} · {report.reportsAgainstUser} retained report
               {report.reportsAgainstUser === 1 ? "" : "s"} against this user
             </p>
+            {report.contentType ? (
+              <p className="mt-1 text-xs font-semibold text-profile">
+                {CONTENT_TYPE_LABELS[report.contentType]} report
+              </p>
+            ) : null}
             {report.detailsPreview ? (
               <p className="mt-2 line-clamp-2 text-sm leading-5 text-ink-muted">
                 {report.detailsPreview}
@@ -370,7 +389,7 @@ export default function UserReports() {
             Review queue
           </h2>
           <p className="mt-1 text-sm text-ink-muted">
-            Account-level safety reports submitted privately from user profiles.
+            Account and content safety reports submitted privately from Lessgo.
           </p>
         </div>
         <button
@@ -511,6 +530,20 @@ export default function UserReports() {
                 <IdentityBlock key={`reporter-${detail.id}`} label="Reporter" profile={detail.reporter} />
               </div>
 
+              {detail.contentType && detail.contentId ? (
+                <div className="border-b border-line py-5">
+                  <p className="text-xs font-semibold uppercase text-ink-faint">
+                    Reported content
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-ink">
+                    {CONTENT_TYPE_LABELS[detail.contentType]}
+                  </p>
+                  <p className="mt-1 break-all font-mono text-xs text-ink-muted">
+                    {detail.contentId}
+                  </p>
+                </div>
+              ) : null}
+
               <div className="border-b border-line py-5">
                 <p className="text-xs font-semibold uppercase text-ink-faint">Submitted details</p>
                 <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-ink">
@@ -561,6 +594,9 @@ export default function UserReports() {
                                 {CATEGORY_LABELS[item.category]}
                               </span>
                               <span className="mt-0.5 block text-xs text-ink-muted">
+                                {item.contentType
+                                  ? `${CONTENT_TYPE_LABELS[item.contentType]} · `
+                                  : ""}
                                 {formatDate(item.createdAt)}
                               </span>
                             </span>

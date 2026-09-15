@@ -20,27 +20,27 @@ export const nav = {
     { label: 'How it works', href: '/#how-it-works' },
     { label: 'Help', href: '/help' },
   ],
-  cta: { label: 'Get early access', href: '/download' },
+  cta: { label: 'Get launch updates', href: '/download' },
 } as const;
 
 export const hero = {
-  eyebrow: 'Now in early access · India',
+  eyebrow: 'Launching in India',
   headlineLead: 'Party is on you.',
   headlineAccent: 'Managing is on us.',
   subhead:
     'Lessgo turns group-chat chaos into one app — plan the hangout, get everyone to RSVP, split the bill, and settle up. All with the friends already in your phone.',
-  primaryCta: 'Get early access',
+  primaryCta: 'Get launch updates',
   secondaryCta: 'See how it works',
   trust: ['Free to start', 'No ads', 'Contacts stay private', 'Made in India'],
 } as const;
 
 export const productStory = {
   intro: {
-    eyebrow: 'The social planning app · Early access in India',
+    eyebrow: 'The social planning app · Launching in India',
     title: 'Lessgo',
     headline: 'Make the plan. Live the night.',
     body: 'One place to turn the first “we should do something” into an invite, an RSVP, a shared bill, and a memory worth keeping.',
-    primaryCta: 'Get early access',
+    primaryCta: 'Get launch updates',
     secondaryCta: 'Explore the app',
     trust: ['Plan together', 'RSVP in a tap', 'Split fairly', 'Friends only'],
   },
@@ -257,7 +257,7 @@ export const faq = [
   },
   {
     q: 'Which platforms is Lessgo on?',
-    a: 'Lessgo is a native app for Android and iOS, plus a lightweight web view for shared event links. Android and iOS builds are in early access right now — join the list and we will send you the download the moment it opens up.',
+    a: 'Lessgo is a native app for Android and iOS, plus a lightweight web view for shared event links. The store releases are launching in India — join the list and we will send you the download links when they are live.',
   },
   {
     q: 'Is there a minimum age?',
@@ -314,8 +314,8 @@ export const changelog = [
 ] as const;
 
 export const finalCta = {  headline: 'Your next plan is one tap away.',
-  body: 'Join the early-access list and be first in when Lessgo opens up.',
-  cta: 'Get early access',
+  body: 'Join the launch list and get the Lessgo store links when they go live.',
+  cta: 'Get launch updates',
   reassure: 'Free to start · No ads · Your contacts stay yours',
 } as const;
 
@@ -350,8 +350,8 @@ export const notFound = {
     { icon: 'help', label: 'Help & FAQ', body: 'Answers to the usual questions.', href: '/help' },
     {
       icon: 'download',
-      label: 'Get early access',
-      body: 'Be first in when we open up.',
+      label: 'Get launch updates',
+      body: 'Get the store links when they go live.',
       href: '/download',
     },
   ],

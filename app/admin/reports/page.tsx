@@ -14,7 +14,7 @@ export default function AdminReportsPage() {
           User Reports
         </h1>
         <p className="mt-1 text-sm text-ink-muted">
-          Review account-level safety reports and record internal decisions.
+          Review account and content safety reports and record internal decisions.
         </p>
       </header>
       <UserReports />

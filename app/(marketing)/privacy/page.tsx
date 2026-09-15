@@ -41,7 +41,7 @@ export default function PrivacyPage() {
             <h3>On this website</h3>
             <ul>
               <li>
-                <strong>Early-access signups.</strong> If you submit your email address, we store
+                <strong>Launch-update signups.</strong> If you submit your email address, we store
                 the normalized address, signup source and submission timestamps in our signup
                 database so we can tell you when the app is available. We do not use it for
                 anything else.
@@ -71,8 +71,8 @@ export default function PrivacyPage() {
                 one-time code.
               </li>
               <li>
-                <strong>Your profile</strong> — name, date of birth, gender and profile picture,
-                as you provide them.
+                <strong>Your profile</strong> — name, email address, date of birth, gender and
+                profile picture, as you provide them.
               </li>
               <li>
                 <strong>Contacts,</strong> only if you grant the permission. We use it to show
@@ -85,10 +85,10 @@ export default function PrivacyPage() {
                 expenses, photos and documents you choose to upload.
               </li>
               <li>
-                <strong>Safety reports,</strong> when you report another user. We retain the
-                selected category, any details you provide, the accounts involved, review status,
-                and restricted internal reviewer notes. Reports are not shown to the reported
-                user.
+                <strong>Safety reports,</strong> when you report another user or shared content.
+                We retain the selected category, any details you provide, the accounts involved,
+                the content type and stable item identifier where applicable, review status, and
+                restricted internal reviewer notes. Reports are not shown to the reported user.
               </li>
               <li>
                 <strong>Location,</strong> only when you use it to set a meeting point. We do not
@@ -104,6 +104,12 @@ export default function PrivacyPage() {
                 understand aggregate product usage. This is enabled by default. We do not include
                 your phone number, contacts, messages or event content, and you can turn analytics
                 off at any time under <strong>Profile → General Settings → Permissions</strong>.
+              </li>
+              <li>
+                <strong>Crash and performance diagnostics.</strong> Sentry receives bounded crash,
+                error and performance information so we can keep the app reliable. We configure it
+                not to collect screenshots, view hierarchies, request bodies, contact details or
+                other user-generated content.
               </li>
             </ul>
 
@@ -140,6 +146,10 @@ export default function PrivacyPage() {
                 <strong>Railway</strong> — application hosting.
               </li>
               <li>
+                <strong>Sentry</strong> — privacy-filtered crash reporting and performance
+                diagnostics for the mobile app and backend services.
+              </li>
+              <li>
                 <strong>PostHog (EU)</strong> — product analytics, only where you have consented.
               </li>
             </ul>
@@ -162,7 +172,7 @@ export default function PrivacyPage() {
               deleted before then, its identifier is removed from the retained report. We may
               keep a report longer where required by law or needed for an active safety or legal
               dispute.
-              Early-access emails are deleted once the launch communication is complete or when
+              Launch-update emails are deleted once the launch communication is complete or when
               you ask us to remove them, whichever comes first.
             </p>
 

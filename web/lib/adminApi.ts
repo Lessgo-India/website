@@ -231,6 +231,17 @@ export type AdminUserReportCategory =
   (typeof ADMIN_USER_REPORT_CATEGORIES)[number];
 export type AdminUserReportStatus =
   (typeof ADMIN_USER_REPORT_STATUSES)[number];
+export type AdminReportedContentType =
+  | "event"
+  | "group"
+  | "vibe"
+  | "buzz"
+  | "post"
+  | "comment"
+  | "poll"
+  | "checkpoint"
+  | "media"
+  | "document";
 
 export interface AdminReportProfileSummary {
   userId: string | null;
@@ -243,6 +254,8 @@ export interface AdminUserReportSummary {
   id: string;
   status: AdminUserReportStatus;
   category: AdminUserReportCategory;
+  contentType: AdminReportedContentType | null;
+  contentId: string | null;
   detailsPreview: string | null;
   createdAt: string;
   updatedAt: string;
@@ -268,6 +281,8 @@ export interface AdminUserReportDetails extends AdminUserReportSummary {
   recentReportsAgainstUser: Array<{
     id: string;
     category: AdminUserReportCategory;
+    contentType: AdminReportedContentType | null;
+    contentId: string | null;
     status: AdminUserReportStatus;
     createdAt: string;
   }>;

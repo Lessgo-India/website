@@ -71,10 +71,10 @@ export default function TermsPage() {
               that does.
             </p>
             <p>
-              You can report another user in good faith when you believe their conduct creates a
-              safety or abuse concern. We review reports privately. Submitting a report does not
-              guarantee a particular action or entitle either user to another person&rsquo;s identity
-              or our internal review notes.
+              You can report another user or a specific item of shared content in good faith when
+              you believe it creates a safety or abuse concern. We review reports privately.
+              Submitting a report does not guarantee a particular action or entitle either user to
+              another person&rsquo;s identity or our internal review notes.
             </p>
             <p>
               Our <Link href="/child-safety">Child Safety Standards</Link> explain how to report
@@ -118,10 +118,9 @@ export default function TermsPage() {
 
             <h2>9. Availability and changes</h2>
             <p>
-              Lessgo is in active development and is currently offered in early access. We may
-              add, change, suspend or remove features, and we may update these terms. If a change
-              is material we will update the date above and, where appropriate, notify you in the
-              app.
+              We may add, change, suspend or remove features, and we may update these terms. If a
+              change is material we will update the date above and, where appropriate, notify you
+              in the app.
             </p>
 
             <h2>10. Ending your use</h2>

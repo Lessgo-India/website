@@ -94,7 +94,7 @@ export function EarlyAccessForm({
             </>
           ) : (
             <>
-              Get early access
+              Get launch updates
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </>
           )}
@@ -108,7 +108,7 @@ export function EarlyAccessForm({
       >
         {state === 'error'
           ? message
-          : 'One email when Lessgo opens up. No spam, unsubscribe any time.'}
+          : 'One email when the store links go live. No spam, unsubscribe any time.'}
       </p>
     </form>
   );
