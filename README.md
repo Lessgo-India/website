@@ -80,6 +80,36 @@ in Next 16.
 
 4. Open `http://localhost:3000`
 
+## Alternate Website
+
+`/alternate` is a separate, Luma-inspired Lessgo concept with a photo-led hero,
+filterable plan ideas, accessible idea previews, a keyboard-operable tour of the
+real app screenshots, FAQs, and the existing launch-update form. The ideas are
+illustrative, not public event listings. The original homepage is unchanged.
+
+The page has its own light design, scoped CSS, and navigation in
+[app/alternate/page.tsx](app/alternate/page.tsx). Its copy lives in
+[content/alternate-website.ts](content/alternate-website.ts). It is intentionally
+`noindex` and is not added to the public sitemap while it remains an alternative.
+Signup uses the existing `/api/early-access` endpoint and MongoDB configuration,
+with `alternate-website` recorded as the signup source.
+
+Run the focused browser checks against a running preview:
+
+```bash
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:3112 npx playwright test tests/alternate-website.spec.ts
+```
+
+Without `PLAYWRIGHT_BASE_URL`, Playwright uses the existing production-preview
+setup on port 3108. Signup responses are mocked in these tests; no real email
+addresses are submitted.
+
+Photography is stored locally as WebP under `public/assets/alternate/`, sourced
+from Unsplash: [dinner](https://images.unsplash.com/photo-1528605248644-14dd04022da1),
+[coast](https://images.unsplash.com/photo-1507525428034-b723cf961d3e),
+[mountains](https://images.unsplash.com/photo-1454496522488-7a8e488e8606), and
+[board games](https://images.unsplash.com/photo-1610890716171-6b1bb98ffd09).
+
 ## 📦 Building for production
 
 ```bash

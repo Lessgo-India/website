@@ -7,13 +7,13 @@ export default defineConfig({
   reporter: 'line',
   preserveOutput: 'always',
   use: {
-    baseURL: 'http://127.0.0.1:3108',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3108',
     channel: 'chrome',
     headless: true,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  webServer: {
+  webServer: process.env.PLAYWRIGHT_BASE_URL ? undefined : {
     command: 'npm run start -- -p 3108',
     url: 'http://127.0.0.1:3108/admin',
     reuseExistingServer: true,
