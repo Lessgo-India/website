@@ -46,25 +46,22 @@ export default function CampaignHistory({ canSend }: { canSend: boolean }) {
   const paginationInFlight = useRef(false);
   const loadedItemCount = useRef(0);
   const replacementInFlight = useRef(false);
-  const replacementRerunSource = useRef<"replace" | "poll" | null>(null);
+  const replacementRerunSource = useRef<"replace" | "refresh" | null>(null);
   const loadRef = useRef<(
     before?: string,
-    source?: "replace" | "append" | "poll",
+    source?: "replace" | "append" | "refresh",
   ) => Promise<void>>(async () => undefined);
   const detailRequestSequence = useRef(0);
-  const hasActiveCampaigns = items.some((item) =>
-    ACTIVE_STATES.has(item.state),
-  );
 
   const load = useCallback(async (
     before?: string,
-    source: "replace" | "append" | "poll" = before ? "append" : "replace",
+    source: "replace" | "append" | "refresh" = before ? "append" : "replace",
   ) => {
     const append = source === "append";
     if (append && (replacementInFlight.current || paginationInFlight.current)) {
       return;
     }
-    if (source === "poll" && paginationInFlight.current) return;
+    if (source === "refresh" && paginationInFlight.current) return;
     if (!append && replacementInFlight.current) {
       if (source === "replace" || replacementRerunSource.current === null) {
         replacementRerunSource.current = source;
@@ -98,7 +95,7 @@ export default function CampaignHistory({ canSend }: { canSend: boolean }) {
         ...(before ? { before } : {}),
       };
       let result = await getCampaigns(filters);
-      if (source === "poll") {
+      if (source === "refresh") {
         const targetCount = Math.max(loadedItemCount.current, result.items.length);
         const refreshed = [...result.items];
         let cursor = result.nextCursor;
@@ -193,21 +190,6 @@ export default function CampaignHistory({ canSend }: { canSend: boolean }) {
     };
   }, [load]);
 
-  useEffect(() => {
-    if (!hasActiveCampaigns) return;
-    let cancelled = false;
-    let timer: number | undefined;
-    const poll = async () => {
-      await load(undefined, "poll");
-      if (!cancelled) timer = window.setTimeout(() => void poll(), 5_000);
-    };
-    timer = window.setTimeout(() => void poll(), 5_000);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [hasActiveCampaigns, load]);
-
   const open = useCallback(async (id: string) => {
     const requestId = ++detailRequestSequence.current;
     selectedIdRef.current = id;
@@ -292,13 +274,13 @@ export default function CampaignHistory({ canSend }: { canSend: boolean }) {
         </div>
         <button
           type="button"
-          onClick={() => void load()}
-          disabled={loading}
+          onClick={() => void load(undefined, "refresh")}
+          disabled={replacing}
           title="Refresh campaigns"
           className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line text-ink-muted hover:bg-surface-2 disabled:opacity-50"
         >
           <RefreshCw
-            className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+            className={`h-4 w-4 ${replacing ? "animate-spin" : ""}`}
             aria-hidden="true"
           />
           <span className="sr-only">Refresh campaigns</span>

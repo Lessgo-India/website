@@ -3,6 +3,7 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 const now = new Date("2026-09-12T10:00:00.000Z").toISOString();
 const bugId = "66aa11bb22cc33dd44ee55ff";
 const campaignId = "77aa11bb22cc33dd44ee55ff";
+const previewId = "99aa11bb22cc33dd44ee55ff";
 const userReportId = "88aa11bb22cc33dd44ee55ff";
 
 interface AdminMockState {
@@ -11,6 +12,8 @@ interface AdminMockState {
   sessionDelayMs: number;
   activeSessions: Array<Record<string, unknown>>;
   userReport: UserReportMock;
+  campaignState: string;
+  requestCounts: Record<string, number>;
   passwordConfirmation?: Record<string, unknown>;
 }
 
@@ -56,10 +59,13 @@ async function mockAdminApi(page: Page): Promise<void> {
       },
     ],
     userReport: userReport(),
+    campaignState: "completed",
+    requestCounts: {},
   };
   mockStates.set(page, state);
   await page.route("**/api/admin/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
+    state.requestCounts[path] = (state.requestCounts[path] ?? 0) + 1;
     if (path === "/api/admin/session") {
       const authorizedAtStart =
         !state.unauthorized && Date.now() < state.expiresAt;
@@ -211,11 +217,20 @@ async function mockAdminApi(page: Page): Promise<void> {
     if (path.endsWith("/gateway/notifications/alerts/capabilities")) {
       return respond(route, alertCapabilities());
     }
+    if (path.endsWith(`/gateway/notifications/previews/${previewId}`)) {
+      return respond(route, campaignPreview("ready"));
+    }
+    if (path.endsWith("/gateway/notifications/previews")) {
+      return respond(route, campaignPreview("queued"));
+    }
     if (path.endsWith(`/gateway/notifications/campaigns/${campaignId}`)) {
-      return respond(route, campaign(true));
+      return respond(route, campaign(true, state.campaignState));
     }
     if (path.endsWith("/gateway/notifications/campaigns")) {
-      return respond(route, { items: [campaign(false)], nextCursor: null });
+      return respond(route, {
+        items: [campaign(false, state.campaignState)],
+        nextCursor: null,
+      });
     }
     return respond(route, { message: `Unhandled mock ${path}` }, 404);
   });
@@ -288,6 +303,98 @@ test("every admin route fits a phone viewport", async ({ page }, testInfo) => {
       fullPage: true,
     });
   }
+});
+
+test("operations data refreshes only on demand", async ({ page }) => {
+  await page.goto("/admin");
+  await expect(page.getByRole("heading", { name: "Operations" })).toBeVisible();
+
+  const state = mockStates.get(page)!;
+  const dataPaths = [
+    "/api/admin/gateway/health",
+    "/api/admin/gateway/stats",
+    "/api/admin/gateway/trends",
+  ];
+  await expect
+    .poll(() => dataPaths.map((path) => state.requestCounts[path] ?? 0))
+    .toEqual([1, 1, 1]);
+
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("admin:reconnect")),
+  );
+  await page.waitForTimeout(250);
+  expect(dataPaths.map((path) => state.requestCounts[path] ?? 0)).toEqual([
+    1, 1, 1,
+  ]);
+
+  await page.getByTitle("Refresh operations").click();
+  await expect
+    .poll(() => dataPaths.map((path) => state.requestCounts[path] ?? 0))
+    .toEqual([2, 2, 2]);
+});
+
+test("active campaigns refresh only on demand", async ({ page }) => {
+  const state = mockStates.get(page)!;
+  state.campaignState = "sending";
+  const campaignsPath = "/api/admin/gateway/notifications/campaigns";
+
+  await page.goto("/admin/notifications?view=history");
+  await expect(
+    page.getByRole("heading", { name: "Campaign history" }),
+  ).toBeVisible();
+  await expect
+    .poll(() => state.requestCounts[campaignsPath] ?? 0)
+    .toBe(1);
+
+  await page.waitForTimeout(5_500);
+  expect(state.requestCounts[campaignsPath]).toBe(1);
+
+  await page.getByTitle("Refresh campaigns").click();
+  await expect
+    .poll(() => state.requestCounts[campaignsPath] ?? 0)
+    .toBe(2);
+});
+
+test("audience preview status refreshes only on demand", async ({ page }) => {
+  const state = mockStates.get(page)!;
+  const previewPath = `/api/admin/gateway/notifications/previews/${previewId}`;
+
+  await page.goto("/admin/notifications");
+  await page.getByRole("button", { name: "Preview audience" }).click();
+  await expect(
+    page.getByRole("button", { name: "Refresh status" }),
+  ).toBeVisible();
+
+  await page.waitForTimeout(1_800);
+  expect(state.requestCounts[previewPath] ?? 0).toBe(0);
+
+  await page.getByRole("button", { name: "Refresh status" }).click();
+  await expect.poll(() => state.requestCounts[previewPath] ?? 0).toBe(1);
+  await expect(page.getByText("Matched", { exact: true })).toBeVisible();
+});
+
+test("copies bug details without requesting or including the log", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const detailPath = `/api/admin/gateway/bugs/${bugId}`;
+
+  await page.goto("/admin/bugs");
+  await expect(page.locator(`#bug-${bugId}`)).toBeVisible();
+  await page.getByRole("button", { name: "Copy details" }).click();
+  await expect(
+    page.getByRole("button", { name: "Details copied" }),
+  ).toBeVisible();
+
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied).toContain("Title: Settings screen freezes after retry");
+  expect(copied).toContain("Screen: General settings");
+  expect(copied).toContain(
+    "Description:\nThe save control remains busy after retrying once.",
+  );
+  expect(copied).not.toContain("sanitized log line");
+  expect(mockStates.get(page)!.requestCounts[detailPath] ?? 0).toBe(0);
 });
 
 test("reviews a user report with an internal audit note", async ({ page }) => {
@@ -574,7 +681,7 @@ function alertCapabilities() {
   };
 }
 
-function campaign(withAudit: boolean) {
+function campaign(withAudit: boolean, state = "completed") {
   return {
     id: campaignId,
     name: "September announcement",
@@ -584,7 +691,7 @@ function campaign(withAudit: boolean) {
     destination: "home",
     destinationId: null,
     audience: { eventMode: "none" },
-    state: "completed",
+    state,
     scheduledAt: now,
     snapshotAt: now,
     startedAt: now,
@@ -620,6 +727,31 @@ function campaign(withAudit: boolean) {
           ],
         }
       : {}),
+  };
+}
+
+function campaignPreview(state: "queued" | "ready") {
+  return {
+    id: previewId,
+    purpose: "lessgo_update",
+    audience: { eventMode: "none" },
+    state,
+    counts:
+      state === "ready"
+        ? {
+            matchedProfiles: 22,
+            preferenceEligibleUsers: 18,
+            pushReachableUsers: 13,
+            activeTokens: 13,
+            excludedMalformedDob: 0,
+            excludedByPreference: 4,
+            excludedWithoutActiveToken: 5,
+          }
+        : null,
+    failureReason: null,
+    completedAt: state === "ready" ? now : null,
+    testedAt: null,
+    expiresAt: new Date(Date.now() + 600_000).toISOString(),
   };
 }
 

@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Circle,
   Clipboard,
+  Copy,
   RefreshCw,
   Trash2,
 } from "lucide-react";
@@ -21,6 +22,7 @@ import {
 } from "@web/lib/adminApi";
 import {
   createLatestRequestGate,
+  formatBugDetailsForClipboard,
   selectBugHouseReloadTarget,
 } from "@web/lib/bugHouseView";
 import AdminConfirmDialog from "@ui/admin/AdminConfirmDialog";
@@ -60,7 +62,22 @@ function BugReportCard({
   const [logs, setLogs] = useState<string | null>(null);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [detailsCopied, setDetailsCopied] = useState(false);
+  const [detailsCopyError, setDetailsCopyError] = useState<string | null>(null);
+  const [logsCopied, setLogsCopied] = useState(false);
+
+  const copyDetails = async () => {
+    setDetailsCopyError(null);
+    try {
+      await navigator.clipboard.writeText(
+        formatBugDetailsForClipboard(bug, formatFiledAt(bug.createdAt)),
+      );
+      setDetailsCopied(true);
+      window.setTimeout(() => setDetailsCopied(false), 1_800);
+    } catch {
+      setDetailsCopyError("Could not copy the bug details.");
+    }
+  };
 
   const ensureLogs = async (): Promise<string | null> => {
     if (logs !== null) return logs;
@@ -96,8 +113,8 @@ function BugReportCard({
     if (!value) return;
     try {
       await navigator.clipboard.writeText(value);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1_800);
+      setLogsCopied(true);
+      window.setTimeout(() => setLogsCopied(false), 1_800);
     } catch {
       setLogsError("Could not copy the local log.");
     }
@@ -131,27 +148,48 @@ function BugReportCard({
                 Filed {formatFiledAt(bug.createdAt)}
               </p>
             </div>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => onToggleDone(bug)}
-              aria-label={
-                bug.done ? `Reopen ${bug.title}` : `Mark ${bug.title} resolved`
-              }
-              className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border px-3 text-sm font-semibold transition-colors disabled:cursor-wait disabled:opacity-60 sm:w-auto ${
-                bug.done
-                  ? "border-ok bg-ok-tint text-ok hover:bg-surface-2"
-                  : "border-line-strong text-ink hover:bg-surface-2"
-              }`}
-            >
-              {bug.done ? (
-                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-              ) : (
-                <Circle className="h-4 w-4" aria-hidden="true" />
-              )}
-              {bug.done ? "Reopen" : "Mark resolved"}
-            </button>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <button
+                type="button"
+                onClick={() => void copyDetails()}
+                title="Copy bug details without the local log"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-line px-3 text-sm font-semibold text-ink transition-colors hover:bg-surface-2 sm:w-auto"
+              >
+                {detailsCopied ? (
+                  <Check className="h-4 w-4 text-ok" aria-hidden="true" />
+                ) : (
+                  <Copy className="h-4 w-4" aria-hidden="true" />
+                )}
+                {detailsCopied ? "Details copied" : "Copy details"}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => onToggleDone(bug)}
+                aria-label={
+                  bug.done ? `Reopen ${bug.title}` : `Mark ${bug.title} resolved`
+                }
+                className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border px-3 text-sm font-semibold transition-colors disabled:cursor-wait disabled:opacity-60 sm:w-auto ${
+                  bug.done
+                    ? "border-ok bg-ok-tint text-ok hover:bg-surface-2"
+                    : "border-line-strong text-ink hover:bg-surface-2"
+                }`}
+              >
+                {bug.done ? (
+                  <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <Circle className="h-4 w-4" aria-hidden="true" />
+                )}
+                {bug.done ? "Reopen" : "Mark resolved"}
+              </button>
+            </div>
           </div>
+
+          {detailsCopyError ? (
+            <p role="alert" className="mt-3 text-sm text-down">
+              {detailsCopyError}
+            </p>
+          ) : null}
 
           <dl className="mt-4 grid gap-x-6 gap-y-3 border-y border-line py-4 text-sm sm:grid-cols-3">
             <div>
@@ -214,7 +252,7 @@ function BugReportCard({
                   <span className="sr-only">
                     Copy local log for {bug.title}
                   </span>
-                  {copied ? (
+                  {logsCopied ? (
                     <Check className="h-4 w-4 text-ok" aria-hidden="true" />
                   ) : (
                     <Clipboard className="h-4 w-4" aria-hidden="true" />

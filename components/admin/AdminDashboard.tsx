@@ -27,10 +27,8 @@ import {
   rollingWindow,
   type WindowDays,
 } from "@web/lib/adminFormat";
-import { usePoll } from "@web/lib/useAdminPoll";
+import { useAdminResource } from "@web/lib/useAdminPoll";
 
-const HEALTH_INTERVAL_MS = 30_000;
-const STATS_INTERVAL_MS = 120_000;
 const TREND_DAYS = 30;
 const WINDOW_STORAGE_KEY = "lessgo.admin.window";
 const VIEW_STORAGE_KEY = "lessgo.admin.view";
@@ -87,23 +85,20 @@ export default function AdminDashboard() {
     window.localStorage.setItem(VIEW_STORAGE_KEY, next);
   }, []);
 
-  const health = usePoll(
+  const health = useAdminResource(
     useCallback(() => getAdminHealth(), []),
-    HEALTH_INTERVAL_MS,
     "health",
   );
 
   // Recomputing the window per fetch keeps a long-open tab's "last 7 days"
   // actually relative to now rather than to whenever the page was opened.
-  const stats = usePoll(
+  const stats = useAdminResource(
     useCallback(() => getAdminStats(rollingWindow(days)), [days]),
-    STATS_INTERVAL_MS,
     `stats-${days}`,
   );
 
-  const trends = usePoll(
+  const trends = useAdminResource(
     useCallback(() => getAdminTrends(TREND_DAYS), []),
-    STATS_INTERVAL_MS * 5,
     "trends",
   );
 
@@ -176,7 +171,7 @@ export default function AdminDashboard() {
             {data
               ? `Counts updated ${formatAgo(data.generatedAt, now)}`
               : "Loading counts…"}{" "}
-            · health refreshes every 30s
+            · refresh on demand
           </p>
         </div>
         <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-end">
@@ -190,7 +185,9 @@ export default function AdminDashboard() {
           <button
             type="button"
             onClick={refreshAll}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-line text-ink-muted transition-colors hover:bg-surface-2"
+            disabled={stats.loading || health.loading || trends.loading}
+            title="Refresh operations"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-line text-ink-muted transition-colors hover:bg-surface-2 disabled:cursor-wait disabled:opacity-60"
           >
             <span className="sr-only">Refresh operations</span>
             <RefreshCw

@@ -45,7 +45,7 @@ export default function HealthRail({
   // so "is anything on fire" still fits above the fold.
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Keeps the "8s ago" label honest between polls without re-fetching.
+  // Keeps the "8s ago" label honest between manual refreshes without re-fetching.
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 5_000);
     return () => clearInterval(id);
@@ -99,8 +99,7 @@ export default function HealthRail({
         </div>
       </header>
 
-      {/* Announces transitions only. A poll that changed nothing stays silent so
-          a screen-reader user isn't interrupted every 30 seconds. */}
+        {/* Announces transitions only. A refresh that changed nothing stays silent. */}
       <p aria-live="polite" className="sr-only">
         {announcement}
       </p>

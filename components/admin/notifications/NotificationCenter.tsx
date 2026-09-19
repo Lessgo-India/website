@@ -61,6 +61,7 @@ export default function NotificationCenter() {
   const [eventQuery, setEventQuery] = useState("");
   const [eventsLoading, setEventsLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewRefreshing, setPreviewRefreshing] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,40 +143,6 @@ export default function NotificationCenter() {
   const preview = previewRecord?.data ?? null;
   const previewFresh = previewRecord?.fingerprint === audienceFingerprint;
   const previewId = preview?.id;
-  const previewState = preview?.state;
-
-  useEffect(() => {
-    if (
-      !previewId ||
-      !previewState ||
-      !["queued", "running"].includes(previewState)
-    ) {
-      return;
-    }
-    let cancelled = false;
-    let timer: number | undefined;
-    const poll = async () => {
-      try {
-        const next = await getCampaignPreview(previewId);
-        if (!cancelled) {
-          setPreviewRecord((current) =>
-            current?.data.id === previewId
-              ? { ...current, data: next }
-              : current,
-          );
-        }
-      } catch (requestError) {
-        if (!cancelled) setError((requestError as Error).message);
-      } finally {
-        if (!cancelled) timer = window.setTimeout(() => void poll(), 1_500);
-      }
-    };
-    timer = window.setTimeout(() => void poll(), 1_500);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [previewId, previewState]);
 
   const infrastructureReady = Boolean(
     capabilities?.enabled &&
@@ -238,6 +205,24 @@ export default function NotificationCenter() {
       setError((requestError as Error).message);
     } finally {
       setPreviewLoading(false);
+    }
+  };
+
+  const refreshPreview = async () => {
+    if (!previewId) return;
+    setPreviewRefreshing(true);
+    setError(null);
+    try {
+      const next = await getCampaignPreview(previewId);
+      setPreviewRecord((current) =>
+        current?.data.id === previewId
+          ? { ...current, data: next }
+          : current,
+      );
+    } catch (requestError) {
+      setError((requestError as Error).message);
+    } finally {
+      setPreviewRefreshing(false);
     }
   };
 
@@ -567,7 +552,12 @@ export default function NotificationCenter() {
                   </button>
                 </div>
                 {preview ? (
-                  <PreviewSummary preview={preview} fresh={previewFresh} />
+                  <PreviewSummary
+                    preview={preview}
+                    fresh={previewFresh}
+                    refreshing={previewRefreshing}
+                    onRefresh={() => void refreshPreview()}
+                  />
                 ) : null}
               </section>
 
@@ -781,9 +771,13 @@ function SectionHeading({
 function PreviewSummary({
   preview,
   fresh,
+  refreshing,
+  onRefresh,
 }: {
   preview: CampaignPreview;
   fresh: boolean;
+  refreshing: boolean;
+  onRefresh: () => void;
 }) {
   if (!fresh)
     return (
@@ -793,9 +787,23 @@ function PreviewSummary({
     );
   if (preview.state === "queued" || preview.state === "running")
     return (
-      <p role="status" className="mt-4 text-sm text-ink-muted">
-        Calculating audience...
-      </p>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <p role="status" className="text-sm text-ink-muted">
+          Audience calculation is in progress. Refresh to check its status.
+        </p>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="inline-flex min-h-11 items-center gap-2 rounded-md border border-line px-4 text-sm font-semibold text-ink hover:bg-surface-2 disabled:cursor-wait disabled:opacity-50"
+        >
+          <RefreshCw
+            className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+            aria-hidden="true"
+          />
+          {refreshing ? "Refreshing..." : "Refresh status"}
+        </button>
+      </div>
     );
   if (preview.state === "failed" || preview.state === "expired")
     return (

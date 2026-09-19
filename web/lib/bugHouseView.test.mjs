@@ -2,8 +2,43 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   createLatestRequestGate,
+  formatBugDetailsForClipboard,
   selectBugHouseReloadTarget,
 } from "./bugHouseView.js";
+
+test("formats copyable bug details without logs", () => {
+  const copied = formatBugDetailsForClipboard(
+    {
+      id: "66aa11bb22cc33dd44ee55ff",
+      title: "Settings screen freezes after retry",
+      description: "The save control remains busy after retrying once.",
+      screen: "General settings",
+      userName: "Reporter",
+      userId: "9000000001",
+      done: false,
+      logs: "sanitized log line",
+    },
+    "12 Sep 2026, 3:30 pm",
+  );
+
+  assert.equal(
+    copied,
+    [
+      "Bug details",
+      "Title: Settings screen freezes after retry",
+      "Status: Open",
+      "Filed: 12 Sep 2026, 3:30 pm",
+      "Screen: General settings",
+      "Reporter: Reporter",
+      "User ID: 9000000001",
+      "Bug ID: 66aa11bb22cc33dd44ee55ff",
+      "",
+      "Description:",
+      "The save control remains busy after retrying once.",
+    ].join("\n"),
+  );
+  assert.doesNotMatch(copied, /sanitized log line|logs?:/i);
+});
 
 test("reloads the latest selected view after a deferred mutation", () => {
   const original = { filter: "open", page: 3 };

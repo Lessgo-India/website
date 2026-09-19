@@ -98,9 +98,11 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
       if (document.visibilityState === 'visible') void check();
     };
     document.addEventListener('visibilitychange', recheckWhenVisible);
+    window.addEventListener('admin:reconnect', recheckWhenVisible);
     return () => {
       if (timer !== undefined) window.clearTimeout(timer);
       document.removeEventListener('visibilitychange', recheckWhenVisible);
+      window.removeEventListener('admin:reconnect', recheckWhenVisible);
     };
   }, [check, phase, session]);
 
