@@ -91,6 +91,56 @@ export function formatMoneyExact(value: number | null | undefined): string {
   return rupees.format(value);
 }
 
+export function formatCurrencyMoney(
+  value: number | null | undefined,
+  currency: string,
+): string {
+  if (value === null || value === undefined) return '—';
+  try {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency,
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(value);
+  } catch {
+    return `${currency} ${value.toFixed(2)}`;
+  }
+}
+
+export function formatCurrencyMoneyExact(
+  value: number | null | undefined,
+  currency: string,
+): string {
+  if (value === null || value === undefined) return '—';
+  try {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency,
+    }).format(value);
+  } catch {
+    return `${currency} ${value.toFixed(2)}`;
+  }
+}
+
+export function formatCurrencyTotals(
+  totals: Array<{ currency: string; value: number }> | null | undefined,
+): string {
+  if (!totals?.length) return '—';
+  return totals
+    .map(({ currency, value }) => formatCurrencyMoney(value, currency))
+    .join(' · ');
+}
+
+export function formatCurrencyTotalsExact(
+  totals: Array<{ currency: string; value: number }> | null | undefined,
+): string {
+  if (!totals?.length) return '—';
+  return totals
+    .map(({ currency, value }) => formatCurrencyMoneyExact(value, currency))
+    .join(' · ');
+}
+
 export function formatRatio(value: number | null | undefined): string {
   if (value === null || value === undefined) return '—';
   return decimals.format(value);

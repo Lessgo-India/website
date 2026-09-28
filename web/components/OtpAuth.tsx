@@ -8,17 +8,14 @@ import { useAuth } from '@web/lib/auth';
 import { resetRecaptcha, type ConfirmationResult } from '@web/lib/firebase';
 import { detectPlatform, isInAppBrowser, type Platform } from '@web/lib/platform';
 import { OtpArt, PhoneArt } from '@web/components/AuthArt';
+import { getCountries, getCountryCallingCode, type CountryCode } from 'libphonenumber-js';
+import { BACKEND_API } from '@web/lib/config';
+import { formatPhone, parsePhoneInput } from '@web/lib/phoneIdentity';
 
 const RECAPTCHA_ID = 'lessgo-recaptcha';
 const RESEND_SECONDS = 30;
-const INDIA_COUNTRY_CODE = '+91';
-
-function normaliseIndianPhoneInput(raw: string): string {
-  const digits = raw.replace(/\D/g, '');
-  if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
-  if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
-  return digits.slice(0, 10);
-}
+type PhoneCountry = { code: CountryCode; name: string; callingCode: string };
+const INITIAL_COUNTRIES: PhoneCountry[] = [{ code: 'IN', name: 'India', callingCode: '+91' }];
 
 // Firebase's raw messages ("FirebaseError: auth/…") are not for guests.
 function readableAuthError(err: unknown): string {
@@ -61,6 +58,9 @@ export default function OtpAuth({
   const { sendOtp, configured } = useAuth();
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phone, setPhone] = useState('');
+  const [phoneCountry, setPhoneCountry] = useState<CountryCode>('IN');
+  const [phoneCountries, setPhoneCountries] = useState<PhoneCountry[]>(INITIAL_COUNTRIES);
+  const [sentPhone, setSentPhone] = useState('');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +69,21 @@ export default function OtpAuth({
   const [inApp, setInApp] = useState(false);
   const [platform, setPlatform] = useState<Platform>('other');
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!BACKEND_API) return;
+    void fetch(`${BACKEND_API}/config/regions`, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data?.schemaVersion !== 1 || !Array.isArray(data.countries) || !data.countries.length || data.countries.length > 250) return;
+        const countries = data.countries as PhoneCountry[];
+        if (!countries.every((country) => country && getCountries().includes(country.code) && typeof country.name === 'string' && country.name.length <= 80 && country.callingCode === `+${getCountryCallingCode(country.code)}`)) return;
+        if (!controller.signal.aborted) setPhoneCountries(countries);
+      }).catch(() => undefined);
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -94,13 +109,15 @@ export default function OtpAuth({
   const send = useCallback(
     async (isResend = false) => {
       setError(null);
-      if (!/^\d{10}$/.test(phone)) {
-        setError('Enter a valid 10-digit phone number.');
+      const normalized = isResend && sentPhone ? sentPhone : parsePhoneInput(phone, phoneCountry);
+      if (!normalized) {
+        setError('Enter a valid phone number for the selected country.');
         return;
       }
       setBusy(true);
       try {
-        const result = await sendOtp(`${INDIA_COUNTRY_CODE}${phone}`, RECAPTCHA_ID);
+        const result = await sendOtp(normalized, RECAPTCHA_ID);
+        setSentPhone(normalized);
         setConfirmation(result);
         setStep('otp');
         setCooldown(RESEND_SECONDS);
@@ -115,7 +132,7 @@ export default function OtpAuth({
         setBusy(false);
       }
     },
-    [phone, sendOtp, trackMilestones],
+    [phone, phoneCountry, sentPhone, sendOtp, trackMilestones],
   );
 
   const verify = useCallback(async () => {
@@ -192,23 +209,26 @@ export default function OtpAuth({
               Phone number
             </label>
             <div className="flex min-h-[52px] overflow-hidden rounded-lg border border-line-strong bg-bg-elev text-base text-ink focus-within:border-transparent focus-within:ring-2 focus-within:ring-profile">
-              <span
+              <select
                 id="lessgo-phone-prefix"
-                className="flex shrink-0 items-center border-r border-line px-4 font-semibold text-ink-muted"
+                aria-label="Phone country"
+                value={phoneCountry}
+                onChange={(event) => setPhoneCountry(event.target.value as CountryCode)}
+                className="max-w-[40%] shrink-0 border-r border-line bg-transparent px-2 text-sm font-semibold text-ink-muted"
               >
-                {INDIA_COUNTRY_CODE}
-              </span>
+                {phoneCountries.map((country) => <option key={country.code} value={country.code}>{country.name} {country.callingCode}</option>)}
+              </select>
               <input
                 id="lessgo-phone"
                 type="tel"
                 inputMode="numeric"
                 autoComplete="tel-national"
                 aria-describedby="lessgo-phone-prefix"
-                pattern="[0-9]{10}"
+                maxLength={64}
                 className="min-w-0 flex-1 bg-transparent px-4 text-base text-ink placeholder:text-ink-faint focus:outline-none"
-                placeholder="98765 43210"
+                placeholder="Phone number"
                 value={phone}
-                onChange={(e) => setPhone(normaliseIndianPhoneInput(e.target.value))}
+                onChange={(e) => setPhone(e.target.value.replace(/[^+\d\s().-]/g, ''))}
                 onKeyDown={(e) => e.key === 'Enter' && void send()}
               />
             </div>
@@ -234,7 +254,7 @@ export default function OtpAuth({
           <p className="text-sm text-ink-muted">
             Enter the 6-digit code sent to{' '}
             <span className="font-semibold text-ink">
-              {INDIA_COUNTRY_CODE} {phone.slice(0, 5)} {phone.slice(5)}
+              {formatPhone(sentPhone)}
             </span>
             .
           </p>

@@ -20,8 +20,10 @@ import {
 import {
   formatAgo,
   formatCount,
-  formatMoney,
-  formatMoneyExact,
+  formatCurrencyMoney,
+  formatCurrencyMoneyExact,
+  formatCurrencyTotals,
+  formatCurrencyTotalsExact,
   formatPercent,
   formatRatio,
   rollingWindow,
@@ -105,9 +107,26 @@ export default function AdminDashboard() {
   const windowLabel = `${days}d`;
   const data = stats.data;
   const series = trends.data?.series ?? [];
+  const createdCurrencyTotals = data?.money.createdValueByCurrency?.length
+    ? data.money.createdValueByCurrency
+    : data?.money.createdValue !== undefined
+      ? [
+          {
+            currency: "INR",
+            value: data.money.createdValue,
+            count: data.money.created,
+          },
+        ]
+      : [];
 
   const ratioCards = useMemo<Trend[]>(() => {
     const r = data?.ratios;
+    const averageExpenses =
+      r?.avgExpenseValueByCurrency?.length
+        ? r.avgExpenseValueByCurrency
+        : r?.avgExpenseValue !== null && r?.avgExpenseValue !== undefined
+          ? [{ currency: "INR", value: r.avgExpenseValue, count: 0 }]
+          : [];
     return [
       {
         label: "Guests per event",
@@ -143,13 +162,14 @@ export default function AdminDashboard() {
         definition: "Average member count across every group.",
         accent: "text-groups",
       },
-      {
-        label: "Average expense",
-        value: formatMoney(r?.avgExpenseValue),
-        title: formatMoneyExact(r?.avgExpenseValue),
-        definition: "Total expense value divided by the number of expenses.",
+      ...averageExpenses.map((average) => ({
+        label: `Average expense · ${average.currency}`,
+        value: formatCurrencyMoney(average.value, average.currency),
+        title: formatCurrencyMoneyExact(average.value, average.currency),
+        definition:
+          "Expense value divided by expense count within this currency only.",
         accent: "text-split",
-      },
+      })),
     ];
   }, [data, series]);
 
@@ -294,8 +314,12 @@ export default function AdminDashboard() {
               <StatCard
                 domain="split"
                 label="Money split"
-                value={formatMoney(data?.money.createdValue)}
-                valueTitle={formatMoneyExact(data?.money.createdValue)}
+                value={formatCurrencyTotals(
+                  createdCurrencyTotals,
+                )}
+                valueTitle={formatCurrencyTotalsExact(
+                  createdCurrencyTotals,
+                )}
                 sub={`across ${formatCount(data?.money.created)} expenses`}
                 current={data?.money.created ?? 0}
                 previous={data?.money.createdPrev ?? 0}
@@ -401,22 +425,33 @@ function groupMetrics(data: Stats, windowLabel: string): Metric[] {
 
 function moneyMetrics(data: Stats, windowLabel: string): Metric[] {
   const m = data?.money;
+  const expenseValues = m?.createdValueByCurrency?.length
+    ? m.createdValueByCurrency
+    : m?.createdValue !== undefined
+      ? [{ currency: "INR", value: m.createdValue, count: m.created }]
+      : [];
+  const transactionValues = m?.transactionsCreatedValueByCurrency ?? [];
   return [
     {
       label: `Expenses in ${windowLabel}`,
       value: formatCount(m?.created),
       hint: previousHint(m?.createdPrev, windowLabel),
     },
-    {
-      label: `Value in ${windowLabel}`,
-      value: formatMoney(m?.createdValue),
-      title: formatMoneyExact(m?.createdValue),
-    },
+    ...expenseValues.map((total) => ({
+      label: `${total.currency} value in ${windowLabel}`,
+      value: formatCurrencyMoney(total.value, total.currency),
+      title: formatCurrencyMoneyExact(total.value, total.currency),
+    })),
     {
       label: `Transactions in ${windowLabel}`,
       value: formatCount(m?.transactionsCreated),
       hint: previousHint(m?.transactionsCreatedPrev, windowLabel),
     },
+    ...transactionValues.map((total) => ({
+      label: `${total.currency} transaction value`,
+      value: formatCurrencyMoney(total.value, total.currency),
+      title: formatCurrencyMoneyExact(total.value, total.currency),
+    })),
   ];
 }
 

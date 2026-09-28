@@ -15,6 +15,7 @@ import {
 import OtpAuth from '@web/components/OtpAuth';
 import AvatarPicker from '@web/components/AvatarPicker';
 import AppHeader from '@web/components/AppHeader';
+import { phoneRegion } from '@web/lib/phoneIdentity';
 
 type Phase = 'auth' | 'checking' | 'check_failed' | 'profile' | 'saving';
 
@@ -125,14 +126,14 @@ function OnboardingInner() {
       const dpUrl = customFile
         ? await uploadProfileImage(userId, customFile, getToken)
         : avatarUrlForIndex(avatarIndex);
-      await createProfile({ userId, name: name.trim(), dob, gender, dpUrl }, getToken);
+      await createProfile({ userId, name: name.trim(), dob, gender, dpUrl, regionCode: phoneRegion(user?.phoneNumber ?? '') }, getToken);
       track('web_signup_completed');
       goNext();
     } catch (e) {
       setError((e as Error)?.message || 'Could not create your account.');
       setPhase('profile');
     }
-  }, [userId, name, dob, gender, avatarIndex, customFile, getToken, goNext]);
+  }, [userId, user, name, dob, gender, avatarIndex, customFile, getToken, goNext]);
 
   const showAuth = phase === 'auth' && (!configured || !user);
   const showProfile = !!user && (phase === 'profile' || phase === 'saving');

@@ -2,7 +2,11 @@
 
 import Sparkline from './Sparkline';
 import type { AdminStats, TrendPoint } from '@web/lib/adminApi';
-import { formatCount, formatMoney, formatMoneyExact } from '@web/lib/adminFormat';
+import {
+  formatCount,
+  formatCurrencyMoney,
+  formatCurrencyMoneyExact,
+} from '@web/lib/adminFormat';
 
 type Domain = 'events' | 'groups' | 'split' | 'vibes' | 'profile';
 
@@ -125,6 +129,18 @@ function buildBlocks(data: AdminStats | null, series: TrendPoint[]): Block[] {
 
   const track = (pick: (point: TrendPoint) => number | undefined) =>
     series.map((point) => pick(point) ?? 0);
+  const expenseValues =
+    m?.expenseValueByCurrency?.length
+      ? m.expenseValueByCurrency
+      : m?.expenseValue !== undefined
+        ? [{ currency: 'INR', value: m.expenseValue, count: m.expenses }]
+        : [];
+  const transactionValues =
+    m?.transactionValueByCurrency?.length
+      ? m.transactionValueByCurrency
+      : m?.transactionValue !== undefined
+        ? [{ currency: 'INR', value: m.transactionValue, count: m.transactions }]
+        : [];
 
   return [
     {
@@ -209,22 +225,22 @@ function buildBlocks(data: AdminStats | null, series: TrendPoint[]): Block[] {
           value: formatCount(m?.expenses),
           series: track((p) => p.expenses),
         },
-        {
-          label: 'Expense value',
-          value: formatMoney(m?.expenseValue),
-          title: formatMoneyExact(m?.expenseValue),
-        },
+        ...expenseValues.map((total) => ({
+          label: `Expense value · ${total.currency}`,
+          value: formatCurrencyMoney(total.value, total.currency),
+          title: formatCurrencyMoneyExact(total.value, total.currency),
+        })),
         {
           label: 'Transactions',
           value: formatCount(m?.transactions),
           hint: 'One payer → one payee',
           series: track((p) => p.transactions),
         },
-        {
-          label: 'Transaction value',
-          value: formatMoney(m?.transactionValue),
-          title: formatMoneyExact(m?.transactionValue),
-        },
+        ...transactionValues.map((total) => ({
+          label: `Transaction value · ${total.currency}`,
+          value: formatCurrencyMoney(total.value, total.currency),
+          title: formatCurrencyMoneyExact(total.value, total.currency),
+        })),
         {
           label: 'Settlements',
           value: formatCount(m?.settlements),

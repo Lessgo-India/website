@@ -59,7 +59,10 @@ async function request<T>(
   const { method = 'GET', body, auth } = options;
 
   const call = async (token: string | null): Promise<Response> => {
-    const headers: Record<string, string> = { Accept: 'application/json' };
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+      'x-lessgo-client-schema': '2',
+    };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (token) headers.Authorization = `Bearer ${token}`;
     return fetch(`${BACKEND_API}${path}`, {
@@ -217,7 +220,10 @@ export async function uploadProfileImage(
     const form = new FormData();
     form.append('file', file);
     form.append('folderPath', `profiles/${userId}`);
-    const headers: Record<string, string> = { Accept: 'application/json' };
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+      'x-lessgo-client-schema': '2',
+    };
     if (token) headers.Authorization = `Bearer ${token}`;
     return fetch(`${BACKEND_API}/file-upload/upload-image`, {
       method: 'POST',

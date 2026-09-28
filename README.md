@@ -125,6 +125,26 @@ mobile `0.0.414` or newer last. The website never receives the gateway admin
 key in browser code; its route handler keeps that credential server-side and
 allowlists only the current dashboard and Bug House operations.
 
+## Country configuration
+
+`/admin/countries` edits the gateway's versioned regional catalogue: countries,
+calling-code metadata, formatting/currency defaults and payment identifier
+definitions. Editors can save drafts, preview, publish and restore previous
+publications. Existing session authentication and server-only gateway credentials
+are reused. Gateway `ADMIN_REGIONAL_EDITORS` grants write access to exact existing
+admin subject IDs; without it, the screen is read-only.
+
+Deploy compatible backend services before this website. The gateway requires its
+existing MongoDB connection. Mobile and web consume the published phone catalogue,
+and admin financial metrics are grouped by currency. International activation
+stays locked until the currency migration, schema-2 clients, and country launch
+checks are complete. The gateway repository's `REGIONAL_CONFIGURATION.md`
+records the full contract and rollout checklist.
+
+Run `npm run test:admin-policy`, `npm run typecheck`, `npm run lint`,
+`npm run build`, and `npm run test:admin-e2e` to verify the authoring workflow.
+Country browser tests mock admin responses; no live settings are published.
+
 ## 📂 Project structure
 
 ```

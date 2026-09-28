@@ -8,6 +8,7 @@ import {
   Bug,
   Download,
   Gauge,
+  Globe2,
   LogOut,
   RefreshCw,
   Settings,
@@ -26,6 +27,7 @@ const NAVIGATION = [
   { href: '/admin/reports', label: 'Reports', icon: ShieldAlert },
   { href: '/admin/bugs', label: 'Bugs', icon: Bug },
   { href: '/admin/notifications', label: 'Notifications', icon: BellRing },
+  { href: '/admin/countries', label: 'Countries', icon: Globe2 },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ] as const;
 
@@ -187,7 +189,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="Admin sections"
-        className="admin-bottom-nav fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-line bg-surface/95 px-2 pt-2 backdrop-blur lg:hidden"
+        className="admin-bottom-nav fixed inset-x-0 bottom-0 z-50 grid grid-cols-6 border-t border-line bg-surface/95 px-2 pt-2 backdrop-blur lg:hidden"
       >
         {NAVIGATION.map((item) => (
           <AdminNavLink

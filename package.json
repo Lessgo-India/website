@@ -14,12 +14,14 @@
     "typecheck": "tsc --noEmit",
     "test:delete-account": "node --experimental-strip-types --test components/analytics.test.mjs",
     "test:footer-links": "node --experimental-strip-types --test content/site.test.mjs",
+    "test:phone-identity": "node --experimental-strip-types --test web/lib/phoneIdentity.test.mjs",
     "test:admin-policy": "node --experimental-strip-types --test web/lib/adminGatewayPolicy.test.mjs web/lib/adminLoginRateLimitPolicy.test.mjs web/lib/boundedJsonBody.test.mjs web/lib/bugHouseView.test.mjs web/lib/adminGatewayRoute.test.mjs",
-    "test:admin-e2e": "playwright test tests/admin-pwa.spec.ts"
+    "test:admin-e2e": "playwright test tests/admin-pwa.spec.ts tests/admin-countries.spec.ts"
   },
   "dependencies": {
     "firebase": "^10.14.1",
     "framer-motion": "^13.2.0",
+    "libphonenumber-js": "1.13.14",
     "lucide-react": "^0.469.0",
     "mongodb": "^7.6.0",
     "next": "^16.3.2",

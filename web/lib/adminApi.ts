@@ -100,6 +100,12 @@ export interface RsvpMix {
   declined: number;
 }
 
+export interface CurrencyTotal {
+  currency: string;
+  value: number;
+  count: number;
+}
+
 export interface AdminStats {
   generatedAt: string;
   window: { from: string; to: string; days: number };
@@ -138,14 +144,18 @@ export interface AdminStats {
   money: {
     expenses: number;
     expenseValue: number;
+    expenseValueByCurrency: CurrencyTotal[];
     settlements: number;
     transactions: number;
     transactionValue: number;
+    transactionValueByCurrency: CurrencyTotal[];
     eventsWithExpense: number;
     created: number;
     createdValue: number;
+    createdValueByCurrency: CurrencyTotal[];
     createdPrev: number;
     transactionsCreated: number;
+    transactionsCreatedValueByCurrency: CurrencyTotal[];
     transactionsCreatedPrev: number;
   };
   vibes: {
@@ -168,6 +178,7 @@ export interface AdminStats {
     signupRate: number | null;
     buzzConversion: number | null;
     avgExpenseValue: number | null;
+    avgExpenseValueByCurrency: CurrencyTotal[];
   };
 }
 

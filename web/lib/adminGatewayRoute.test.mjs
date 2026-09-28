@@ -13,6 +13,48 @@ const route = createAdminGatewayHandlers({
   },
 });
 
+test("regional configuration exposes only exact reads and revision-checked same-origin actions", async () => {
+  for (const path of [["regions"], ["regions", "options"]]) {
+    const response = await route.GET(new Request(`http://local/api/admin/gateway/${path.join("/")}`), context(...path));
+    assert.equal(response.status, 200);
+  }
+  const headers = { "content-type": "application/json", origin: "http://local", "sec-fetch-site": "same-origin" };
+  for (const [action, body] of [
+    ["draft", { expectedRevision: 0, catalogue: { countries: [], paymentMethods: [] } }],
+    ["publish", { expectedRevision: 1 }],
+    ["restore", { expectedRevision: 2, sourceRevision: 0 }],
+  ]) {
+    const response = await route.POST(new Request(`http://local/api/admin/gateway/regions/${action}`, { method: "POST", headers, body: JSON.stringify(body) }), context("regions", action));
+    assert.equal(response.status, 200);
+    assert.deepEqual(calls.at(-1)[3], { method: "POST", body });
+  }
+  const accepted = calls.length;
+  for (const [action, body, origin, expected] of [
+    ["publish", {}, "http://local", 400],
+    ["publish", { expectedRevision: 1, operator: "other" }, "http://local", 400],
+    ["restore", { expectedRevision: 1, sourceRevision: -1 }, "http://local", 400],
+    ["publish", { expectedRevision: 1 }, "https://other.example", 403],
+    ["publish", { expectedRevision: 1 }, "", 403],
+    ["delete", { expectedRevision: 1 }, "http://local", 404],
+  ]) {
+    const response = await route.POST(new Request(`http://local/api/admin/gateway/regions/${action}`, { method: "POST", headers: { ...headers, origin }, body: JSON.stringify(body) }), context("regions", action));
+    assert.equal(response.status, expected);
+  }
+  assert.equal(calls.length, accepted);
+  assert.equal((await route.GET(new Request("http://local/api/admin/gateway/regions?draft=true"), context("regions"))).status, 404);
+});
+
+test("bounds regional JSON by streamed bytes without relying on content-length", async () => {
+  const body = JSON.stringify({ expectedRevision: 0, catalogue: { countries: [], paymentMethods: [{ name: "\u00e9".repeat(60_000) }] } });
+  const response = await route.POST(new Request("http://local/api/admin/gateway/regions/draft", {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: "http://local" },
+    body,
+  }), context("regions", "draft"));
+  assert.equal(response.status, 413);
+  assert.equal(calls.length, 0);
+});
+
 function context(...path) {
   return { params: Promise.resolve({ path }) };
 }

@@ -59,6 +59,13 @@ function validDate(value) {
 
 /** Exact read allowlist for the browser-facing admin BFF. */
 export function isAllowedAdminRead(segments, params) {
+  if (segments[0] === "regions") {
+    return (
+      (segments.length === 1 ||
+        (segments.length === 2 && segments[1] === "options")) &&
+      hasOnlyParams(params, new Set())
+    );
+  }
   if (segments.length === 1) {
     const [resource] = segments;
     if (resource === "health") return hasOnlyParams(params, new Set());
@@ -159,6 +166,9 @@ export function isAllowedAdminRead(segments, params) {
 }
 
 export function isAllowedAdminPost(segments) {
+  if (segments[0] === "regions") {
+    return segments.length === 2 && ["draft", "publish", "restore"].includes(segments[1]);
+  }
   if (segments[0] !== "notifications") return false;
   if (
     segments.length === 3 &&
@@ -183,6 +193,18 @@ export function isAllowedAdminPost(segments) {
 
 export function isValidAdminPostBody(segments, body) {
   if (!isPlainObject(body)) return false;
+  if (segments[0] === "regions") {
+    if (!Number.isSafeInteger(body.expectedRevision) || body.expectedRevision < 0) return false;
+    if (segments[1] === "publish") return exactKeys(body, ["expectedRevision"]);
+    if (segments[1] === "restore") {
+      return exactKeys(body, ["expectedRevision", "sourceRevision"]) &&
+        Number.isSafeInteger(body.sourceRevision) && body.sourceRevision >= 0;
+    }
+    return segments[1] === "draft" && exactKeys(body, ["expectedRevision", "catalogue"]) &&
+      isPlainObject(body.catalogue) && exactKeys(body.catalogue, ["countries", "paymentMethods"]) &&
+      Array.isArray(body.catalogue.countries) && body.catalogue.countries.length <= 250 &&
+      Array.isArray(body.catalogue.paymentMethods) && body.catalogue.paymentMethods.length <= 100;
+  }
   if (
     segments.length === 3 &&
     segments[1] === "alerts" &&

@@ -10,6 +10,7 @@ import React, {
 } from 'react';
 import { usePathname } from 'next/navigation';
 import { isFirebaseConfigured } from './config';
+import { domainUserIdFromPhone } from './phoneIdentity';
 import {
   getFirebaseAuth,
   onAuthStateChanged,
@@ -23,7 +24,7 @@ import {
 type AuthState = {
   ready: boolean;
   user: User | null;
-  userId: string | null; // 10-digit phone == gateway identity
+  userId: string | null;
   configured: boolean;
   sendOtp: (e164Phone: string, containerId: string) => Promise<ConfirmationResult>;
   getToken: (forceRefresh?: boolean) => Promise<string | null>;
@@ -43,8 +44,7 @@ const AuthContext = createContext<AuthState | null>(null);
 function phoneToUserId(user: User | null): string | null {
   const phone = user?.phoneNumber ?? null;
   if (!phone) return null;
-  const digits = phone.replace(/\D/g, '');
-  return digits.length >= 10 ? digits.slice(-10) : null;
+  return domainUserIdFromPhone(phone) || null;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

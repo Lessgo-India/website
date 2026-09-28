@@ -9,6 +9,7 @@ import {
   isValidAdminReportPatchBody,
   isValidAdminPostBody,
 } from "./adminGatewayPolicy.js";
+import { readBoundedJson } from "./boundedJsonBody.ts";
 
 export type AdminGatewayRouteContext = {
   params: Promise<{ path: string[] }>;
@@ -69,6 +70,7 @@ function isSameOriginMutation(request: Request): boolean {
 
 async function readJsonBody(
   request: Request,
+  maximumBytes = 32_768,
 ): Promise<{ body: unknown } | { response: Response }> {
   if (
     !(request.headers.get("content-type") ?? "").startsWith("application/json")
@@ -78,18 +80,17 @@ async function readJsonBody(
     };
   }
   const declaredLength = Number(request.headers.get("content-length") ?? 0);
-  if (Number.isFinite(declaredLength) && declaredLength > 32_768) {
+  if (Number.isFinite(declaredLength) && declaredLength > maximumBytes) {
     return { response: reply(413, { message: "Admin request is too large." }) };
   }
-  const raw = await request.text();
-  if (raw.length > 32_768) {
+  const result = await readBoundedJson(request.body, maximumBytes);
+  if (!result.ok && result.reason === "too-large") {
     return { response: reply(413, { message: "Admin request is too large." }) };
   }
-  try {
-    return { body: JSON.parse(raw) };
-  } catch {
+  if (!result.ok) {
     return { response: reply(400, { message: "Invalid admin request." }) };
   }
+  return { body: result.value };
 }
 
 export function createAdminGatewayHandlers<Session>(
@@ -191,7 +192,10 @@ export function createAdminGatewayHandlers<Session>(
     if (!isAllowedAdminPost(parsed.segments) || new URL(request.url).search) {
       return reply(404, { message: "Unknown admin endpoint." });
     }
-    if (!isSameOriginMutation(request)) {
+    if (
+      !isSameOriginMutation(request) ||
+      (parsed.segments[0] === "regions" && !request.headers.get("origin"))
+    ) {
       return reply(403, { message: "Cross-origin admin mutation denied." });
     }
 
@@ -200,7 +204,7 @@ export function createAdminGatewayHandlers<Session>(
       parsed.segments.join("/") === "notifications/alerts/test";
     let body: unknown = undefined;
     if (!isAction) {
-      const parsedBody = await readJsonBody(request);
+      const parsedBody = await readJsonBody(request, parsed.segments[0] === "regions" ? 100_000 : 32_768);
       if ("response" in parsedBody) return parsedBody.response;
       body = parsedBody.body;
       if (!isValidAdminPostBody(parsed.segments, body)) {
