@@ -7,7 +7,8 @@ const nextConfig = {
     return [
       { source: '/discover', destination: '/features', permanent: true },
       { source: '/blog', destination: '/whats-new', permanent: true },
-      { source: '/legal', destination: '/privacy', permanent: true },
+      { source: '/privacy', destination: '/policy', permanent: true },
+      { source: '/legal', destination: '/policy', permanent: true },
       { source: '/support', destination: '/help', permanent: true },
       { source: '/faq', destination: '/help', permanent: true },
       { source: '/get', destination: '/download', permanent: true },

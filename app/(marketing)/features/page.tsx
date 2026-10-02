@@ -13,7 +13,7 @@ const url = SITE_URL || 'https://lessgo.com';
 export const metadata: Metadata = {
   title: 'Features — plan, RSVP, split and settle',
   description:
-    'Everything Lessgo does: events with RSVP, group expense splitting and UPI settle-up, friend groups and Buzz, spontaneous Vibes, shared galleries and tickets.',
+    'Everything Lessgo does: events with RSVP, group expense splitting and Payment Address hand-off, friend groups and Buzz, spontaneous Vibes, shared galleries and tickets.',
   alternates: { canonical: '/features' },
 };
 

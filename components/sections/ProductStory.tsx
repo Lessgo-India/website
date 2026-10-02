@@ -263,7 +263,7 @@ function ProductIntro({ reduceMotion }: { reduceMotion: boolean }) {
                 {hero.primaryCta}
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </CtaButton>
-              <ButtonLink href="/#how-it-works" variant="secondary" size="lg">
+              <ButtonLink href="/#events" variant="secondary" size="lg">
                 {hero.secondaryCta}
               </ButtonLink>
             </motion.div>
@@ -617,7 +617,7 @@ function StickyStory() {
   );
 }
 
-export function ProductStory() {
+export function ProductStory({ part = 'all' }: { part?: 'all' | 'intro' | 'tour' }) {
   const reduceMotion = useSyncExternalStore(
     subscribeToReducedMotion,
     getReducedMotionSnapshot,
@@ -626,9 +626,13 @@ export function ProductStory() {
 
   return (
     <>
-      <ProductIntro reduceMotion={reduceMotion} />
-      <StoryIntroduction />
-      {reduceMotion ? <StaticStory /> : <StickyStory />}
+      {part !== 'tour' ? (
+        <>
+          <ProductIntro reduceMotion={reduceMotion} />
+          <StoryIntroduction />
+        </>
+      ) : null}
+      {part !== 'intro' ? (reduceMotion ? <StaticStory /> : <StickyStory />) : null}
     </>
   );
 }

@@ -38,7 +38,7 @@ const CHANNELS = [
     title: 'Privacy requests',
     body: 'Access, correct or delete your data, or withdraw consent.',
     action: 'Grievance Officer',
-    href: '/privacy#grievance',
+    href: '/policy#grievance',
   },
 ];
 

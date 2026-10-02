@@ -134,7 +134,7 @@ export const alternateWebsite = {
       { label: 'Original website', href: '/' },
       { label: 'Features', href: '/features' },
       { label: 'Help', href: '/help' },
-      { label: 'Privacy', href: '/privacy' },
+      { label: 'Privacy', href: '/policy' },
       { label: 'Terms', href: '/terms' },
       { label: 'Delete account', href: '/delete-account' },
     ],

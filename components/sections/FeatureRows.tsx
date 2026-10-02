@@ -29,7 +29,13 @@ const DOMAINS: Record<
   },
 };
 
-export function FeatureRows({ id = 'features' }: { id?: string }) {
+export function FeatureRows({
+  id = 'features',
+  eventsId = 'events',
+}: {
+  id?: string;
+  eventsId?: string | null;
+}) {
   return (
     <div id={id} className="relative">
       {features.map((feature, i) => {
@@ -39,7 +45,7 @@ export function FeatureRows({ id = 'features' }: { id?: string }) {
         return (
           <section
             key={feature.id}
-            id={feature.id}
+            id={feature.id === 'events' ? (eventsId ?? undefined) : feature.id}
             style={{ '--glow': `var(--${feature.domain})` } as CSSProperties}
             className={`relative isolate overflow-hidden py-20 sm:py-24 ${
               i % 2 === 1 ? 'bg-bg-elev' : ''

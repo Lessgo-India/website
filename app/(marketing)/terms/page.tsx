@@ -96,9 +96,9 @@ export default function TermsPage() {
               between you and the people you share expenses with. We are{' '}
               <strong>not a bank, payment processor, escrow agent or money-transfer service</strong>.
               We do not hold, transmit or guarantee any funds. Where the app links out to a
-              payment app such as a UPI client, that payment takes place entirely between you and
-              that provider. Any dispute over money is between you and the people involved, and
-              you should check the figures yourself before paying anyone.
+              payment app using a Payment Address, that payment takes place entirely between you
+              and that provider. Any dispute over money is between you and the people involved,
+              and you should check the figures yourself before paying anyone.
             </p>
 
             <h2>7. Third-party services</h2>
@@ -158,7 +158,7 @@ export default function TermsPage() {
             <h2>14. Contact</h2>
             <p>
               Questions about these terms: <a href="mailto:hello@lessgo.in">hello@lessgo.in</a>.
-              See also our <Link href="/privacy">Privacy Policy</Link>.
+              See also our <Link href="/policy">Privacy Policy</Link>.
             </p>
           </Prose>
         </Container>

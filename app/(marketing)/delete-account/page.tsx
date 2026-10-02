@@ -101,7 +101,7 @@ export default function DeleteAccountPage() {
                   retained or de-identified where other participants rely on them or where legal,
                   fraud-prevention, accounting, or dispute-handling obligations apply. Read the
                   full details in our{' '}
-                  <Link href="/privacy" className="font-semibold text-ink underline underline-offset-4">
+                  <Link href="/policy" className="font-semibold text-ink underline underline-offset-4">
                     Privacy Policy
                   </Link>
                   .

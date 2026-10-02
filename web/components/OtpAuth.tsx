@@ -223,7 +223,7 @@ export default function OtpAuth({
               Terms
             </Link>{' '}
             and{' '}
-            <Link href="/privacy" className="underline hover:text-ink-muted">
+            <Link href="/policy" className="underline hover:text-ink-muted">
               Privacy Policy
             </Link>
             . Standard SMS rates may apply.

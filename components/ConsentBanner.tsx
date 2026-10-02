@@ -58,7 +58,7 @@ export function ConsentBanner() {
         <p className="flex-1 text-sm leading-relaxed text-ink-muted">
           We&apos;d like to use privacy-friendly analytics to see which parts of this site are
           useful. Nothing loads until you say yes.{' '}
-          <Link href="/privacy" className="font-semibold text-ink underline underline-offset-4">
+          <Link href="/policy" className="font-semibold text-ink underline underline-offset-4">
             Read our privacy policy
           </Link>
           .

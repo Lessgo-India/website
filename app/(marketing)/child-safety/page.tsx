@@ -87,7 +87,7 @@ export default function ChildSafetyPage() {
             <h2>Related policies</h2>
             <p>
               These standards form part of our <Link href="/terms">Terms of Use</Link>. Our{' '}
-              <Link href="/privacy">Privacy Policy</Link> explains how safety reports are handled
+              <Link href="/policy">Privacy Policy</Link> explains how safety reports are handled
               and retained.
             </p>
           </Prose>

@@ -17,7 +17,7 @@ export const site = {
 export const nav = {
   primary: [
     { label: 'Features', href: '/features' },
-    { label: 'How it works', href: '/#how-it-works' },
+    { label: 'How it works', href: '/#events' },
     { label: 'Help', href: '/help' },
   ],
   cta: { label: 'Get launch updates', href: '/download' },
@@ -31,7 +31,7 @@ export const hero = {
     'Lessgo turns group-chat chaos into one app — plan the hangout, get everyone to RSVP, split the bill, and settle up. All with the friends already in your phone.',
   primaryCta: 'Get launch updates',
   secondaryCta: 'See how it works',
-  trust: ['Free to start', 'No ads', 'Contacts stay private', 'Made in India'],
+  trust: ['Free to start', 'No ads', 'Contacts stay private'],
 } as const;
 
 export const productStory = {
@@ -122,7 +122,7 @@ export const features = [
     quote: 'No more “bro, ₹340?” at 1am.',
     points: [
       'One net balance per person, not a pile of receipts',
-      'Pay back over UPI without leaving the thread',
+      'Pay back using a Payment Address without leaving the thread',
       'Export the whole ledger as PDF or CSV whenever you want',
     ],
   },
@@ -249,7 +249,7 @@ export const faq = [
   },
   {
     q: 'How does splitting expenses work?',
-    a: 'Add what you spent to an event and pick who it was for. Lessgo works out the net balance between each pair of people, so instead of ten small debts you get one number per friend. You can settle over UPI and export the full ledger as a PDF or CSV.',
+    a: 'Add what you spent to an event and pick who it was for. Lessgo works out the net balance between each pair of people, so instead of ten small debts you get one number per friend. You can settle using a Payment Address and export the full ledger as a PDF or CSV.',
   },
   {
     q: 'Who can see my plans?',
@@ -288,7 +288,7 @@ export const changelog = [
     notes: [
       'Net balance per person instead of a list of individual debts',
       'Export the full ledger as PDF or CSV',
-      'UPI hand-off when you settle up',
+      'Payment Address hand-off when you settle up',
     ],
   },
   {
@@ -365,7 +365,7 @@ export const footer = {
       links: [
         { label: 'Home', href: '/' },
         { label: 'Features', href: '/features' },
-        { label: 'How it works', href: '/#how-it-works' },
+        { label: 'How it works', href: '/#events' },
         { label: 'Get the app', href: '/download' },
         { label: 'What’s new', href: '/whats-new' },
       ],
@@ -374,18 +374,18 @@ export const footer = {
       title: 'Support',
       links: [
         { label: 'Help & FAQ', href: '/help' },
-        { label: 'Privacy at Lessgo', href: '/#privacy' },
+        { label: 'Privacy at Lessgo', href: '/policy' },
         { label: 'Contact us', href: 'mailto:hello@lessgo.in' },
       ],
     },
     {
       title: 'Legal',
       links: [
-        { label: 'Privacy Policy', href: '/privacy' },
+        { label: 'Privacy Policy', href: '/policy' },
         { label: 'Terms of Use', href: '/terms' },
         { label: 'Child Safety', href: '/child-safety' },
         { label: 'Account Deletion', href: '/delete-account' },
-        { label: 'Grievance Officer', href: '/privacy#grievance' },
+        { label: 'Grievance Officer', href: '/policy#grievance' },
       ],
     },
   ],

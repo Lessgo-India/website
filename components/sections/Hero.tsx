@@ -49,7 +49,7 @@ export function Hero() {
                   {hero.primaryCta}
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </CtaButton>
-                <ButtonLink href="/#how-it-works" variant="secondary" size="lg">
+                <ButtonLink href="/#events" variant="secondary" size="lg">
                   {hero.secondaryCta}
                 </ButtonLink>
               </div>

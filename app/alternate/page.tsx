@@ -133,7 +133,7 @@ export default function AlternateWebsite() {
               <EarlyAccessForm compact source="alternate-website" />
             </div>
             <p className={styles.joinPrivacy}>
-              {copy.join.privacyLead} <Link href="/privacy">{copy.join.privacyLink}</Link>
+              {copy.join.privacyLead} <Link href="/policy">{copy.join.privacyLink}</Link>
             </p>
           </div>
         </section>

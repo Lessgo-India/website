@@ -12,7 +12,6 @@ import { FeatureRows } from '@ui/sections/FeatureRows';
 import { ProductStory } from '@ui/sections/ProductStory';
 import { HowItWorks } from '@ui/sections/HowItWorks';
 import { ShareLoop } from '@ui/sections/ShareLoop';
-import { PrivacySection } from '@ui/sections/PrivacySection';
 import { FinalCta } from '@ui/sections/FinalCta';
 
 const url = SITE_URL || 'https://lessgo.com';
@@ -36,14 +35,20 @@ export default function HomePage() {
         <Hero />
         <EventTypeMarquee />
         <ChaosToPlan />
-        <FeatureRows id="mobile-features" />
       </div>
       <div className="hidden md:block">
-        <ProductStory />
+        <ProductStory part="intro" />
+      </div>
+      <div id="events" className="scroll-mt-16">
+        <div className="md:hidden">
+          <FeatureRows id="mobile-features" eventsId={null} />
+        </div>
+        <div className="hidden md:block">
+          <ProductStory part="tour" />
+        </div>
       </div>
       <HowItWorks />
       <ShareLoop />
-      <PrivacySection />
 
       <Section tone="raised" id="faq">
         <Container>

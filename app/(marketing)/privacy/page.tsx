@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   title: 'Privacy Policy',
   description:
     'How Lessgo collects, uses and protects your data — including contacts, phone verification and analytics — and the rights you have under India’s DPDP Act 2023.',
-  alternates: { canonical: '/privacy' },
+  alternates: { canonical: '/policy' },
 };
 
 export default function PrivacyPage() {
