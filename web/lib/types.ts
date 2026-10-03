@@ -50,6 +50,11 @@ export type Muo = {
   user_id: string;
   profile?: { name?: string; dp_url?: string; status?: string };
   events?: MuoEvent[];
+  eventsPage?: {
+    limit: number;
+    hasMore: boolean;
+    nextCursor: string | null;
+  };
   groups?: unknown[];
 };
 
