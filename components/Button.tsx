@@ -41,6 +41,7 @@ export function ButtonLink({
   size = 'md',
   className,
   children,
+  onClick,
   ...rest
 }: ButtonLinkProps) {
   const isExternal = /^(https?:|mailto:|tel:)/.test(href);
@@ -52,6 +53,7 @@ export function ButtonLink({
         className={classes(variant, size, className)}
         rel="noopener noreferrer"
         target={href.startsWith('http') ? '_blank' : undefined}
+        onClick={onClick}
       >
         {children}
       </a>
@@ -59,7 +61,7 @@ export function ButtonLink({
   }
 
   return (
-    <Link href={href} className={classes(variant, size, className)} {...rest}>
+    <Link href={href} className={classes(variant, size, className)} onClick={onClick} {...rest}>
       {children}
     </Link>
   );

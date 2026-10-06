@@ -6,15 +6,14 @@ import {
   useMotionValue,
   useSpring,
 } from 'framer-motion';
-import { ArrowRight, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import { features, hero, productStory, type Domain } from '@content/site';
-import { ButtonLink } from '@ui/Button';
-import { CtaButton } from '@ui/CtaButton';
 import { GlowIcons } from '@ui/GlowIcons';
 import { Container } from '@ui/Section';
+import { StoreCtaButtons } from '@ui/StoreCtaButtons';
 import { AppScreenshot, type AppScreenshotName } from '@ui/phone/AppScreenshot';
 import { PhoneFrame } from '@ui/phone/PhoneFrame';
 
@@ -259,13 +258,7 @@ function ProductIntro({ reduceMotion }: { reduceMotion: boolean }) {
               {...entrance(0.18)}
               className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center lg:justify-start"
             >
-              <CtaButton href="/download" size="lg" location="hero">
-                {hero.primaryCta}
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </CtaButton>
-              <ButtonLink href="/#events" variant="secondary" size="lg">
-                {hero.secondaryCta}
-              </ButtonLink>
+              <StoreCtaButtons />
             </motion.div>
 
             <motion.ul

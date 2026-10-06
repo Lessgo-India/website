@@ -27,8 +27,8 @@ export const hero = {
   headlineAccent: 'Managing is on us.',
   subhead:
     'Lessgo turns group-chat chaos into one app — plan the hangout, get everyone to RSVP, split the bill, and settle up. All with the friends already in your phone.',
-  primaryCta: 'Get launch updates',
-  secondaryCta: 'See how it works',
+  primaryCta: 'Download on Play Store',
+  secondaryCta: 'Coming soon on Apple App Store',
   trust: ['Free to start', 'No ads', 'Contacts stay private'],
 } as const;
 

@@ -1,11 +1,10 @@
-import { ArrowRight, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { hero } from '@content/site';
 import { Aurora } from '@ui/Aurora';
 import { Spotlight } from '@ui/Spotlight';
-import { ButtonLink } from '@ui/Button';
-import { CtaButton } from '@ui/CtaButton';
 import { Container } from '@ui/Section';
 import { Reveal } from '@ui/Reveal';
+import { StoreCtaButtons } from '@ui/StoreCtaButtons';
 import { AppScreenshot } from '@ui/phone/AppScreenshot';
 import { PhoneFrame } from '@ui/phone/PhoneFrame';
 
@@ -45,13 +44,7 @@ export function Hero() {
 
             <Reveal delay={180}>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <CtaButton href="/download" size="lg" location="hero">
-                  {hero.primaryCta}
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </CtaButton>
-                <ButtonLink href="/#events" variant="secondary" size="lg">
-                  {hero.secondaryCta}
-                </ButtonLink>
+                <StoreCtaButtons />
               </div>
             </Reveal>
 
