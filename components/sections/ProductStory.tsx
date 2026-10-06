@@ -13,7 +13,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { features, hero, productStory, type Domain } from '@content/site';
 import { GlowIcons } from '@ui/GlowIcons';
 import { Container } from '@ui/Section';
-import { StoreCtaButtons } from '@ui/StoreCtaButtons';
+import { StoreBadges } from '@ui/StoreBadges';
 import { AppScreenshot, type AppScreenshotName } from '@ui/phone/AppScreenshot';
 import { PhoneFrame } from '@ui/phone/PhoneFrame';
 
@@ -256,9 +256,9 @@ function ProductIntro({ reduceMotion }: { reduceMotion: boolean }) {
 
             <motion.div
               {...entrance(0.18)}
-              className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center lg:justify-start"
+              className="mt-9"
             >
-              <StoreCtaButtons />
+              <StoreBadges className="justify-center lg:justify-start" />
             </motion.div>
 
             <motion.ul

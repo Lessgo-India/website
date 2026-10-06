@@ -4,7 +4,7 @@ import { Aurora } from '@ui/Aurora';
 import { Spotlight } from '@ui/Spotlight';
 import { Container } from '@ui/Section';
 import { Reveal } from '@ui/Reveal';
-import { StoreCtaButtons } from '@ui/StoreCtaButtons';
+import { StoreBadges } from '@ui/StoreBadges';
 import { AppScreenshot } from '@ui/phone/AppScreenshot';
 import { PhoneFrame } from '@ui/phone/PhoneFrame';
 
@@ -43,9 +43,7 @@ export function Hero() {
             </Reveal>
 
             <Reveal delay={180}>
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <StoreCtaButtons />
-              </div>
+              <StoreBadges className="mt-9" />
             </Reveal>
 
             <Reveal delay={240}>
