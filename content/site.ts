@@ -10,8 +10,6 @@ export const site = {
   domain: 'lessgo.com',
   androidPackage: 'com.lessgo.india',
   logo: 'https://lessgo-asset.s3.ap-south-1.amazonaws.com/images/logo.png',
-  /** Flip to true the day the store listings go live. */
-  storesLive: false,
 } as const;
 
 export const nav = {

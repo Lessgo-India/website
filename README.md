@@ -163,8 +163,9 @@ components, so adding Hindi later is a config change rather than a rewrite.
 - [ ] Set the server-only `MONGODB_URL` and optional `MONGODB_DB`. Until MongoDB
       is configured, the signup form honestly tells visitors to email instead
       of silently dropping their address.
-- [ ] Set `NEXT_PUBLIC_ANDROID_APP_URL` and `NEXT_PUBLIC_IOS_APP_URL` to the live
-      product pages, then flip `site.storesLive` to `true` in `content/site.ts`.
+- [ ] Add `NEXT_PUBLIC_IOS_APP_URL` when the App Store listing is live. The
+      Google Play product page is configured in `web/lib/config.ts`, and store
+      badges activate independently.
 - [ ] Set `NEXT_PUBLIC_SITE_URL` so canonicals, OG tags and the sitemap resolve.
 
 ## 📄 License
