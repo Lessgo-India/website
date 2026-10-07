@@ -30,6 +30,15 @@ const FEATURES = [
 
 const ROLE_LABEL: Record<PartnerUser['role'], string> = { owner: 'Owner', manager: 'Manager', cashier: 'Cashier' };
 
+/** First-sign-in failures that mean starting again from the user ID and password. */
+const RESTART_SIGN_IN_CODES = new Set([
+  'challenge_expired',
+  'temporary_password_expired',
+  'login_disabled',
+  'partner_suspended',
+  'not_found',
+]);
+
 export default function PartnerLogin({ next }: { next: string | null }) {
   const router = useRouter();
   const { status, session, signedIn } = usePartnerSession();
@@ -88,7 +97,11 @@ export default function PartnerLogin({ next }: { next: string | null }) {
     } catch (caught) {
       setError((caught as Error).message);
       setBusy(false);
-      if ((caught as { code?: string }).code === 'challenge_expired') setFirstLogin(null);
+      if (RESTART_SIGN_IN_CODES.has((caught as { code?: string }).code ?? '')) {
+        setFirstLogin(null);
+        setNewPassword('');
+        setConfirmPassword('');
+      }
     }
   }
 
@@ -292,8 +305,8 @@ export default function PartnerLogin({ next }: { next: string | null }) {
                 <DemoTag />
               </div>
               <p className="mt-1 text-xs text-ink-muted">
-                Password <span className="font-mono font-semibold text-ink">{DEMO_PASSWORD}</span> unless shown.
-                These dummy accounts stand in for the credentials Lessgo issues from Admin → Partners.
+                Password <span className="font-mono font-semibold text-ink">{DEMO_PASSWORD}</span> unless shown. Logins issued
+                from Admin → Partners in this browser work here too, with the temporary password shown there.
               </p>
               <ul className="mt-3 divide-y divide-line">
                 {DEMO_ACCOUNTS.map((account) => {

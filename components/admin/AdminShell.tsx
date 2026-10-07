@@ -8,26 +8,37 @@ import {
   Bug,
   Download,
   Gauge,
+  Handshake,
   LogOut,
   RefreshCw,
   Settings,
   ShieldAlert,
   WifiOff,
+  type LucideIcon,
 } from 'lucide-react';
 import { ThemeToggle } from '@ui/ThemeToggle';
 import { adminLogout } from '@web/lib/adminApi';
 import { unsubscribeCurrentAdminDevice } from '@web/lib/adminAlertsApi';
+import { PARTNER_PORTAL_CONFIG } from '@web/lib/partner/config';
 import { useAdminSession } from './AdminGate';
 import { useAdminPwa } from './AdminPwaProvider';
 import { useState, type ReactNode } from 'react';
 
-const NAVIGATION = [
+interface AdminNavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+const NAVIGATION: readonly AdminNavItem[] = [
   { href: '/admin', label: 'Operations', icon: Gauge },
   { href: '/admin/reports', label: 'Reports', icon: ShieldAlert },
   { href: '/admin/bugs', label: 'Bugs', icon: Bug },
   { href: '/admin/notifications', label: 'Notifications', icon: BellRing },
+  // Partner onboarding ships with the partner portal (web/lib/partner/config.ts).
+  ...(PARTNER_PORTAL_CONFIG.enabled ? [{ href: '/admin/partners', label: 'Partners', icon: Handshake }] : []),
   { href: '/admin/settings', label: 'Settings', icon: Settings },
-] as const;
+];
 
 export default function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -187,7 +198,9 @@ export default function AdminShell({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="Admin sections"
-        className="admin-bottom-nav fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-line bg-surface/95 px-2 pt-2 backdrop-blur lg:hidden"
+        className={`admin-bottom-nav fixed inset-x-0 bottom-0 z-50 grid border-t border-line bg-surface/95 px-2 pt-2 backdrop-blur lg:hidden ${
+          NAVIGATION.length === 6 ? 'grid-cols-6' : 'grid-cols-5'
+        }`}
       >
         {NAVIGATION.map((item) => (
           <AdminNavLink
@@ -230,7 +243,7 @@ function AdminNavLink({
   mobile = false,
   online,
 }: {
-  item: (typeof NAVIGATION)[number];
+  item: AdminNavItem;
   pathname: string;
   mobile?: boolean;
   online: boolean;
@@ -255,7 +268,7 @@ function AdminNavLink({
       }
     >
       <Icon className="h-5 w-5 flex-none" aria-hidden="true" />
-      <span className="truncate">{item.label}</span>
+      <span className="max-w-full truncate">{item.label}</span>
     </Link>
   );
 }

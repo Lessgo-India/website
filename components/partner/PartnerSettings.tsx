@@ -57,7 +57,10 @@ export default function PartnerSettings() {
             <Row label="GSTIN">
               <span className="font-mono">{partner.gstin}</span>
             </Row>
-            <Row label="Contact">{partner.contactEmail}</Row>
+            <Row label="Contact">
+              {partner.contactName}
+              <span className="block text-xs text-ink-muted">{partner.contactEmail}</span>
+            </Row>
             <Row label="City">{partner.city}</Row>
             <Row label="Plan">{PLAN_LABEL[partner.plan]}</Row>
             <Row label="Partner since">{formatDate(partner.onboardedAt)}</Row>
@@ -100,7 +103,13 @@ export default function PartnerSettings() {
                   <span className="flex-none text-right">
                     <span className="block text-xs font-semibold text-ink">{ROLE_LABEL[member.role]}</span>
                     <span className="block text-xs text-ink-muted">
-                      {member.lastActiveAt ? `Active ${formatRelative(member.lastActiveAt)}` : 'Never signed in'}
+                      {member.status === 'disabled'
+                        ? 'Turned off by Lessgo'
+                        : member.mustChangePassword
+                          ? 'Invite pending'
+                          : member.lastSignInAt
+                            ? `Active ${formatRelative(member.lastSignInAt)}`
+                            : 'Never signed in'}
                     </span>
                   </span>
                 </li>
@@ -271,8 +280,8 @@ function DemoReset() {
   return (
     <Card title="Demo data" action={<DemoTag />}>
       <p className="text-sm text-ink-muted">
-        Everything in this portal is dummy data kept in your browser. Reset it to undo campaigns, outlets and redemptions you
-        created while exploring.
+        Everything here is dummy data kept in your browser and shared with the admin console’s Partners section. Resetting puts
+        every partner, login, campaign and redemption back to the demo start (partners onboarded in the admin console go too).
       </p>
       <button
         type="button"

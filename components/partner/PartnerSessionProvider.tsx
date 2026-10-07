@@ -14,6 +14,7 @@ import {
   PARTNER_SESSION_STORAGE_KEY,
   partnerSignOut,
 } from '@web/lib/partner/partnerApi';
+import { DEMO_STORE_KEY } from '@web/lib/partner/demoStore';
 import type { PartnerSession } from '@web/lib/partner/types';
 
 type Status = 'loading' | 'signed_out' | 'signed_in';
@@ -77,7 +78,12 @@ export function PartnerSessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onUnauthorized = () => setState({ status: 'signed_out', session: null, explicitSignOut: false });
     const onStorage = (event: StorageEvent) => {
-      if (event.key === null || event.key === PARTNER_SESSION_STORAGE_KEY) void check();
+      // DUMMY: an admin action in another tab (suspend, turn off, reset) also
+      // ends the session, like the server re-checking it on the next request.
+      // Deferred so the demo store's own listener drops its cache first.
+      if (event.key === null || event.key === PARTNER_SESSION_STORAGE_KEY || event.key === DEMO_STORE_KEY) {
+        window.setTimeout(() => void check(), 0);
+      }
     };
     window.addEventListener('partner:unauthorized', onUnauthorized);
     window.addEventListener('storage', onStorage);

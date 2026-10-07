@@ -78,6 +78,11 @@ export function formatRelative(iso: string, now: number = Date.now()): string {
   return suffix(`${days} day${days === 1 ? '' : 's'}`);
 }
 
+/** True once `iso` has passed (temporary passwords, start dates). */
+export function isPast(iso: string, now: number = Date.now()): boolean {
+  return Date.parse(iso) <= now;
+}
+
 /** ISO → "YYYY-MM-DD" in IST, for <input type="date">. */
 export function toDateInputValue(iso: string): string {
   return new Date(new Date(iso).getTime() + IST_OFFSET_MS).toISOString().slice(0, 10);

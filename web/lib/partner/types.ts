@@ -108,6 +108,8 @@ export interface PartnerCampaign {
   submittedAt?: string;
   /** Lessgo review feedback (rejections, requested edits). */
   reviewNote?: string;
+  /** When a Lessgo admin last approved or sent back the campaign. */
+  reviewedAt?: string;
   stats: CampaignStats;
 }
 
@@ -115,18 +117,37 @@ export type PartnerRole = 'owner' | 'manager' | 'cashier';
 
 export type PartnerPlan = 'pilot' | 'standard' | 'enterprise';
 
+/**
+ * invited   — onboarded by Lessgo; the owner hasn't set their own password yet
+ * active    — the owner has signed in at least once
+ * suspended — logins are blocked and offers are hidden from the Vibes tray
+ */
+export type PartnerStatus = 'invited' | 'active' | 'suspended';
+
 export interface PartnerAccount {
   id: string;
+  /** User-ID prefix every login of this partner shares, e.g. "brewbros". */
+  handle: string;
+  status: PartnerStatus;
   brandName: string;
   legalName: string;
   logoEmoji: string;
   brandColor: string;
   category: string;
   gstin: string;
+  contactName: string;
   contactEmail: string;
+  /** 10-digit Indian mobile number. */
+  contactPhone: string;
   city: string;
+  /** State/UT code from indiaGeo.ts, e.g. "KA". */
+  stateCode: string;
   plan: PartnerPlan;
   onboardedAt: string;
+  /** When the owner first signed in. */
+  activatedAt?: string;
+  suspendedAt?: string;
+  suspendedReason?: string;
   integration: {
     /** Only the last characters are ever shown after creation. */
     apiKeyPreview: string;
@@ -142,11 +163,132 @@ export interface PartnerUser {
   partnerId: string;
   name: string;
   email: string;
+  /** The login holder's 10-digit mobile, for SMS invites and resets. */
+  phone?: string;
   role: PartnerRole;
   /** Cashier logins are scoped to one outlet. */
   outletId?: string;
   lastActiveAt?: string;
 }
+
+export type PartnerLoginStatus = 'active' | 'disabled';
+
+/** A login as Lessgo admins and the partner's own team page see it. */
+export interface PartnerLogin extends PartnerUser {
+  status: PartnerLoginStatus;
+  /** A temporary password is outstanding (never signed in, or just reset). */
+  mustChangePassword: boolean;
+  credentialIssuedAt: string;
+  /** When the outstanding temporary password stops working. */
+  temporaryExpiresAt?: string;
+  lastSignInAt?: string;
+}
+
+export type CredentialChannel = 'email' | 'sms';
+
+export interface CredentialDispatch {
+  channel: CredentialChannel;
+  /** Email address or 10-digit mobile number. */
+  to: string;
+  /** The offers service hands delivery to backend-notification-service. */
+  status: 'queued' | 'failed';
+}
+
+/**
+ * Returned exactly once when Lessgo issues or resets a login. The temporary
+ * password is never stored in plain text and can't be fetched again — a lost
+ * one is replaced with "Reset password".
+ */
+export interface IssuedCredential {
+  userId: string;
+  temporaryPassword: string;
+  expiresAt: string;
+  loginUrl: string;
+  dispatch: CredentialDispatch[];
+}
+
+export interface PartnerOnboardingInput {
+  brandName: string;
+  legalName: string;
+  category: string;
+  gstin: string;
+  city: string;
+  stateCode: string;
+  logoEmoji: string;
+  brandColor: string;
+  plan: PartnerPlan;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  /** Becomes `<handle>.owner` and the prefix of every later login. */
+  handle: string;
+  owner: { name: string; email: string; phone: string };
+  dispatch: { email: boolean; sms: boolean };
+}
+
+export interface NewPartnerLoginInput {
+  name: string;
+  email: string;
+  /** Stored on the login; SMS invites and resets go to it. */
+  phone?: string;
+  role: PartnerRole;
+  /** Required for cashiers. */
+  outletId?: string;
+  dispatch: { email: boolean; sms: boolean };
+}
+
+export interface PartnerAuditEntry {
+  id: string;
+  partnerId: string;
+  at: string;
+  /** Admin phone/ID, a partner user ID, or "system". */
+  actor: string;
+  action:
+    | 'partner.onboarded'
+    | 'partner.activated'
+    | 'partner.suspended'
+    | 'partner.reactivated'
+    | 'login.issued'
+    | 'login.reset'
+    | 'login.disabled'
+    | 'login.enabled'
+    | 'login.password_set'
+    | 'campaign.submitted'
+    | 'campaign.approved'
+    | 'campaign.rejected';
+  detail: string;
+}
+
+export interface AdminPartnerSummary {
+  partner: PartnerAccount;
+  logins: number;
+  /** Logins with an outstanding temporary password. */
+  pendingLogins: number;
+  outlets: number;
+  liveCampaigns: number;
+  inReview: number;
+  lastSignInAt?: string;
+}
+
+export interface AdminReviewItem {
+  campaign: PartnerCampaign;
+  partner: Pick<PartnerAccount, 'id' | 'brandName' | 'logoEmoji' | 'brandColor' | 'plan' | 'status'>;
+}
+
+export interface AdminPartnersOverview {
+  partners: AdminPartnerSummary[];
+  reviewQueue: AdminReviewItem[];
+}
+
+export interface AdminPartnerDetail {
+  partner: PartnerAccount;
+  logins: PartnerLogin[];
+  outlets: PartnerOutlet[];
+  campaigns: PartnerCampaign[];
+  activity: PartnerAuditEntry[];
+}
+
+export type CampaignReviewDecision = { decision: 'approve' } | { decision: 'reject'; note: string };
 
 export interface PartnerSession {
   /** DUMMY opaque token. The real session is an httpOnly cookie. */

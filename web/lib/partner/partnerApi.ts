@@ -1,45 +1,46 @@
 /**
  * Partner (merchant) portal API.
  *
- * DUMMY by default: every call resolves against a local demo store seeded
- * from dummyData.ts and persisted in localStorage, so edits survive reloads.
- * With NEXT_PUBLIC_PARTNER_PORTAL_BACKEND=true the same functions call the
- * BFF route documented on each one instead.
+ * DUMMY by default: every call resolves against the shared demo store
+ * (demoStore.ts — also used by the admin console's Partners section),
+ * persisted in localStorage so edits survive reloads. With
+ * NEXT_PUBLIC_PARTNER_PORTAL_BACKEND=true the same functions call the BFF
+ * route documented on each one instead.
  *
  * TODO(backend): build the BFF under app/api/partner/* (pattern:
  * app/api/admin/gateway/[...path]) — it owns the httpOnly
  * `lessgo_partner_session` cookie and forwards to the gateway's /partners/*
- * routes (gateway-service/src/proxy/brand-offers.controller.ts has the
- * placeholder), which proxy to backend-offers-service. Then delete the
- * dummy branch of every function below and dummyData.ts.
+ * routes (gateway-service/src/proxy/brand-offers.controller.ts notes where
+ * they go), which proxy to backend-offers-service. Then delete the dummy
+ * branch of every function below, demoStore.ts and dummyData.ts.
  */
-import { PARTNER_PORTAL_CONFIG } from './config';
+import { PARTNER_PORTAL_CONFIG, PARTNER_SUPPORT_EMAIL } from './config';
 import {
-  DEMO_ACCOUNTS,
-  DUMMY_DISTRICT_WEIGHT,
-  DUMMY_OUTLETS,
-  DUMMY_USERS,
-  DUMMY_USERS_BY_STATE,
-  dummyCampaigns,
-  dummyDailySeries,
-  dummyPartners,
-  dummyRedemptions,
-  dummyVouchers,
+  credentialAccepts,
+  demoPause as pause,
+  demoStore as store,
+  estimateReach,
+  randomId,
+  recordAudit,
+  resetDemoStore,
+  saveDemoStore as persist,
+  sha256Hex,
+  toPartnerLogin,
+  type DemoCredential,
+  type DemoState,
   type DemoVoucher,
-} from './dummyData';
-import { getGeoDistrict, INDIA_GEO, isPincodeInState, stateCodeOfDistrict } from './indiaGeo';
+} from './demoStore';
+import { dummyDailySeries } from './dummyData';
+import { getGeoDistrict, isPincodeInState, stateCodeOfDistrict } from './indiaGeo';
 import {
   computeDiscount,
-  estimateAudience,
   hasDraftErrors,
   maskVoucherCode,
   newPasswordProblem,
   normaliseTargeting,
   offerLabel,
   parseRedemptionInput,
-  roundEstimate,
   validateCampaignDraft,
-  type AudienceModel,
   type CampaignDraft,
   type DraftErrors,
 } from './rules';
@@ -48,6 +49,7 @@ import type {
   OfferTargeting,
   PartnerAccount,
   PartnerCampaign,
+  PartnerLogin,
   PartnerOutlet,
   PartnerOverview,
   PartnerRedemption,
@@ -105,117 +107,29 @@ async function bff<T>(
   return payload as T;
 }
 
-// ── Demo store ──────────────────────────────────────────────────────────────
+// ── Demo session ────────────────────────────────────────────────────────────
 
-const STATE_KEY = 'lessgo.partner.demo.v1';
 /** DUMMY session storage; the real session is the httpOnly cookie. */
 export const PARTNER_SESSION_STORAGE_KEY = 'lessgo.partner.session.v1';
 const SESSION_KEY = PARTNER_SESSION_STORAGE_KEY;
-const STATE_VERSION = 3;
-/** Relative dates (events "in 2 hours") go stale, so the demo reseeds daily. */
-const STATE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
-interface DemoState {
-  version: number;
-  seededAt: number;
-  campaigns: PartnerCampaign[];
-  outlets: PartnerOutlet[];
-  vouchers: DemoVoucher[];
-  redemptions: PartnerRedemption[];
-  /** userId → SHA-256 of a password set in the demo. Real hashes live server-side. */
-  passwordHashes: Record<string, string>;
-}
-
-let demoState: DemoState | null = null;
-
-function seedState(passwordHashes: Record<string, string> = {}): DemoState {
-  const now = Date.now();
-  const campaigns = dummyCampaigns(now);
-  for (const campaign of campaigns) campaign.stats.reach = estimateReach(campaign.targeting);
-  const outlets = DUMMY_OUTLETS.map((item) => ({ ...item, coordinates: [...item.coordinates] as [number, number] }));
-  return {
-    version: STATE_VERSION,
-    seededAt: now,
-    campaigns,
-    outlets,
-    vouchers: dummyVouchers(campaigns, now),
-    redemptions: dummyRedemptions(campaigns, outlets, now),
-    passwordHashes,
-  };
-}
-
-function store(): DemoState {
-  if (demoState) return demoState;
-  let saved: DemoState | null = null;
-  try {
-    const raw = window.localStorage.getItem(STATE_KEY);
-    saved = raw ? (JSON.parse(raw) as DemoState) : null;
-  } catch {
-    saved = null;
-  }
-  if (saved?.version === STATE_VERSION && Date.now() - saved.seededAt < STATE_MAX_AGE_MS) {
-    demoState = saved;
-  } else {
-    demoState = seedState(saved?.passwordHashes ?? {});
-    persist();
-  }
-  return demoState;
-}
-
-function persist(): void {
-  try {
-    window.localStorage.setItem(STATE_KEY, JSON.stringify(demoState));
-  } catch {
-    // Private mode / quota: the demo still works for this tab.
-  }
-}
-
-const pause = (ms = 350) => new Promise((resolve) => setTimeout(resolve, ms + Math.random() * 200));
-
-const randomId = (prefix: string) =>
-  `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-
-async function sha256(text: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
-/** Reseeds every dummy record (keeps passwords set in the demo). */
+/** Puts every partner, login, campaign and redemption back to the demo start. */
 export async function resetPartnerDemo(): Promise<void> {
   if (backendEnabled()) return;
-  demoState = seedState(store().passwordHashes);
-  persist();
+  resetDemoStore();
   await pause(150);
 }
 
 // ── Audience ────────────────────────────────────────────────────────────────
 
-let audienceModel: AudienceModel | null = null;
-
-function model(): AudienceModel {
-  audienceModel ??= {
-    usersByState: DUMMY_USERS_BY_STATE,
-    districtsByState: Object.fromEntries(
-      INDIA_GEO.map((state) => [state.code, state.districts.map((district) => district.id)]),
-    ),
-    districtWeight: DUMMY_DISTRICT_WEIGHT,
-  };
-  return audienceModel;
-}
-
 /**
  * Users who'd see the campaign, rounded to two significant figures.
  *
- * DUMMY: computed from made-up per-state user counts.
+ * DUMMY: computed from made-up per-state user counts (demoStore.ts).
  * BACKEND: POST /api/partner/audience/estimate { targeting } → { estimate }
  *   (offers service counts profiles by home location + age/gender, rounds,
  *   and never returns a number below PARTNER_PORTAL_CONFIG.minAudience).
  */
-export function estimateReach(targeting: OfferTargeting): number {
-  return roundEstimate(estimateAudience(normaliseTargeting(targeting), model()));
-}
-
 export async function fetchAudienceEstimate(targeting: OfferTargeting): Promise<number> {
   if (backendEnabled()) {
     const { estimate } = await bff<{ estimate: number }>('POST', '/audience/estimate', { targeting });
@@ -232,22 +146,27 @@ export type SignInResult =
   | { kind: 'password_change_required'; challenge: string; user: PartnerUser };
 
 const failedAttempts = new Map<string, { count: number; lockedUntil: number }>();
-const challenges = new Map<string, { userId: string; expiresAt: number }>();
+/** challenge → the login and the credential version (issuedAt) it was issued for. */
+const challenges = new Map<string, { userId: string; expiresAt: number; issuedAt: string }>();
 const MAX_ATTEMPTS = 5;
 const LOCK_MS = 60_000;
 
-function partnerById(partnerId: string): PartnerAccount {
-  const found = dummyPartners().find((candidate) => candidate.id === partnerId);
+function partnerById(partnerId: string, state: DemoState = store()): PartnerAccount {
+  const found = state.partners.find((candidate) => candidate.id === partnerId);
   if (!found) throw new PartnerApiError('Partner account not found.', 404, 'not_found');
   return found;
 }
 
-function startSession(user: PartnerUser): PartnerSession {
+/** Records the sign-in and persists `state`; call it at the end of a synchronous change. */
+function startSession(user: PartnerUser, state: DemoState): PartnerSession {
   const now = Date.now();
+  const credential = state.credentials[user.userId];
+  if (credential) credential.lastSignInAt = new Date(now).toISOString();
+  persist(state);
   const session: PartnerSession = {
     token: randomId('pss'),
     user: { ...user, lastActiveAt: new Date(now).toISOString() },
-    partner: partnerById(user.partnerId),
+    partner: { ...partnerById(user.partnerId, state) },
     signedInAt: new Date(now).toISOString(),
     expiresAt: now + PARTNER_PORTAL_CONFIG.sessionTtlMs,
   };
@@ -257,6 +176,32 @@ function startSession(user: PartnerUser): PartnerSession {
     // Session lasts for this tab only.
   }
   return session;
+}
+
+/** Why a login with the right password still can't sign in, or null. */
+function signInBlock(account: PartnerAccount, credential: DemoCredential): PartnerApiError | null {
+  if (account.status === 'suspended') {
+    return new PartnerApiError(
+      `${account.brandName}’s partner account is suspended. Contact ${PARTNER_SUPPORT_EMAIL}.`,
+      403,
+      'partner_suspended',
+    );
+  }
+  if (credential.status === 'disabled') {
+    return new PartnerApiError('This login has been turned off. Ask your account owner or Lessgo.', 403, 'login_disabled');
+  }
+  if (
+    credential.mustChangePassword &&
+    credential.temporaryExpiresAt &&
+    Date.parse(credential.temporaryExpiresAt) <= Date.now()
+  ) {
+    return new PartnerApiError(
+      'This temporary password has expired. Ask Lessgo to send a new one.',
+      401,
+      'temporary_password_expired',
+    );
+  }
+  return null;
 }
 
 /** Narrows the BFF's login response; anything else is reported, not rendered. */
@@ -279,14 +224,17 @@ function parseSignInResult(payload: unknown): SignInResult {
 /**
  * Sign in with the user ID + password Lessgo issued.
  *
- * DUMMY: checks DEMO_ACCOUNTS; 5 failures lock the ID for a minute.
+ * DUMMY: checks the demo store's credentials (seeded demo logins and any
+ * issued from Admin → Partners); 5 failures lock the ID for a minute.
  * BACKEND: POST /api/partner/login { userId, password } → SignInResult:
  *   → 200 { kind: "signed_in", session } and Set-Cookie
  *     lessgo_partner_session (httpOnly, 8 h)
  *   → 200 { kind: "password_change_required", challenge, user } for
  *     temporary passwords (`user` greets them on the set-password step)
- *   → 401 invalid_credentials | 429 locked (rate-limited per ID and IP,
- *     like web/lib/adminLoginRateLimit.server.ts).
+ *   → 401 invalid_credentials | temporary_password_expired
+ *   → 403 login_disabled | partner_suspended (only after a correct password)
+ *   → 429 locked (rate-limited per ID and IP, like
+ *     web/lib/adminLoginRateLimit.server.ts).
  */
 export async function partnerSignIn(rawUserId: string, password: string): Promise<SignInResult> {
   const userId = rawUserId.trim().toLowerCase();
@@ -298,13 +246,14 @@ export async function partnerSignIn(rawUserId: string, password: string): Promis
     throw new PartnerApiError('Too many attempts. Try again in a minute.', 429, 'locked');
   }
 
-  const account = DEMO_ACCOUNTS.find((candidate) => candidate.userId === userId);
-  const user = DUMMY_USERS.find((candidate) => candidate.userId === userId);
-  const savedHash = store().passwordHashes[userId];
-  const valid =
-    !!account && !!user && (savedHash ? savedHash === (await sha256(password)) : account.password === password);
+  // Hash before reading the store: everything after this is synchronous.
+  const passwordHash = await sha256Hex(password);
+  const state = store();
+  const user = state.users.find((candidate) => candidate.userId === userId);
+  const credential = state.credentials[userId];
+  const valid = !!user && !!credential && credentialAccepts(credential, password, passwordHash);
 
-  if (!valid || !account || !user) {
+  if (!valid || !user || !credential) {
     const count = (attempts?.count ?? 0) + 1;
     failedAttempts.set(userId, {
       count: count >= MAX_ATTEMPTS ? 0 : count,
@@ -315,20 +264,26 @@ export async function partnerSignIn(rawUserId: string, password: string): Promis
   }
 
   failedAttempts.delete(userId);
-  if (account.mustChangePassword && !savedHash) {
+  const blocked = signInBlock(partnerById(user.partnerId, state), credential);
+  if (blocked) throw blocked;
+  if (credential.mustChangePassword) {
     const challenge = randomId('chg');
-    challenges.set(challenge, { userId, expiresAt: Date.now() + 10 * 60_000 });
+    challenges.set(challenge, { userId, expiresAt: Date.now() + 10 * 60_000, issuedAt: credential.issuedAt });
     return { kind: 'password_change_required', challenge, user };
   }
-  return { kind: 'signed_in', session: startSession(user) };
+  return { kind: 'signed_in', session: startSession(user, state) };
 }
 
 /**
  * Replace a temporary password on first sign-in.
  *
  * BACKEND: POST /api/partner/login/first-password { challenge, newPassword }
- *   → { session } + cookie. The server re-checks the policy and that the new
- *   password differs from the temporary one.
+ *   → { session } + cookie. The server re-checks the policy, that the new
+ *   password differs from the temporary one, and — because an admin may have
+ *   acted since the challenge — that the partner isn't suspended, the login is
+ *   on, and the temporary password is unexpired and the one the challenge was
+ *   issued for (a reset cancels pending challenges). It marks an invited
+ *   partner active when the login is the owner's.
  */
 export async function partnerCompleteFirstLogin(challenge: string, newPassword: string): Promise<PartnerSession> {
   if (backendEnabled()) {
@@ -343,26 +298,59 @@ export async function partnerCompleteFirstLogin(challenge: string, newPassword: 
   }
 
   await pause(400);
+  const expired = () =>
+    new PartnerApiError('This sign-in expired. Sign in again with your temporary password.', 401, 'challenge_expired');
   const pending = challenges.get(challenge);
   if (!pending || pending.expiresAt < Date.now()) {
-    throw new PartnerApiError('This sign-in expired. Sign in again with your temporary password.', 401, 'challenge_expired');
+    challenges.delete(challenge);
+    throw expired();
   }
-  const account = DEMO_ACCOUNTS.find((candidate) => candidate.userId === pending.userId);
-  const problem = newPasswordProblem(newPassword, { userId: pending.userId, previous: account?.password });
+
+  // Hash before reading the store: everything after this is synchronous.
+  const newHash = await sha256Hex(newPassword);
+  const state = store();
+  const credential = state.credentials[pending.userId];
+  const user = state.users.find((candidate) => candidate.userId === pending.userId);
+  if (!credential || !user) {
+    challenges.delete(challenge);
+    throw new PartnerApiError('Account not found.', 404, 'not_found');
+  }
+  const account = partnerById(user.partnerId, state);
+  const blocked =
+    credential.issuedAt !== pending.issuedAt || !credential.mustChangePassword
+      ? expired()
+      : signInBlock(account, credential);
+  if (blocked) {
+    challenges.delete(challenge);
+    throw blocked;
+  }
+  const problem =
+    newPasswordProblem(newPassword, { userId: pending.userId }) ??
+    (credentialAccepts(credential, newPassword, newHash) ? 'Choose a new password, not the temporary one.' : null);
   if (problem) throw new PartnerApiError(problem, 400, 'weak_password');
 
-  const state = store();
-  state.passwordHashes[pending.userId] = await sha256(newPassword);
-  persist();
+  credential.passwordHash = newHash;
+  delete credential.demoPassword;
+  delete credential.temporaryExpiresAt;
+  credential.mustChangePassword = false;
   challenges.delete(challenge);
-  const user = DUMMY_USERS.find((candidate) => candidate.userId === pending.userId);
-  if (!user) throw new PartnerApiError('Account not found.', 404, 'not_found');
-  return startSession(user);
+
+  recordAudit(state, { partnerId: account.id, actor: user.userId, action: 'login.password_set', detail: `${user.userId} set their own password.` });
+  if (account.status === 'invited' && user.role === 'owner') {
+    account.status = 'active';
+    account.activatedAt = new Date().toISOString();
+    recordAudit(state, { partnerId: account.id, actor: user.userId, action: 'partner.activated', detail: 'Owner set a password and signed in.' });
+  }
+  return startSession(user, state);
 }
 
 /**
  * The signed-in partner, or null.
  *
+ * DUMMY: re-checks the stored session against the demo store, the way the
+ * server re-reads the session on every request — suspending the partner,
+ * turning the login off or resetting its password ends it for good (those
+ * actions revoke sessions, so reactivating doesn't bring it back).
  * BACKEND: GET /api/partner/session → { session } | 401.
  */
 export async function getPartnerSession(): Promise<PartnerSession | null> {
@@ -379,11 +367,27 @@ export async function getPartnerSession(): Promise<PartnerSession | null> {
   try {
     const raw = window.localStorage.getItem(SESSION_KEY);
     const session = raw ? (JSON.parse(raw) as PartnerSession) : null;
-    if (!session || session.expiresAt <= Date.now()) {
+    if (!session) return null;
+    const state = store();
+    const user = state.users.find((candidate) => candidate.userId === session.user.userId);
+    const credential = state.credentials[session.user.userId];
+    const account = state.partners.find((candidate) => candidate.id === session.partner.id);
+    const revoked =
+      !!credential?.sessionsRevokedAt && Date.parse(credential.sessionsRevokedAt) > Date.parse(session.signedInAt);
+    if (
+      session.expiresAt <= Date.now() ||
+      !user ||
+      !credential ||
+      !account ||
+      credential.status !== 'active' ||
+      credential.mustChangePassword ||
+      account.status === 'suspended' ||
+      revoked
+    ) {
       window.localStorage.removeItem(SESSION_KEY);
       return null;
     }
-    return session;
+    return { ...session, user: { ...user, lastActiveAt: session.user.lastActiveAt }, partner: { ...account } };
   } catch {
     return null;
   }
@@ -415,15 +419,19 @@ export async function changePartnerPassword(
 
   await pause(400);
   const { userId } = session.user;
-  const account = DEMO_ACCOUNTS.find((candidate) => candidate.userId === userId);
+  // Hash before reading the store: everything after this is synchronous.
+  const [currentHash, newHash] = await Promise.all([sha256Hex(currentPassword), sha256Hex(newPassword)]);
   const state = store();
-  const savedHash = state.passwordHashes[userId];
-  const currentOk = savedHash ? savedHash === (await sha256(currentPassword)) : account?.password === currentPassword;
-  if (!currentOk) throw new PartnerApiError('Your current password is incorrect.', 400, 'invalid_credentials');
+  const credential = state.credentials[userId];
+  if (!credential || !credentialAccepts(credential, currentPassword, currentHash)) {
+    throw new PartnerApiError('Your current password is incorrect.', 400, 'invalid_credentials');
+  }
   const problem = newPasswordProblem(newPassword, { userId, previous: currentPassword });
   if (problem) throw new PartnerApiError(problem, 400, 'weak_password');
-  state.passwordHashes[userId] = await sha256(newPassword);
-  persist();
+  credential.passwordHash = newHash;
+  delete credential.demoPassword;
+  recordAudit(state, { partnerId: session.partner.id, actor: userId, action: 'login.password_set', detail: `${userId} changed their password.` });
+  persist(state);
 }
 
 // ── Overview ────────────────────────────────────────────────────────────────
@@ -464,6 +472,7 @@ export async function getPartnerOverview(session: PartnerSession): Promise<Partn
   await pause();
   const campaigns = partnerCampaigns(session.partner.id);
   const running = campaigns.filter((campaign) => ['live', 'paused', 'ended'].includes(campaign.status));
+  const live = campaigns.filter((campaign) => campaign.status === 'live');
   const totals = sumStats(running);
   const campaignIds = new Set(campaigns.map((campaign) => campaign.id));
   const redemptions = store().redemptions.filter((row) => campaignIds.has(row.campaignId));
@@ -479,10 +488,8 @@ export async function getPartnerOverview(session: PartnerSession): Promise<Partn
     partner: session.partner,
     totals,
     liveCampaigns: campaigns.filter((campaign) => campaign.status === 'live').length,
-    daily: dummyDailySeries(
-      session.partner.id,
-      sumStats(campaigns.filter((campaign) => campaign.status === 'live')),
-    ),
+    // A partner with nothing live has no activity to chart (e.g. just onboarded).
+    daily: live.length > 0 ? dummyDailySeries(session.partner.id, sumStats(live)) : [],
     recentRedemptions: redemptions.slice(0, 8),
     topDistricts: [...byDistrict.entries()]
       .map(([districtId, redeemed]) => ({ districtId, redeemed }))
@@ -571,10 +578,10 @@ export async function submitPartnerCampaign(
   if (hasDraftErrors(errors)) {
     throw new PartnerApiError('Fix the highlighted steps and submit again.', 422, 'validation', errors);
   }
+  // Synchronous from here: read the store once and save that same object.
+  const state = store();
   const ownOutletIds = new Set(
-    store()
-      .outlets.filter((candidate) => candidate.partnerId === session.partner.id)
-      .map((candidate) => candidate.id),
+    state.outlets.filter((candidate) => candidate.partnerId === session.partner.id).map((candidate) => candidate.id),
   );
   if (draft.outletIds.some((id) => !ownOutletIds.has(id))) {
     throw new PartnerApiError('One of the selected outlets no longer exists.', 422, 'validation');
@@ -584,7 +591,9 @@ export async function submitPartnerCampaign(
   const fields = campaignFields(draft);
 
   if (options.resubmitOf) {
-    const rejected = partnerCampaigns(session.partner.id).find((candidate) => candidate.id === options.resubmitOf);
+    const rejected = state.campaigns.find(
+      (candidate) => candidate.id === options.resubmitOf && candidate.partnerId === session.partner.id,
+    );
     if (!rejected) throw new PartnerApiError('Campaign not found.', 404, 'not_found');
     if (rejected.status !== 'rejected') {
       throw new PartnerApiError('Only campaigns that need changes can be resubmitted.', 409, 'invalid_state');
@@ -592,7 +601,13 @@ export async function submitPartnerCampaign(
     Object.assign(rejected, fields, { status: 'in_review', updatedAt: now, submittedAt: now });
     delete rejected.reviewNote;
     rejected.stats.reach = estimateReach(fields.targeting);
-    persist();
+    recordAudit(state, {
+      partnerId: session.partner.id,
+      actor: session.user.userId,
+      action: 'campaign.submitted',
+      detail: `Resubmitted “${rejected.headline}” after changes.`,
+    });
+    persist(state);
     return rejected;
   }
 
@@ -616,8 +631,14 @@ export async function submitPartnerCampaign(
       gmvMinor: 0,
     },
   };
-  store().campaigns.unshift(campaign);
-  persist();
+  state.campaigns.unshift(campaign);
+  recordAudit(state, {
+    partnerId: session.partner.id,
+    actor: session.user.userId,
+    action: 'campaign.submitted',
+    detail: `Submitted “${campaign.headline}”.`,
+  });
+  persist(state);
   return campaign;
 }
 
@@ -639,14 +660,17 @@ export async function setCampaignPaused(
   }
 
   await pause();
-  const campaign = partnerCampaigns(session.partner.id).find((candidate) => candidate.id === campaignId);
+  const state = store();
+  const campaign = state.campaigns.find(
+    (candidate) => candidate.id === campaignId && candidate.partnerId === session.partner.id,
+  );
   if (!campaign) throw new PartnerApiError('Campaign not found.', 404, 'not_found');
   if (campaign.status !== (paused ? 'live' : 'paused')) {
     throw new PartnerApiError(`A ${campaign.status.replace('_', ' ')} campaign can’t be ${paused ? 'paused' : 'resumed'}.`, 409, 'invalid_state');
   }
   campaign.status = paused ? 'paused' : 'live';
   campaign.updatedAt = new Date().toISOString();
-  persist();
+  persist(state);
   return campaign;
 }
 
@@ -725,8 +749,9 @@ export async function createPartnerOutlet(session: PartnerSession, input: Outlet
     coordinates: input.coordinates,
     status: 'active',
   };
-  store().outlets.push(created);
-  persist();
+  const state = store();
+  state.outlets.push(created);
+  persist(state);
   return created;
 }
 
@@ -739,10 +764,11 @@ export async function setOutletStatus(
   if (backendEnabled()) return bff<PartnerOutlet>('PATCH', `/outlets/${encodeURIComponent(outletId)}`, { status });
 
   await pause(250);
-  const found = store().outlets.find((candidate) => candidate.id === outletId && candidate.partnerId === session.partner.id);
+  const state = store();
+  const found = state.outlets.find((candidate) => candidate.id === outletId && candidate.partnerId === session.partner.id);
   if (!found) throw new PartnerApiError('Outlet not found.', 404, 'not_found');
   found.status = status;
-  persist();
+  persist(state);
   return found;
 }
 
@@ -862,7 +888,7 @@ export async function redeemVoucher(session: PartnerSession, request: RedeemRequ
   campaign.stats.discountMinor += quote.discountMinor;
   campaign.stats.gmvMinor += request.billMinor;
   state.redemptions.unshift(redemption);
-  persist();
+  persist(state);
   return redemption;
 }
 
@@ -907,19 +933,24 @@ export function demoVouchersFor(session: PartnerSession): (DemoVoucher & { qrPay
 
 // ── Team & integrations ─────────────────────────────────────────────────────
 
-/** BACKEND: GET /api/partner/team → { members: PartnerUser[] } (new logins are issued by Lessgo admins). */
-export async function listPartnerTeam(session: PartnerSession): Promise<PartnerUser[]> {
-  if (backendEnabled()) return (await bff<{ members: PartnerUser[] }>('GET', '/team')).members;
+/**
+ * Everyone who can sign in for this partner, with their email and mobile.
+ *
+ * BACKEND: GET /api/partner/team → { members: PartnerLogin[] } for owners
+ *   and managers; 403 forbidden for cashiers (new logins are issued by
+ *   Lessgo admins — Admin → Partners).
+ */
+export async function listPartnerTeam(session: PartnerSession): Promise<PartnerLogin[]> {
+  if (backendEnabled()) return (await bff<{ members: PartnerLogin[] }>('GET', '/team')).members;
 
   await pause(250);
-  const now = Date.now();
-  return DUMMY_USERS.filter((member) => member.partnerId === session.partner.id).map((member, index) => ({
-    ...member,
-    lastActiveAt:
-      member.userId === session.user.userId
-        ? new Date(now).toISOString()
-        : new Date(now - (index + 1) * 0.6 * DAY_MS).toISOString(),
-  }));
+  if (session.user.role === 'cashier') {
+    throw new PartnerApiError('Only owners and managers can see the team.', 403, 'forbidden');
+  }
+  const state = store();
+  return state.users
+    .filter((member) => member.partnerId === session.partner.id)
+    .map((member) => toPartnerLogin(member, state.credentials[member.userId]));
 }
 
 /**

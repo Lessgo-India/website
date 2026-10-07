@@ -1,17 +1,23 @@
 /**
- * Partner (merchant) portal flags.
+ * Partner (merchant) portal flags — also gate Admin → Partners.
  *
- * The portal currently runs on dummy data (web/lib/partner/dummyData.ts) so
- * the merchant flows can be reviewed before backend-offers-service exists.
+ * The portal and the admin console's Partners section currently run on dummy
+ * data (web/lib/partner/demoStore.ts + dummyData.ts) so the merchant and
+ * onboarding flows can be reviewed before backend-offers-service exists.
  *
  * TODO(backend), in order:
  *  1. Add the BFF routes app/api/partner/* mirroring app/api/admin/*: login
  *     sets an httpOnly `lessgo_partner_session` cookie, every other route
  *     forwards to the gateway's /partners/* proxy with the partner's identity.
- *  2. Set NEXT_PUBLIC_PARTNER_PORTAL_BACKEND=true — partnerApi.ts then calls
- *     those routes instead of the dummy store (see each function's contract).
- *  3. Serve the portal on a partners.* subdomain (rewrite to /partner in
- *     proxy.ts) and delete the demo accounts in dummyData.ts.
+ *  2. Implement the gateway's /admin/partners routes (stubbed in
+ *     gateway-service/src/modules/admin/admin-partners.controller.ts) and
+ *     allowlist them for the admin BFF (see web/lib/adminPartnersApi.ts).
+ *  3. Set NEXT_PUBLIC_PARTNER_PORTAL_BACKEND=true — partnerApi.ts and
+ *     adminPartnersApi.ts then call those routes instead of the dummy store
+ *     (see each function's contract).
+ *  4. Serve the portal on a partners.* subdomain (rewrite to /partner in
+ *     proxy.ts, set NEXT_PUBLIC_PARTNER_LOGIN_URL) and delete demoStore.ts
+ *     and dummyData.ts.
  */
 export const PARTNER_PORTAL_CONFIG = {
   /** Hidden in production builds until the backend is live. */
@@ -27,3 +33,15 @@ export const PARTNER_PORTAL_CONFIG = {
 
 // TODO: switch to a dedicated partner-support inbox once one exists.
 export const PARTNER_SUPPORT_EMAIL = 'hello@lessgo.in';
+
+/**
+ * The sign-in page that goes into the credentials Lessgo sends partners.
+ * Set NEXT_PUBLIC_PARTNER_LOGIN_URL once the portal has its partners.*
+ * subdomain; until then it's this site's /partner/login.
+ */
+export function partnerLoginUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_PARTNER_LOGIN_URL?.trim();
+  if (configured) return configured;
+  const origin = typeof window === 'undefined' ? '' : window.location.origin;
+  return `${origin}/partner/login`;
+}

@@ -1,22 +1,25 @@
 /**
- * DUMMY data for the partner (merchant) portal prototype.
+ * DUMMY data for the partner (merchant) portal and the admin console's
+ * Partners section.
  *
  * Same fictional brands, campaigns, targeting and outlets as the app's
  * dummy tray (lessgo-react-native/constants/dummyOffers.ts), seen from the
  * merchant's side. Emails and webhooks use the reserved `.example` domain;
- * GSTINs are placeholders.
+ * GSTINs are well-formed but fictional.
  *
- * TODO(backend): delete this file once partnerApi.ts talks to
- * backend-offers-service. Accounts are then issued from the Admin portal
- * (Partners → Issue credentials) and stored server-side with a slow password
+ * TODO(backend): delete this file (and demoStore.ts) once partnerApi.ts and
+ * adminPartnersApi.ts talk to backend-offers-service. Accounts are then
+ * issued from Admin → Partners and stored server-side with a slow password
  * hash; nothing here should survive into production.
  */
+import { GST_STATE_CODES, gstinCheckChar } from './onboarding';
 import { buildVoucherCode, computeDiscount, maskVoucherCode, offerLabel } from './rules';
 import type {
   CampaignOffer,
   CampaignStats,
   OfferTargeting,
   PartnerAccount,
+  PartnerAuditEntry,
   PartnerCampaign,
   PartnerDailyPoint,
   PartnerOutlet,
@@ -67,53 +70,68 @@ export const DEMO_ACCOUNTS: readonly DemoAccount[] = [
   { userId: 'rooftop.owner', password: DEMO_PASSWORD, note: 'Owner · 5 metro districts' },
 ];
 
-const partner = (
-  id: string,
-  brandName: string,
-  legalName: string,
-  logoEmoji: string,
-  brandColor: string,
-  category: string,
-  gstState: string,
-  contactEmail: string,
-  city: string,
-  plan: PartnerAccount['plan'],
-  onboardedDaysAgo: number,
-  integration: Partial<PartnerAccount['integration']> = {},
-  now = Date.now(),
-): PartnerAccount => ({
-  id,
-  brandName,
-  legalName,
-  logoEmoji,
-  brandColor,
-  category,
-  gstin: `${gstState}AAAAA0000A1Z5`,
-  contactEmail,
-  city,
-  plan,
-  onboardedAt: iso(-onboardedDaysAgo * DAY_MS, now),
-  integration: { apiKeyPreview: `lgp_live_••••${id.slice(-4)}`, ...integration },
-});
+interface PartnerSeed {
+  id: string;
+  handle: string;
+  brandName: string;
+  legalName: string;
+  /** 10-character PAN; the GSTIN is built from it and the state. */
+  pan: string;
+  logoEmoji: string;
+  brandColor: string;
+  category: string;
+  stateCode: string;
+  city: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  plan: PartnerAccount['plan'];
+  onboardedDaysAgo: number;
+  /** Seeded as invited: the owner still has a temporary password. */
+  invited?: boolean;
+  integration?: Partial<PartnerAccount['integration']>;
+}
+
+function partner(seed: PartnerSeed, now: number): PartnerAccount {
+  const first14 = `${GST_STATE_CODES[seed.stateCode][0]}${seed.pan}1Z`;
+  const onboardedAt = now - seed.onboardedDaysAgo * DAY_MS;
+  return {
+    id: seed.id,
+    handle: seed.handle,
+    status: seed.invited ? 'invited' : 'active',
+    brandName: seed.brandName,
+    legalName: seed.legalName,
+    logoEmoji: seed.logoEmoji,
+    brandColor: seed.brandColor,
+    category: seed.category,
+    gstin: first14 + gstinCheckChar(first14),
+    contactName: seed.contactName,
+    contactEmail: seed.contactEmail,
+    contactPhone: seed.contactPhone,
+    city: seed.city,
+    stateCode: seed.stateCode,
+    plan: seed.plan,
+    onboardedAt: new Date(onboardedAt).toISOString(),
+    ...(seed.invited ? {} : { activatedAt: new Date(onboardedAt + 26 * HOUR_MS).toISOString() }),
+    integration: { apiKeyPreview: `lgp_live_••••${seed.id.slice(-4)}`, ...seed.integration },
+  };
+}
+
+// Phone numbers are placeholders; the demo never sends SMS.
+const PARTNER_SEEDS: readonly PartnerSeed[] = [
+  { id: 'ptr_brew_bros', handle: 'brewbros', brandName: 'Brew Bros Café', legalName: 'Brew Brothers Hospitality Pvt Ltd', pan: 'AABCB4821K', logoEmoji: '☕', brandColor: '#8D5524', category: 'Cafés', stateCode: 'KA', city: 'Bengaluru', contactName: 'Rohan Mehta', contactEmail: 'partnerships@brewbros.example', contactPhone: '9876500001', plan: 'standard', onboardedDaysAgo: 124 },
+  { id: 'ptr_reel_house', handle: 'reelhouse', brandName: 'Reel House Cinemas', legalName: 'Reel House Entertainment Ltd', pan: 'AACCR7310M', logoEmoji: '🎬', brandColor: '#6C5CE7', category: 'Movies', stateCode: 'MH', city: 'Mumbai', contactName: 'Kavya Nair', contactEmail: 'alliances@reelhouse.example', contactPhone: '9876500002', plan: 'enterprise', onboardedDaysAgo: 210, integration: { webhookUrl: 'https://pos.reelhouse.example/lessgo/webhooks', webhookSecretPreview: 'whsec_••••91c2' } },
+  { id: 'ptr_slice_republic', handle: 'slice', brandName: 'Slice Republic', legalName: 'Slice Republic Foods Pvt Ltd', pan: 'AADCS2214P', logoEmoji: '🍕', brandColor: '#E4572E', category: 'Food & Drinks', stateCode: 'DL', city: 'New Delhi', contactName: 'Aditya Malhotra', contactEmail: 'growth@slicerepublic.example', contactPhone: '9876500003', plan: 'enterprise', onboardedDaysAgo: 180, integration: { webhookUrl: 'https://api.slicerepublic.example/hooks/lessgo', webhookSecretPreview: 'whsec_••••4d07' } },
+  { id: 'ptr_strike_zone', handle: 'strikezone', brandName: 'Strike Zone Bowling', legalName: 'Strike Zone Leisure LLP', pan: 'AAJFS6402Q', logoEmoji: '🎳', brandColor: '#0984E3', category: 'Games', stateCode: 'MH', city: 'Mumbai', contactName: 'Farhan Shaikh', contactEmail: 'hello@strikezone.example', contactPhone: '9876500004', plan: 'standard', onboardedDaysAgo: 96 },
+  { id: 'ptr_chaat_street', handle: 'chaatstreet', brandName: 'Chaat Street', legalName: 'Chaat Street Kitchens Pvt Ltd', pan: 'AAHCC9087L', logoEmoji: '🥙', brandColor: '#F39C12', category: 'Food & Drinks', stateCode: 'DL', city: 'New Delhi', contactName: 'Pooja Bansal', contactEmail: 'owner@chaatstreet.example', contactPhone: '9876500005', plan: 'pilot', onboardedDaysAgo: 2, invited: true },
+  { id: 'ptr_trail_tribe', handle: 'trailtribe', brandName: 'Trail Tribe Treks', legalName: 'Trail Tribe Adventures Pvt Ltd', pan: 'AAGCT3356D', logoEmoji: '🏕️', brandColor: '#27AE60', category: 'Outdoors', stateCode: 'KA', city: 'Mysuru', contactName: 'Vikram Gowda', contactEmail: 'trips@trailtribe.example', contactPhone: '9876500006', plan: 'pilot', onboardedDaysAgo: 61 },
+  { id: 'ptr_coastal_curry', handle: 'coastalcurry', brandName: 'Coastal Curry Co.', legalName: 'Coastal Curry Company', pan: 'AAKFC5523B', logoEmoji: '🍛', brandColor: '#16A085', category: 'Food & Drinks', stateCode: 'KL', city: 'Kochi', contactName: 'Anil Thomas', contactEmail: 'eat@coastalcurry.example', contactPhone: '9876500007', plan: 'standard', onboardedDaysAgo: 75 },
+  { id: 'ptr_playzone', handle: 'playzone', brandName: 'PlayZone Arcade', legalName: 'PlayZone Amusements Pvt Ltd', pan: 'AAECP8841H', logoEmoji: '🕹️', brandColor: '#E84393', category: 'Games', stateCode: 'TG', city: 'Hyderabad', contactName: 'Meera Reddy', contactEmail: 'fun@playzone.example', contactPhone: '9876500008', plan: 'standard', onboardedDaysAgo: 140 },
+  { id: 'ptr_rooftop_social', handle: 'rooftop', brandName: 'Rooftop Social', legalName: 'Rooftop Social Hospitality LLP', pan: 'AAMFR1190N', logoEmoji: '🎶', brandColor: '#2D3436', category: 'Live music', stateCode: 'TG', city: 'Hyderabad', contactName: 'Karthik Rao', contactEmail: 'gigs@rooftopsocial.example', contactPhone: '9876500009', plan: 'standard', onboardedDaysAgo: 88 },
+];
 
 export function dummyPartners(now = Date.now()): PartnerAccount[] {
-  return [
-    partner('ptr_brew_bros', 'Brew Bros Café', 'Brew Brothers Hospitality Pvt Ltd', '☕', '#8D5524', 'Cafés', '29', 'partnerships@brewbros.example', 'Bengaluru', 'standard', 124, {}, now),
-    partner('ptr_reel_house', 'Reel House Cinemas', 'Reel House Entertainment Ltd', '🎬', '#6C5CE7', 'Movies', '27', 'alliances@reelhouse.example', 'Mumbai', 'enterprise', 210, {
-      webhookUrl: 'https://pos.reelhouse.example/lessgo/webhooks',
-      webhookSecretPreview: 'whsec_••••91c2',
-    }, now),
-    partner('ptr_slice_republic', 'Slice Republic', 'Slice Republic Foods Pvt Ltd', '🍕', '#E4572E', 'Food & Drinks', '07', 'growth@slicerepublic.example', 'New Delhi', 'enterprise', 180, {
-      webhookUrl: 'https://api.slicerepublic.example/hooks/lessgo',
-      webhookSecretPreview: 'whsec_••••4d07',
-    }, now),
-    partner('ptr_strike_zone', 'Strike Zone Bowling', 'Strike Zone Leisure LLP', '🎳', '#0984E3', 'Games', '27', 'hello@strikezone.example', 'Mumbai', 'standard', 96, {}, now),
-    partner('ptr_chaat_street', 'Chaat Street', 'Chaat Street Kitchens Pvt Ltd', '🥙', '#F39C12', 'Food & Drinks', '07', 'owner@chaatstreet.example', 'New Delhi', 'pilot', 2, {}, now),
-    partner('ptr_trail_tribe', 'Trail Tribe Treks', 'Trail Tribe Adventures Pvt Ltd', '🏕️', '#27AE60', 'Outdoors', '29', 'trips@trailtribe.example', 'Mysuru', 'pilot', 61, {}, now),
-    partner('ptr_coastal_curry', 'Coastal Curry Co.', 'Coastal Curry Company', '🍛', '#16A085', 'Food & Drinks', '32', 'eat@coastalcurry.example', 'Kochi', 'standard', 75, {}, now),
-    partner('ptr_playzone', 'PlayZone Arcade', 'PlayZone Amusements Pvt Ltd', '🕹️', '#E84393', 'Games', '36', 'fun@playzone.example', 'Hyderabad', 'standard', 140, {}, now),
-    partner('ptr_rooftop_social', 'Rooftop Social', 'Rooftop Social Hospitality LLP', '🎶', '#2D3436', 'Live music', '36', 'gigs@rooftopsocial.example', 'Hyderabad', 'standard', 88, {}, now),
-  ];
+  return PARTNER_SEEDS.map((seed) => partner(seed, now));
 }
 
 const user = (
@@ -766,3 +784,50 @@ export const DUMMY_DISTRICT_WEIGHT: Record<string, number> = {
   'PB-ludhiana': 0.25,
   'AP-visakhapatnam': 0.25,
 };
+
+// ── Admin activity trail ────────────────────────────────────────────────────
+
+const SEED_ADMIN = 'Lessgo Ops';
+
+/** History for the admin console: onboarding, first sign-in and reviews. */
+export function dummyAuditTrail(
+  partners: readonly PartnerAccount[],
+  users: readonly PartnerUser[],
+  campaigns: readonly PartnerCampaign[],
+): PartnerAuditEntry[] {
+  const entries: PartnerAuditEntry[] = [];
+  const add = (partnerId: string, at: string, actor: string, action: PartnerAuditEntry['action'], detail: string) =>
+    entries.push({ id: `aud_${partnerId}_${entries.length}`, partnerId, at, actor, action, detail });
+
+  for (const account of partners) {
+    const owner = users.find((member) => member.partnerId === account.id && member.role === 'owner');
+    const onboardedAt = Date.parse(account.onboardedAt);
+    add(account.id, account.onboardedAt, SEED_ADMIN, 'partner.onboarded', `Onboarded on the ${account.plan} plan.`);
+    if (owner) {
+      add(
+        account.id,
+        new Date(onboardedAt + 60_000).toISOString(),
+        SEED_ADMIN,
+        'login.issued',
+        `Issued ${owner.userId} (owner) and emailed ${owner.email}.`,
+      );
+    }
+    if (account.activatedAt && owner) {
+      add(account.id, account.activatedAt, owner.userId, 'partner.activated', 'Owner set a password and signed in.');
+    }
+  }
+
+  for (const campaign of campaigns) {
+    const owner = users.find((member) => member.partnerId === campaign.partnerId && member.role === 'owner');
+    if (!campaign.submittedAt || !owner) continue;
+    add(campaign.partnerId, campaign.submittedAt, owner.userId, 'campaign.submitted', `Submitted “${campaign.headline}”.`);
+    const reviewedAt = new Date(Date.parse(campaign.submittedAt) + 20 * HOUR_MS).toISOString();
+    if (campaign.status === 'rejected') {
+      add(campaign.partnerId, reviewedAt, SEED_ADMIN, 'campaign.rejected', `Sent back “${campaign.headline}”: ${campaign.reviewNote ?? ''}`);
+    } else if (campaign.status === 'scheduled' || campaign.status === 'live') {
+      add(campaign.partnerId, reviewedAt, SEED_ADMIN, 'campaign.approved', `Approved “${campaign.headline}”.`);
+    }
+  }
+
+  return entries.sort((a, b) => b.at.localeCompare(a.at));
+}
