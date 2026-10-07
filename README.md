@@ -2,7 +2,7 @@ Workspace: Collecting workspace information# Lessgo — Hangouts made easy
 
 ![Lessgo Logo](https://lessgo-asset.s3.ap-south-1.amazonaws.com/images/logo.png)
 
-The Lessgo website. It does two jobs:
+The Lessgo website. It does four jobs:
 
 1. **Marketing site** — static, server-rendered pages that explain the product and
    drive app installs.
@@ -10,6 +10,11 @@ The Lessgo website. It does two jobs:
    RSVP in a browser without installing the app.
 3. **Admin portal** — an authenticated operations dashboard with production
    health, aggregate metrics, and Bug House triage.
+4. **Partner portal** (`/partner`, prototype on dummy data) — brands sign in
+   with the user ID Lessgo issues them, run offer campaigns for the app's Vibes
+   tray (State/District, age and gender targeting) and redeem guests' vouchers
+   at the counter. Demo logins are listed on `/partner/login`; the backend
+   switch-over steps are in `web/lib/partner/config.ts`.
 
 ## ✨ What's here
 

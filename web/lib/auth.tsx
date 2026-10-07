@@ -10,6 +10,7 @@ import React, {
 } from 'react';
 import { usePathname } from 'next/navigation';
 import { isFirebaseConfigured } from './config';
+import { isInternalToolPath } from './internalRoutes';
 import {
   getFirebaseAuth,
   onAuthStateChanged,
@@ -49,8 +50,8 @@ function phoneToUserId(user: User | null): string | null {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isAdminRoute =
-    pathname === '/admin' || (pathname?.startsWith('/admin/') ?? false);
+  // Admin and partner tools have their own sign-in; skip consumer Firebase auth.
+  const isAdminRoute = isInternalToolPath(pathname);
   const [user, setUser] = useState<User | null>(null);
   // When Firebase isn't configured we are immediately "ready" with no session.
   const [ready, setReady] = useState<boolean>(!isFirebaseConfigured);

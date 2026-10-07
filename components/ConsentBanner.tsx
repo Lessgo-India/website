@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { isInternalToolPath } from '@web/lib/internalRoutes';
 import {
   isAnalyticsSuppressedPath,
   loadAnalytics,
@@ -19,10 +20,10 @@ import { Button } from './Button';
  */
 export function ConsentBanner() {
   const [visible, setVisible] = useState(false);
-  // The internal admin tool is not a public marketing surface: it loads no
-  // marketing analytics, so there is nothing here to consent to.
+  // Internal tools (admin, partner portal) are not public marketing surfaces:
+  // they load no marketing analytics, so there is nothing here to consent to.
   const pathname = usePathname();
-  const isInternal = pathname === '/admin' || (pathname?.startsWith('/admin/') ?? false);
+  const isInternal = isInternalToolPath(pathname);
   const analyticsDisabled = isInternal || isAnalyticsSuppressedPath(pathname);
 
   useEffect(() => {
