@@ -3,12 +3,12 @@ import {
   isAllowedAdminPatch,
   isAllowedAdminPost,
   isAllowedAdminRead,
-  isValidAdminAlertPreferencesBody,
+  isBodylessAdminPost,
   isValidAdminAlertUnsubscribeBody,
-  isValidAdminBugPatchBody,
-  isValidAdminReportPatchBody,
+  isValidAdminPatchBody,
   isValidAdminPostBody,
 } from "./adminGatewayPolicy.js";
+import { bodyIsEmpty } from "./requestBody.js";
 
 export type AdminGatewayRouteContext = {
   params: Promise<{ path: string[] }>;
@@ -30,6 +30,13 @@ interface AdminGatewayRouteDeps<Session> {
 }
 
 function reply(status: number, body: unknown): Response {
+  // A 204 from the gateway has no body to relay (Response.json would throw).
+  if (status === 204 || status === 205 || status === 304) {
+    return new Response(null, {
+      status,
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
   return Response.json(body, {
     status,
     headers: { "Cache-Control": "no-store" },
@@ -112,9 +119,14 @@ export function createAdminGatewayHandlers<Session>(
 
     const { path } = await params;
     const segments = path ?? [];
+    // Partner ids and user ids carry "_" and "." (ptr_brew_bros,
+    // brewbros.owner); the policy still matches every segment exactly.
     if (
       segments.length === 0 ||
-      segments.some((segment) => !/^[a-z0-9-]+$/i.test(segment))
+      segments.some(
+        (segment) =>
+          segment.length > 128 || !/^[a-z0-9][a-z0-9_.-]*$/i.test(segment),
+      )
     ) {
       return {
         response: reply(404, { message: "Unknown admin endpoint." }),
@@ -161,15 +173,7 @@ export function createAdminGatewayHandlers<Session>(
     const parsedBody = await readJsonBody(request);
     if ("response" in parsedBody) return parsedBody.response;
 
-    const isBugPatch = parsed.segments[0] === "bugs";
-    const isReportPatch = parsed.segments[0] === "reports";
-    if (
-      (isBugPatch && !isValidAdminBugPatchBody(parsedBody.body)) ||
-      (isReportPatch && !isValidAdminReportPatchBody(parsedBody.body)) ||
-      (!isBugPatch &&
-        !isReportPatch &&
-        !isValidAdminAlertPreferencesBody(parsedBody.body))
-    ) {
+    if (!isValidAdminPatchBody(parsed.segments, parsedBody.body)) {
       return reply(400, { message: "Invalid admin request." });
     }
 
@@ -195,9 +199,7 @@ export function createAdminGatewayHandlers<Session>(
       return reply(403, { message: "Cross-origin admin mutation denied." });
     }
 
-    const isAction =
-      parsed.segments.length === 4 ||
-      parsed.segments.join("/") === "notifications/alerts/test";
+    const isAction = isBodylessAdminPost(parsed.segments);
     let body: unknown = undefined;
     if (!isAction) {
       const parsedBody = await readJsonBody(request);
@@ -206,8 +208,8 @@ export function createAdminGatewayHandlers<Session>(
       if (!isValidAdminPostBody(parsed.segments, body)) {
         return reply(400, { message: "Invalid admin request." });
       }
-    } else if (request.body !== null) {
-      return reply(400, { message: "This campaign action takes no body." });
+    } else if (!(await bodyIsEmpty(request))) {
+      return reply(400, { message: "This admin action takes no body." });
     }
 
     const result = await deps.callGateway(
@@ -243,7 +245,7 @@ export function createAdminGatewayHandlers<Session>(
         return reply(400, { message: "Invalid admin request." });
       }
       body = parsedBody.body;
-    } else if (request.body !== null) {
+    } else if (!(await bodyIsEmpty(request))) {
       return reply(400, { message: "This admin action takes no body." });
     }
 

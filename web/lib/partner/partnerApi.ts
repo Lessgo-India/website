@@ -5,14 +5,13 @@
  * (demoStore.ts — also used by the admin console's Partners section),
  * persisted in localStorage so edits survive reloads. With
  * NEXT_PUBLIC_PARTNER_PORTAL_BACKEND=true the same functions call the BFF
- * route documented on each one instead.
+ * route documented on each one instead: app/api/partner/* (logic in
+ * partnerBff.ts) owns the httpOnly `lessgo_partner_session` cookie and
+ * forwards to the gateway's BFF-only /partner-auth/* and /partner/* routes,
+ * which proxy to backend-offers-service (contract: offers-backend-spec §4–5).
  *
- * TODO(backend): build the BFF under app/api/partner/* (pattern:
- * app/api/admin/gateway/[...path]) — it owns the httpOnly
- * `lessgo_partner_session` cookie and forwards to the gateway's /partners/*
- * routes (gateway-service/src/proxy/brand-offers.controller.ts notes where
- * they go), which proxy to backend-offers-service. Then delete the dummy
- * branch of every function below, demoStore.ts and dummyData.ts.
+ * TODO(backend): once the offers service is live, delete the dummy branch of
+ * every function below, demoStore.ts and dummyData.ts.
  */
 import {
   channelIsLive,
@@ -28,6 +27,7 @@ import {
   demoPause as pause,
   demoStore as store,
   estimateReach,
+  randomBytes,
   randomId,
   recordAudit,
   resetDemoStore,
@@ -38,6 +38,12 @@ import {
   type DemoState,
   type DemoVoucher,
 } from './demoStore';
+import {
+  DEVELOPER_CREDENTIAL_DETAILS,
+  developerCredentialAccessRefusal,
+  developerCredentialsOf,
+  rotateDeveloperCredentialIn,
+} from './developerCredentials';
 import { dummyDailySeries, dummyIntegrationTest } from './dummyData';
 import { getGeoDistrict, isPincodeInState, stateCodeOfDistrict } from './indiaGeo';
 import {
@@ -51,6 +57,7 @@ import {
   validateCampaignDraft,
   type CampaignDraft,
   type DraftErrors,
+  type DraftStep,
 } from './rules';
 import type {
   BookingIntegration,
@@ -58,6 +65,8 @@ import type {
   CampaignStats,
   CheckoutIntegration,
   CheckoutIntegrationInput,
+  DeveloperCredentials,
+  DeveloperCredentialType,
   IntegrationTestRun,
   OfferTargeting,
   PartnerAccount,
@@ -71,6 +80,7 @@ import type {
   PartnerUser,
   PartnerVoucherLookup,
   RedemptionChannel,
+  RevealedCredential,
 } from './types';
 
 export class PartnerApiError extends Error {
@@ -90,36 +100,67 @@ export class PartnerApiError extends Error {
 
 const backendEnabled = () => !PARTNER_PORTAL_CONFIG.useDummyData;
 
-/** Real mode: same-origin BFF call; a 401 tells PartnerSessionProvider to sign out. */
+const DRAFT_STEPS: readonly DraftStep[] = ['offer', 'creative', 'audience', 'rules'];
+
+/** The per-step messages of a 422 `validation` error, ignoring anything else. */
+function draftErrorsFrom(details: unknown): DraftErrors | undefined {
+  if (typeof details !== 'object' || details === null || Array.isArray(details)) return undefined;
+  const errors: DraftErrors = {};
+  for (const step of DRAFT_STEPS) {
+    const messages = (details as Record<string, unknown>)[step];
+    if (Array.isArray(messages) && messages.length > 0 && messages.every((message) => typeof message === 'string')) {
+      errors[step] = messages;
+    }
+  }
+  return Object.keys(errors).length > 0 ? errors : undefined;
+}
+
+/**
+ * Real mode: same-origin BFF call (app/api/partner/* → gateway → offers
+ * service); the session rides in the httpOnly cookie. Errors keep the
+ * service's `message` and `code`, plus per-step `details` for 422
+ * `validation`; a 401 tells PartnerSessionProvider to sign out.
+ */
 async function bff<T>(
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown,
+  options: { idempotencyKey?: string } = {},
 ): Promise<T> {
-  const response = await fetch(`/api/partner${path}`, {
-    method,
-    credentials: 'same-origin',
-    cache: 'no-store',
-    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`/api/partner${path}`, {
+      method,
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/json',
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...(options.idempotencyKey ? { 'Idempotency-Key': options.idempotencyKey } : {}),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    throw new PartnerApiError('Network error. Check your connection and try again.', 0, 'network_error');
+  }
   const payload = (await response.json().catch(() => ({}))) as {
-    message?: string;
+    message?: string | string[];
     code?: string;
-    details?: DraftErrors;
-  };
+    details?: unknown;
+  } | null;
   if (!response.ok) {
     if (response.status === 401 && typeof window !== 'undefined') {
       window.dispatchEvent(new Event('partner:unauthorized'));
     }
+    const message = Array.isArray(payload?.message) ? payload.message.join(', ') : payload?.message;
     throw new PartnerApiError(
-      payload.message ?? 'Request failed.',
+      message || 'Request failed.',
       response.status,
-      payload.code ?? 'error',
-      payload.details,
+      typeof payload?.code === 'string' ? payload.code : 'error',
+      response.status === 422 && payload?.code === 'validation' ? draftErrorsFrom(payload.details) : undefined,
     );
   }
-  return payload as T;
+  return (payload ?? {}) as T;
 }
 
 // ── Demo session ────────────────────────────────────────────────────────────
@@ -142,8 +183,10 @@ export async function resetPartnerDemo(): Promise<void> {
  *
  * DUMMY: computed from made-up per-state user counts (demoStore.ts).
  * BACKEND: POST /api/partner/audience/estimate { targeting } → { estimate }
- *   (offers service counts profiles by home location + age/gender, rounds,
- *   and never returns a number below PARTNER_PORTAL_CONFIG.minAudience).
+ *   (the offers service counts profiles by home location + age/gender and
+ *   rounds like roundEstimate; anything under
+ *   PARTNER_PORTAL_CONFIG.minAudience is shown as "Under 1,000" and blocks
+ *   submitting, as in the dummy).
  */
 export async function fetchAudienceEstimate(targeting: OfferTargeting): Promise<number> {
   if (backendEnabled()) {
@@ -243,13 +286,14 @@ function parseSignInResult(payload: unknown): SignInResult {
  * issued from Admin → Partners); 5 failures lock the ID for a minute.
  * BACKEND: POST /api/partner/login { userId, password } → SignInResult:
  *   → 200 { kind: "signed_in", session } and Set-Cookie
- *     lessgo_partner_session (httpOnly, 8 h)
+ *     lessgo_partner_session (httpOnly, SameSite=Lax, ≤ 8 h); the BFF takes
+ *     the gateway's top-level `token` into the cookie and never returns it
  *   → 200 { kind: "password_change_required", challenge, user } for
  *     temporary passwords (`user` greets them on the set-password step)
  *   → 401 invalid_credentials | temporary_password_expired
  *   → 403 login_disabled | partner_suspended (only after a correct password)
- *   → 429 locked (rate-limited per ID and IP, like
- *     web/lib/adminLoginRateLimit.server.ts).
+ *   → 429 locked (5 failures lock the ID for a minute; the offers service
+ *     also limits each IP, which the BFF forwards as x-partner-client-ip).
  */
 export async function partnerSignIn(rawUserId: string, password: string): Promise<SignInResult> {
   const userId = rawUserId.trim().toLowerCase();
@@ -293,7 +337,8 @@ export async function partnerSignIn(rawUserId: string, password: string): Promis
  * Replace a temporary password on first sign-in.
  *
  * BACKEND: POST /api/partner/login/first-password { challenge, newPassword }
- *   → { session } + cookie. The server re-checks the policy, that the new
+ *   → { session } + cookie (401 challenge_expired, 400 weak_password, 403 as
+ *   for sign-in). The server re-checks the policy, that the new
  *   password differs from the temporary one, and — because an admin may have
  *   acted since the challenge — that the partner isn't suspended, the login is
  *   on, and the temporary password is unexpired and the one the challenge was
@@ -366,13 +411,14 @@ export async function partnerCompleteFirstLogin(challenge: string, newPassword: 
  * server re-reads the session on every request — suspending the partner,
  * turning the login off or resetting its password ends it for good (those
  * actions revoke sessions, so reactivating doesn't bring it back).
- * BACKEND: GET /api/partner/session → { session } | 401.
+ * BACKEND: GET /api/partner/session → { session } | 401 (no cookie, or the
+ *   offers service revoked it — the BFF then clears the cookie).
  */
 export async function getPartnerSession(): Promise<PartnerSession | null> {
   if (backendEnabled()) {
     try {
-      const { session } = await bff<{ session: PartnerSession }>('GET', '/session');
-      return session;
+      const { session } = await bff<{ session?: PartnerSession }>('GET', '/session');
+      return session?.user && session.partner ? session : null;
     } catch (error) {
       if (error instanceof PartnerApiError && error.status === 401) return null;
       throw error;
@@ -408,7 +454,7 @@ export async function getPartnerSession(): Promise<PartnerSession | null> {
   }
 }
 
-/** BACKEND: POST /api/partner/logout (clears the cookie, revokes the session). */
+/** BACKEND: POST /api/partner/logout → 204 (revokes the session; the BFF always clears the cookie). */
 export async function partnerSignOut(): Promise<void> {
   if (backendEnabled()) {
     await bff('POST', '/logout');
@@ -421,7 +467,7 @@ export async function partnerSignOut(): Promise<void> {
   }
 }
 
-/** BACKEND: POST /api/partner/password { currentPassword, newPassword } (revokes other sessions). */
+/** BACKEND: POST /api/partner/password { currentPassword, newPassword } → 204 (revokes other sessions). */
 export async function changePartnerPassword(
   session: PartnerSession,
   currentPassword: string,
@@ -603,9 +649,15 @@ function campaignFields(draft: CampaignDraft) {
  * Submit a campaign for Lessgo review — a new one, or (`resubmitOf`) a
  * rejected one after addressing the review note, which keeps its id.
  *
+ * `idempotencyKey` names the submit, not the request: the wizard keeps it
+ * across retries (idempotency.ts), so a retry after a timeout gets back the
+ * campaign the first attempt created rather than a duplicate. Only the POST
+ * sends it; DUMMY ignores it.
+ *
  * BACKEND:
  *   POST /api/partner/campaigns (Idempotency-Key) { draft }
- *     → 201 PartnerCampaign { status: "in_review" } | 422 { details: DraftErrors }
+ *     → 201 PartnerCampaign { status: "in_review" } (the same key again → that campaign)
+ *     | 422 { code: "validation", details: DraftErrors }
  *   PUT /api/partner/campaigns/:id { draft }   (resubmission)
  *     → 200 PartnerCampaign { status: "in_review" } | 409 unless "rejected" | 422
  *   An admin approves it in the Admin portal (→ "scheduled"/"live"). From
@@ -617,12 +669,12 @@ function campaignFields(draft: CampaignDraft) {
 export async function submitPartnerCampaign(
   session: PartnerSession,
   draft: CampaignDraft,
-  options: { resubmitOf?: string } = {},
+  options: { idempotencyKey: string; resubmitOf?: string },
 ): Promise<PartnerCampaign> {
   if (backendEnabled()) {
     return options.resubmitOf
       ? bff<PartnerCampaign>('PUT', `/campaigns/${encodeURIComponent(options.resubmitOf)}`, { draft })
-      : bff<PartnerCampaign>('POST', '/campaigns', { draft });
+      : bff<PartnerCampaign>('POST', '/campaigns', { draft }, { idempotencyKey: options.idempotencyKey });
   }
 
   await pause(600);
@@ -856,7 +908,7 @@ function toLookup(voucher: DemoVoucher): PartnerVoucherLookup {
  * Look a voucher up from a scanned QR payload or a typed code.
  *
  * DUMMY: any 6-digit live code is accepted.
- * BACKEND: POST /api/partner/vouchers/lookup { input, outletId } → PartnerVoucherLookup
+ * BACKEND: POST /api/partner/vouchers/lookup { input } → PartnerVoucherLookup
  *   QR payloads carry the rotating code, which the offers service verifies
  *   as a 30-second TOTP (±1 step) so screenshots can't be reused. Unknown
  *   codes and other partners' codes both return 404.
@@ -887,8 +939,14 @@ export interface RedeemRequest {
 /**
  * Confirm an in-person redemption.
  *
+ * `idempotencyKey` names this redemption: the console mints one per
+ * looked-up voucher and reuses it on every Confirm retry (idempotency.ts), so
+ * a retry after a timeout gets the redemption the first attempt booked rather
+ * than 409 not_redeemable. DUMMY ignores it.
+ *
  * BACKEND: POST /api/partner/redemptions (Idempotency-Key) { RedeemRequest }
- *   → 201 PartnerRedemption | 409 not_redeemable.
+ *   → 201 PartnerRedemption (the same key again → that redemption)
+ *   | 409 not_redeemable | 409 idempotency_conflict (key used for another voucher).
  *   The offers service flips the voucher to "redeemed" and emits
  *   voucher.redeemed: the app shows "Coupon Redeemed" on the event, and for
  *   percent offers the coupon-credit expense is booked with the actual
@@ -896,8 +954,14 @@ export interface RedeemRequest {
  *   Enterprise partners can report the same thing from their POS via
  *   POST /webhooks/offers/:partnerId (HMAC-signed) instead of this console.
  */
-export async function redeemVoucher(session: PartnerSession, request: RedeemRequest): Promise<PartnerRedemption> {
-  if (backendEnabled()) return bff<PartnerRedemption>('POST', '/redemptions', request);
+export async function redeemVoucher(
+  session: PartnerSession,
+  request: RedeemRequest,
+  options: { idempotencyKey: string },
+): Promise<PartnerRedemption> {
+  if (backendEnabled()) {
+    return bff<PartnerRedemption>('POST', '/redemptions', request, { idempotencyKey: options.idempotencyKey });
+  }
 
   await pause(550);
   const state = store();
@@ -965,7 +1029,9 @@ export async function listPartnerRedemptions(
     if (options.campaignId) query.set('campaignId', options.campaignId);
     if (options.channel) query.set('channel', options.channel);
     if (options.limit) query.set('limit', String(options.limit));
-    return (await bff<{ redemptions: PartnerRedemption[] }>('GET', `/redemptions?${query}`)).redemptions;
+    const search = query.toString();
+    return (await bff<{ redemptions: PartnerRedemption[] }>('GET', `/redemptions${search ? `?${search}` : ''}`))
+      .redemptions;
   }
 
   await pause(250);
@@ -1252,8 +1318,9 @@ export async function runIntegrationTest(session: PartnerSession, channel: Onlin
  * Ask Lessgo to approve production for a channel.
  *
  * BACKEND: POST /api/partner/integrations/:channel/go-live
- *   → { status: "ready_for_review" }. Needs a passing sandbox run from the
- *   last 7 days; an admin approves it under Admin → Partners.
+ *   → the integration { status: "ready_for_review", goLiveRequestedAt }.
+ *   Needs a passing sandbox run from the last 7 days (409 test_required);
+ *   an admin approves it under Admin → Partners.
  */
 export async function requestIntegrationGoLive(
   session: PartnerSession,
@@ -1287,4 +1354,66 @@ export async function requestIntegrationGoLive(
   });
   persist(state);
   return structuredClone(integration);
+}
+
+// ── Developer credentials ───────────────────────────────────────────────────
+
+/**
+ * The signing secret every online partner's servers sign with, plus the
+ * Partner API keys for online checkout — previews and dates only (owner only).
+ * Booking-only partners get testKey/liveKey null.
+ *
+ * DUMMY: the rules in developerCredentials.ts on the demo store.
+ * BACKEND: GET /api/partner/integrations/credentials → DeveloperCredentials
+ *   (403 forbidden for non-owners, 404 without an online channel).
+ */
+export async function getDeveloperCredentials(session: PartnerSession): Promise<DeveloperCredentials> {
+  if (backendEnabled()) return bff<DeveloperCredentials>('GET', '/integrations/credentials');
+
+  await pause(250);
+  const state = store();
+  const account = partnerById(session.partner.id, state);
+  const refusal = developerCredentialAccessRefusal(account, session.user.role);
+  if (refusal) throw new PartnerApiError(refusal.message, refusal.status, refusal.code);
+  return developerCredentialsOf(account, state.developerCredentials?.[account.id]);
+}
+
+/**
+ * Generate a new credential of `type`. The previous one stops working at
+ * once; the full value is returned exactly once (only a preview is kept).
+ *
+ * DUMMY: a fake value in the real format (crypto.getRandomValues).
+ * BACKEND: POST /api/partner/integrations/credentials { type }
+ *   → RevealedCredential | 409 not_applicable (test_key/live_key without
+ *   online checkout) | 409 integration_not_live (live_key before Lessgo
+ *   approves go-live) | 403 forbidden (not the owner); audit
+ *   integration.credentials_rotated.
+ */
+export async function rotateDeveloperCredential(
+  session: PartnerSession,
+  type: DeveloperCredentialType,
+): Promise<RevealedCredential> {
+  if (backendEnabled()) return bff<RevealedCredential>('POST', '/integrations/credentials', { type });
+
+  await pause(450);
+  const state = store();
+  const account = partnerById(session.partner.id, state);
+  const records = { ...state.developerCredentials?.[account.id] };
+  const result = rotateDeveloperCredentialIn(account, session.user.role, records, type, {
+    now: Date.now(),
+    randomBytes,
+  });
+  if (!result.ok) throw new PartnerApiError(result.message, result.status, result.code);
+  state.developerCredentials = { ...state.developerCredentials, [account.id]: records };
+  const { label } = DEVELOPER_CREDENTIAL_DETAILS[result.revealed.type];
+  recordAudit(state, {
+    partnerId: account.id,
+    actor: session.user.userId,
+    action: 'integration.credentials_rotated',
+    detail: result.replaced
+      ? `${label}: generated a new one (${result.revealed.preview}); the previous one stopped working.`
+      : `${label}: generated (${result.revealed.preview}).`,
+  });
+  persist(state);
+  return result.revealed;
 }

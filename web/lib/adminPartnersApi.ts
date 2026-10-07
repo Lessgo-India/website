@@ -11,18 +11,21 @@
  * adminRequest('/gateway/…') → app/api/admin/gateway/[...path] → gateway
  * `/admin/…` (AdminGuard + x-admin-api-key; the BFF adds x-admin-user, which
  * becomes the audit actor) → backend-offers-service. Request and response
- * bodies are the types in partner/types.ts.
+ * bodies are the types in partner/types.ts; failures arrive as ApiError with
+ * the service's message, `code` (e.g. "handle_taken") and `details`.
+ *
+ * The admin BFF allowlists exactly these (web/lib/adminGatewayPolicy.js, with
+ * shape checks on every body):
+ *   GET   partners, partners/:id, partner-handles/:handle
+ *   POST  partners, partners/:id/logins,
+ *         partners/:id/logins/:userId/reset-password, campaigns/:id/review,
+ *         partners/:id/integrations/:channel/{approve (no body), rollback}
+ *   PATCH partners/:id, partners/:id/logins/:userId, partners/:id/channels
  *
  * TODO(backend), in order:
  *  1. Implement the routes stubbed in
  *     gateway-service/src/modules/admin/admin-partners.controller.ts.
- *  2. Allowlist them in web/lib/adminGatewayPolicy.js (+ its tests):
- *       GET   partners, partners/:id, partner-handles/:handle
- *       POST  partners, partners/:id/logins,
- *             partners/:id/logins/:userId/reset-password, campaigns/:id/review,
- *             partners/:id/integrations/:channel/{approve,rollback}
- *       PATCH partners/:id, partners/:id/logins/:userId, partners/:id/channels
- *  3. Set NEXT_PUBLIC_PARTNER_PORTAL_BACKEND=true and delete every dummy
+ *  2. Set NEXT_PUBLIC_PARTNER_PORTAL_BACKEND=true and delete every dummy
  *     branch below.
  */
 import { ApiError } from './api';
@@ -126,6 +129,9 @@ function newBookingIntegration(input: Pick<PartnerChannelsInput, 'bookingProduct
     auth: 'oauth2_client_credentials',
   };
 }
+
+/** Partners with an online channel get a signing secret (offers-backend-spec §5.1). */
+const sellsOnline = (channels: readonly RedemptionChannel[]) => channels.some((channel) => channel !== 'in_store');
 
 const channelNames = (channels: readonly RedemptionChannel[]) =>
   channels.map((channel) => CHANNEL_DETAILS[channel].label).join(' + ');
@@ -299,6 +305,9 @@ export function takenPartnerHandles(): string[] {
  *   The temporary password is generated server-side (CSPRNG), stored as a
  *   slow hash, emailed/texted through backend-notification-service when
  *   `dispatch` asks for it, and returned this once so the admin can share it.
+ *   A partner with an online channel also gets its signing secret, and
+ *   online_code its sandbox API key — previews only: the owner generates
+ *   usable values under Integrations → Developer credentials.
  */
 export async function onboardPartner(
   input: PartnerOnboardingInput,
@@ -342,6 +351,9 @@ export async function onboardPartner(
     onboardedAt: now,
     integration: {
       apiKeyPreview: 'Not issued',
+      // Online partners sign what they send Lessgo (Partner API calls, booking
+      // webhooks) with a per-partner signing secret issued now.
+      ...(sellsOnline(input.channels) ? { webhookSecretPreview: keyPreview('whsec_') } : {}),
       // Online channels start unconnected: the owner sets them up in the
       // portal (Integrations) and Lessgo approves go-live.
       ...(input.channels.includes('online_code') ? { checkout: newCheckoutIntegration(input.website.trim()) } : {}),
@@ -597,7 +609,8 @@ const OPEN_CAMPAIGN_STATUSES: readonly PartnerCampaign['status'][] = ['in_review
  * BACKEND: PATCH /admin/partners/:id/channels PartnerChannelsInput
  *   → PartnerAccount | 409 (open campaigns / counter staff on a removed channel) | 422.
  *   Removing an online channel deletes its integration (keys revoked); adding
- *   it back starts unconnected.
+ *   it back starts unconnected. The partner's first online channel also
+ *   issues its signing secret (kept if the channels change again).
  */
 export async function setPartnerChannels(
   partnerId: string,
@@ -660,6 +673,9 @@ export async function setPartnerChannels(
       if (input.bookingMethod) partner.integration.booking.method = input.bookingMethod;
     }
   }
+  if (sellsOnline(partner.channels) && !partner.integration.webhookSecretPreview) {
+    partner.integration.webhookSecretPreview = keyPreview('whsec_');
+  }
   recordAudit(state, {
     partnerId,
     actor,
@@ -681,8 +697,9 @@ function onlineIntegration(partner: PartnerAccount, channel: OnlineChannel): Che
  *
  * BACKEND: POST /admin/partners/:id/integrations/:channel/approve
  *   → integration { status: "live" } | 409 unless "ready_for_review".
- *   online_code also issues the partner's lgp_live_ Partner API key (shown
- *   once to the owner in the portal).
+ *   online_code also issues the partner's first lgp_live_ Partner API key:
+ *   only its preview is kept, so the owner generates a usable one under
+ *   Integrations → Developer credentials (offers-backend-spec §5.1).
  */
 export async function approveIntegrationGoLive(
   partnerId: string,

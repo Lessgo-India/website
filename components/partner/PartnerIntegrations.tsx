@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, type FormEvent, type ReactNode } from 'react';
-import { Check, Loader2, PlayCircle, PlugZap, Rocket, Save } from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { AlertTriangle, Check, Copy, KeyRound, Loader2, PlayCircle, PlugZap, RefreshCw, Rocket, Save } from 'lucide-react';
 import {
   BOOKING_METHOD_DETAILS,
   BOOKING_PRODUCT_DETAILS,
@@ -9,10 +9,13 @@ import {
   type OnlineChannel,
 } from '@web/lib/partner/channels';
 import { PARTNER_PORTAL_CONFIG, partnerApiBaseUrl } from '@web/lib/partner/config';
-import { formatRelative } from '@web/lib/partner/format';
+import { DEVELOPER_CREDENTIAL_DETAILS } from '@web/lib/partner/developerCredentials';
+import { formatDate, formatRelative } from '@web/lib/partner/format';
 import {
+  getDeveloperCredentials,
   getPartnerIntegrations,
   requestIntegrationGoLive,
+  rotateDeveloperCredential,
   runIntegrationTest,
   saveBookingIntegration,
   saveCheckoutIntegration,
@@ -21,13 +24,17 @@ import type {
   BookingAuthType,
   BookingIntegration,
   CheckoutIntegration,
+  DeveloperCredentials,
+  DeveloperCredentialType,
   IntegrationStatus,
   IntegrationTestRun,
+  RevealedCredential,
 } from '@web/lib/partner/types';
 import IntegrationTestResult from './IntegrationTestResult';
 import { useSignedInPartner } from './PartnerSessionProvider';
 import {
   Card,
+  ConfirmDialog,
   DemoTag,
   ErrorNote,
   hintClass,
@@ -65,6 +72,9 @@ export default function PartnerIntegrations() {
         <div className="space-y-6">
           {data.checkout ? <CheckoutPanel integration={data.checkout} website={data.website} onChanged={query.reload} /> : null}
           {data.booking ? <BookingPanel integration={data.booking} onChanged={query.reload} /> : null}
+          {data.checkout || data.booking ? (
+            <DeveloperCredentialsCard checkout={!!data.checkout} bookings={!!data.booking} />
+          ) : null}
           <WebhookCard partnerId={session.partner.id} orders={!!data.checkout} bookings={!!data.booking} />
         </div>
       )}
@@ -196,9 +206,13 @@ function TestAndGoLive({
   );
 }
 
-function Code({ children }: { children: ReactNode }) {
+function Code({ children, wrap = false }: { children: ReactNode; wrap?: boolean }) {
   return (
-    <pre className="overflow-x-auto rounded-md bg-ink px-4 py-3 font-mono text-[12px] leading-relaxed text-bg">
+    <pre
+      className={`overflow-x-auto rounded-md bg-ink px-4 py-3 font-mono text-[12px] leading-relaxed text-bg ${
+        wrap ? 'whitespace-pre-wrap [overflow-wrap:anywhere]' : ''
+      }`}
+    >
       <code>{children}</code>
     </pre>
   );
@@ -288,17 +302,10 @@ function CheckoutPanel({
       ) : null}
 
       <SubHeading>Partner API keys</SubHeading>
-      <dl className="grid gap-3 text-sm sm:grid-cols-2">
-        <div>
-          <dt className="text-xs text-ink-muted">Sandbox</dt>
-          <dd className="font-mono text-ink">{integration.sandboxKeyPreview}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-ink-muted">Production</dt>
-          <dd className="font-mono text-ink">{integration.liveKeyPreview ?? 'Issued when Lessgo approves go-live'}</dd>
-        </div>
-      </dl>
-      <p className={hintClass}>Full keys are shown once when issued. Keep them on your servers — never in your app or website code.</p>
+      <p className="text-sm text-ink-muted">
+        Your sandbox and live keys and the signing secret are under <span className="font-semibold text-ink">Developer credentials</span>{' '}
+        below. Keep them on your servers — never in your app or website code.
+      </p>
 
       <SubHeading>What your checkout calls</SubHeading>
       <Code>
@@ -333,6 +340,330 @@ POST ${base}/partner-api/v1/vouchers/reverse   (cancellation / refund)
         onChanged={onChanged}
       />
     </Card>
+  );
+}
+
+// ── Developer credentials ───────────────────────────────────────────────────
+
+const CREDENTIAL_ORDER: readonly DeveloperCredentialType[] = ['test_key', 'live_key', 'signing_secret'];
+
+const CREDENTIAL_FIELD: Record<DeveloperCredentialType, 'testKey' | 'liveKey' | 'signingSecret'> = {
+  test_key: 'testKey',
+  live_key: 'liveKey',
+  signing_secret: 'signingSecret',
+};
+
+function signingExample(base: string): string {
+  return [
+    `POST ${base}/partner-api/v1/vouchers/validate`,
+    'Authorization: Bearer <your lgp_test_… or lgp_live_… key>',
+    'Content-Type: application/json',
+    'X-Lessgo-Timestamp: <unix seconds>',
+    'X-Lessgo-Signature: v1=<hex HMAC_SHA256(signing secret, timestamp + "." + raw body)>',
+    '',
+    '// Node.js',
+    "const body = JSON.stringify({ code, order_value_minor, currency: 'INR', platform: 'web' });",
+    'const timestamp = Math.floor(Date.now() / 1000).toString();',
+    'const signature = crypto',
+    "  .createHmac('sha256', process.env.LESSGO_SIGNING_SECRET)",
+    '  .update(`${timestamp}.${body}`)',
+    "  .digest('hex');",
+    '',
+    `await fetch('${base}/partner-api/v1/vouchers/validate', {`,
+    "  method: 'POST',",
+    '  headers: {',
+    '    Authorization: `Bearer ${process.env.LESSGO_API_KEY}`,',
+    "    'Content-Type': 'application/json',",
+    "    'X-Lessgo-Timestamp': timestamp,",
+    "    'X-Lessgo-Signature': `v1=${signature}`,",
+    '  },',
+    '  body,',
+    '});',
+  ].join('\n');
+}
+
+/** How a booking partner signs the booking.* events it sends Lessgo. */
+function bookingWebhookExample(base: string, partnerId: string): string {
+  return [
+    `POST ${base}/webhooks/offers/${partnerId}`,
+    'Content-Type: application/json',
+    'X-Lessgo-Timestamp: <unix seconds>',
+    'X-Lessgo-Delivery-Id: <unique per event; reuse it when you retry>',
+    'X-Lessgo-Signature: v1=<hex HMAC_SHA256(signing secret, timestamp + "." + raw body)>',
+    '',
+    '{ "type": "booking.confirmed", "booking_id": "bk_…", "quote_id": "qt_…",',
+    '  "coupon_code": "SHW-7KQ4-M2XD-R", "units": 4, "subtotal_minor": 152000,',
+    '  "fees_minor": 12000, "discount_minor": 30000, "paid_minor": 134000,',
+    '  "occurred_at": "2026-10-08T18:30:00Z" }',
+    '',
+    '// Node.js',
+    "const body = JSON.stringify({ type: 'booking.confirmed', booking_id, quote_id, coupon_code,",
+    '  units, subtotal_minor, fees_minor, discount_minor, paid_minor, occurred_at });',
+    'const timestamp = Math.floor(Date.now() / 1000).toString();',
+    'const signature = crypto',
+    "  .createHmac('sha256', process.env.LESSGO_SIGNING_SECRET)",
+    '  .update(`${timestamp}.${body}`)',
+    "  .digest('hex');",
+    '',
+    `await fetch('${base}/webhooks/offers/${partnerId}', {`,
+    "  method: 'POST',",
+    '  headers: {',
+    "    'Content-Type': 'application/json',",
+    "    'X-Lessgo-Timestamp': timestamp,",
+    "    'X-Lessgo-Delivery-Id': deliveryId, // e.g. crypto.randomUUID(), stored with the event",
+    "    'X-Lessgo-Signature': `v1=${signature}`,",
+    '  },',
+    '  body,',
+    '});',
+  ].join('\n');
+}
+
+/**
+ * Owners of online partners generate their credentials here: the signing
+ * secret for every online channel, plus the Partner API keys for online
+ * checkout. Lessgo keeps only previews, so a new value is shown exactly once —
+ * in this component's state, gone as soon as the page is left.
+ */
+function DeveloperCredentialsCard({ checkout, bookings }: { checkout: boolean; bookings: boolean }) {
+  const session = useSignedInPartner();
+  const query = usePartnerQuery(() => getDeveloperCredentials(session), `${session.partner.id}:developer-credentials`);
+  const data = query.data;
+  const [confirming, setConfirming] = useState<DeveloperCredentialType | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [revealed, setRevealed] = useState<{ credential: RevealedCredential; replaced: boolean } | null>(null);
+
+  // Also forget the value if the browser keeps this page in its back/forward cache.
+  useEffect(() => {
+    const forget = () => setRevealed(null);
+    window.addEventListener('pagehide', forget);
+    return () => window.removeEventListener('pagehide', forget);
+  }, []);
+
+  const replacing = (type: DeveloperCredentialType | null, current: DeveloperCredentials | null) =>
+    !!type && !!current?.[CREDENTIAL_FIELD[type]];
+
+  async function generate(type: DeveloperCredentialType) {
+    const replaced = replacing(type, data);
+    setBusy(true);
+    setError(null);
+    setRevealed(null);
+    try {
+      setRevealed({ credential: await rotateDeveloperCredential(session, type), replaced });
+      query.reload();
+    } catch (caught) {
+      setError((caught as Error).message);
+    } finally {
+      setBusy(false);
+      setConfirming(null);
+    }
+  }
+
+  const confirmingLabel = confirming ? DEVELOPER_CREDENTIAL_DETAILS[confirming].label.toLowerCase() : '';
+  const confirmingReplaces = replacing(confirming, data);
+  // API keys exist only for online checkout; booking partners just sign their webhooks.
+  const rows = CREDENTIAL_ORDER.filter((type) => checkout || type === 'signing_secret');
+  const base = partnerApiBaseUrl();
+
+  return (
+    <Card
+      title={
+        <span className="inline-flex items-center gap-2">
+          <KeyRound className="h-4 w-4 text-ink-muted" aria-hidden="true" /> Developer credentials
+        </span>
+      }
+      action={PARTNER_PORTAL_CONFIG.useDummyData ? <DemoTag /> : undefined}
+    >
+      <p className="mb-4 text-sm text-ink-muted">
+        {checkout && bookings
+          ? 'Your servers use these to call the Partner API and to sign the booking webhooks they send Lessgo.'
+          : checkout
+            ? 'Your checkout’s servers use these to call the Partner API.'
+            : 'Your servers sign the booking webhooks they send Lessgo with this secret.'}{' '}
+        Lessgo stores only a fingerprint, so {checkout ? 'each value is' : 'it’s'} shown once — if {checkout ? 'one is' : 'it’s'}{' '}
+        lost or exposed, generate a new one.
+      </p>
+
+      {revealed ? (
+        <RevealedCredentialPanel
+          credential={revealed.credential}
+          replaced={revealed.replaced}
+          onDone={() => setRevealed(null)}
+        />
+      ) : null}
+      {query.error ? <ErrorNote message={query.error} onRetry={query.reload} /> : null}
+      {!data ? (
+        query.loading ? (
+          <p className="flex items-center gap-2 text-sm text-ink-muted" role="status">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Loading credentials…
+          </p>
+        ) : null
+      ) : (
+        <ul className="divide-y divide-line rounded-md border border-line">
+          {rows.map((type) => {
+            const detail = DEVELOPER_CREDENTIAL_DETAILS[type];
+            const summary = data[CREDENTIAL_FIELD[type]];
+            const waitingForLive = type === 'live_key' && !data.liveAvailable;
+            const purpose =
+              type === 'signing_secret' && !checkout
+                ? 'Signs the booking webhooks you send to Lessgo (HMAC-SHA256).'
+                : detail.summary;
+            return (
+              <li key={type} className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-ink">{detail.label}</p>
+                  {summary ? (
+                    <p className="mt-0.5 break-all font-mono text-[13px] text-ink">{summary.preview}</p>
+                  ) : (
+                    <p className="mt-0.5 text-sm text-ink-muted">Not generated yet</p>
+                  )}
+                  <p className={hintClass}>
+                    {summary ? `Created ${formatDate(summary.createdAt)} · ` : ''}
+                    {waitingForLive ? 'Live keys work once Lessgo approves your checkout for production.' : purpose}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConfirming(type)}
+                  disabled={busy || waitingForLive}
+                  className={`${secondaryButtonClass} flex-none self-start sm:self-auto`}
+                >
+                  {busy && confirming === type ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  {summary ? 'Generate new' : 'Generate'}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {error ? (
+        <p role="alert" className="mt-3 text-sm font-medium text-down">
+          {error}
+        </p>
+      ) : null}
+
+      {checkout ? (
+        <>
+          <SubHeading>Signing a request</SubHeading>
+          <Code wrap>{signingExample(base)}</Code>
+          <p className={hintClass}>
+            Sign the exact bytes you send, with the timestamp in seconds. Lessgo rejects signatures more than 5 minutes old. Webhooks
+            you send to Lessgo are signed the same way.
+          </p>
+        </>
+      ) : null}
+      {bookings ? (
+        <>
+          <SubHeading>Signing a booking webhook</SubHeading>
+          <Code wrap>{bookingWebhookExample(base, session.partner.id)}</Code>
+          <p className={hintClass}>
+            Sign the exact bytes you send, with the timestamp in seconds. Lessgo rejects signatures more than 5 minutes old and ignores
+            a delivery ID it has already processed. booking.failed, booking.cancelled and booking.refunded are signed the same way.
+          </p>
+        </>
+      ) : null}
+
+      <ConfirmDialog
+        open={confirming !== null}
+        title={`Generate a new ${confirmingLabel}?`}
+        body={
+          confirmingReplaces
+            ? 'The current value stops working immediately, so update your servers right away. The new value is shown only once.'
+            : 'The new value is shown only once, so have your server configuration ready.'
+        }
+        confirmLabel={confirmingReplaces ? 'Generate new' : 'Generate'}
+        cancelLabel={confirmingReplaces ? 'Keep the current one' : 'Cancel'}
+        busy={busy}
+        destructive={confirmingReplaces}
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => {
+          if (confirming) void generate(confirming);
+        }}
+      />
+    </Card>
+  );
+}
+
+function RevealedCredentialPanel({
+  credential,
+  replaced,
+  onDone,
+}: {
+  credential: RevealedCredential;
+  replaced: boolean;
+  onDone: () => void;
+}) {
+  const panelRef = useRef<HTMLElement>(null);
+  const { label } = DEVELOPER_CREDENTIAL_DETAILS[credential.type];
+
+  // Take keyboard and screen-reader users straight to the value.
+  useEffect(() => {
+    panelRef.current?.focus();
+  }, []);
+
+  return (
+    <section
+      ref={panelRef}
+      tabIndex={-1}
+      aria-labelledby="revealed-credential-title"
+      className="mb-5 rounded-md border border-warn bg-warn-tint p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-profile"
+    >
+      <h3 id="revealed-credential-title" className="flex items-start gap-2 text-sm font-bold text-ink">
+        <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-warn" aria-hidden="true" />
+        Your new {label.toLowerCase()} — you won’t see this again
+      </h3>
+      <p className="mt-1 text-sm text-ink">
+        Copy it into your server configuration now.{replaced ? ' The previous one has stopped working.' : ''} Lessgo keeps only{' '}
+        <span className="break-all font-mono">{credential.preview}</span>.
+      </p>
+      <p className="mt-3 break-all rounded-md border border-line bg-surface px-3 py-2.5 font-mono text-[13px] leading-relaxed text-ink">
+        {credential.value}
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <CopyValueButton value={credential.value} />
+        <button type="button" onClick={onDone} className={secondaryButtonClass}>
+          I’ve saved it
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function CopyValueButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      // No async clipboard outside secure contexts (e.g. plain http on a LAN address).
+      const area = document.createElement('textarea');
+      area.value = value;
+      area.setAttribute('readonly', '');
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand('copy');
+      area.remove();
+    }
+    setCopied(true);
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setCopied(false), 1800);
+  }
+
+  return (
+    <button type="button" onClick={copy} className={primaryButtonClass}>
+      {copied ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
+      <span aria-live="polite">{copied ? 'Copied' : 'Copy'}</span>
+    </button>
   );
 }
 
@@ -543,7 +874,8 @@ function WebhookCard({ partnerId, orders, bookings }: { partnerId: string; order
   return (
     <Card title="Events you send to Lessgo">
       <p className="mb-3 text-sm text-ink-muted">
-        Sign each request like the Partner API calls. Lessgo rejects timestamps more than 5 minutes old and ignores repeated delivery IDs.
+        Sign each request with your signing secret (Developer credentials above). Lessgo rejects timestamps more than 5 minutes old and
+        ignores repeated delivery IDs.
       </p>
       <Code>
         {`POST ${base}/webhooks/offers/${partnerId}

@@ -7,8 +7,11 @@
  * offers tray renders. Money is always in paise (`…Minor`), percentages in
  * basis points, dates as ISO strings.
  *
- * TODO(backend): these become the backend-offers-service partner API DTOs
- * (snake_case on the wire, mapped in partnerApi.ts).
+ * These are also the wire format: backend-offers-service sends and accepts
+ * exactly these shapes as camelCase JSON on the portal (/api/partner/*) and
+ * admin (/admin/partners…) routes, so partnerApi.ts and adminPartnersApi.ts
+ * pass them through unmapped. Only the external Partner API and webhooks are
+ * snake_case.
  */
 
 export type OfferDiscountType = 'flat' | 'percent' | 'bogo' | 'freebie';
@@ -398,7 +401,8 @@ export interface PartnerAuditEntry {
     | 'integration.tested'
     | 'integration.go_live_requested'
     | 'integration.approved'
-    | 'integration.rolled_back';
+    | 'integration.rolled_back'
+    | 'integration.credentials_rotated';
   detail: string;
 }
 
@@ -468,6 +472,37 @@ export interface BookingIntegrationInput {
   clientId: string;
   /** Write-only. Omit to keep the stored secret. */
   clientSecret?: string;
+}
+
+/**
+ * What an online-checkout partner's servers authenticate with (owner only):
+ * test_key       lgp_test_… Partner API key — sandbox vouchers only
+ * live_key       lgp_live_… Partner API key — real vouchers, once go-live is approved
+ * signing_secret whsec_…    HMAC secret for X-Lessgo-Signature (Partner API calls and webhooks)
+ */
+export type DeveloperCredentialType = 'test_key' | 'live_key' | 'signing_secret';
+
+/** A credential on file: Lessgo keeps only a hash or ciphertext, so never the value. */
+export interface DeveloperCredentialSummary {
+  preview: string;
+  createdAt: string;
+}
+
+/** GET /api/partner/integrations/credentials. */
+export interface DeveloperCredentials {
+  testKey: DeveloperCredentialSummary | null;
+  liveKey: DeveloperCredentialSummary | null;
+  signingSecret: DeveloperCredentialSummary | null;
+  /** The checkout integration is live, so a live key can be generated. */
+  liveAvailable: boolean;
+}
+
+/** POST /api/partner/integrations/credentials: the new value, shown exactly once. */
+export interface RevealedCredential {
+  type: DeveloperCredentialType;
+  value: string;
+  preview: string;
+  createdAt: string;
 }
 
 export interface PartnerSession {

@@ -1,6 +1,6 @@
 'use client';
 
-import type { ComponentType, ReactNode } from 'react';
+import { useEffect, useRef, type ComponentType, type ReactNode } from 'react';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { site } from '@content/site';
 import { CHANNEL_DETAILS, INTEGRATION_STATUS_DETAILS } from '@web/lib/partner/channels';
@@ -179,6 +179,110 @@ export function ErrorNote({ message, onRetry }: { message: string; onRetry?: () 
           Try again
         </button>
       ) : null}
+    </div>
+  );
+}
+
+/** Modal confirmation for actions that can't be undone; Escape and "Cancel" back out. */
+export function ConfirmDialog({
+  open,
+  title,
+  body,
+  confirmLabel,
+  cancelLabel = 'Cancel',
+  busy = false,
+  destructive = false,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  title: string;
+  body: ReactNode;
+  confirmLabel: string;
+  cancelLabel?: string;
+  busy?: boolean;
+  destructive?: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const latest = useRef({ busy, onCancel });
+
+  useEffect(() => {
+    latest.current = { busy, onCancel };
+  });
+
+  // Keyed on `open` only, so re-renders while open don't move focus around.
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    cancelRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !latest.current.busy) {
+        event.preventDefault();
+        latest.current.onCancel();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled])');
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      previous?.focus();
+    };
+  }, [open]);
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/55 p-3 sm:items-center sm:p-6">
+      <div
+        ref={dialogRef}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="partner-confirm-title"
+        aria-describedby="partner-confirm-body"
+        className="w-full max-w-md rounded-lg border border-line-strong bg-surface p-5 shadow-pop sm:p-6"
+      >
+        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-warn-tint text-warn">
+          <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+        </div>
+        <h2 id="partner-confirm-title" className="mt-4 font-display text-xl font-bold text-ink">
+          {title}
+        </h2>
+        <div id="partner-confirm-body" className="mt-2 text-sm leading-6 text-ink-muted">
+          {body}
+        </div>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button ref={cancelRef} type="button" onClick={onCancel} disabled={busy} className={secondaryButtonClass}>
+            {cancelLabel}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            className={
+              destructive
+                ? 'inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-down px-5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-55'
+                : primaryButtonClass
+            }
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+            {busy ? 'Working…' : confirmLabel}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

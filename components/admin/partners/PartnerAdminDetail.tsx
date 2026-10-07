@@ -776,6 +776,7 @@ const ACTION_LABEL: Record<PartnerAuditEntry['action'], string> = {
   'integration.go_live_requested': 'Go-live requested',
   'integration.approved': 'Go-live approved',
   'integration.rolled_back': 'Integration sent back',
+  'integration.credentials_rotated': 'Credentials rotated',
 };
 
 function ActivityList({ entries }: { entries: PartnerAuditEntry[] }) {

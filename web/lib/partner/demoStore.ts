@@ -26,6 +26,7 @@ import {
 } from './dummyData';
 import { INDIA_GEO } from './indiaGeo';
 import { channelIsLive } from './channels';
+import type { DeveloperCredentialRecords } from './developerCredentials';
 import { estimateAudience, normaliseTargeting, roundEstimate, type AudienceModel } from './rules';
 import type {
   OfferTargeting,
@@ -74,6 +75,8 @@ export interface DemoState {
   vouchers: DemoVoucher[];
   redemptions: PartnerRedemption[];
   audit: PartnerAuditEntry[];
+  /** Developer credentials generated in the portal, by partner id (absent in older saved states). */
+  developerCredentials?: Record<string, DeveloperCredentialRecords>;
 }
 
 // ── Audience model ──────────────────────────────────────────────────────────

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { PARTNER_PORTAL_CONFIG } from '@web/lib/partner/config';
 import { formatDateTime, formatInr, formatRelative } from '@web/lib/partner/format';
+import { createIdempotentAction } from '@web/lib/partner/idempotency';
 import {
   demoVouchersFor,
   listPartnerOutlets,
@@ -63,6 +64,9 @@ export default function RedeemConsole() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // One Idempotency-Key per looked-up voucher, reused by every Confirm retry
+  // until one succeeds or the console is reset.
+  const [redeemAction] = useState(() => createIdempotentAction());
   const [demoVouchers, setDemoVouchers] = useState(() => demoVouchersFor(session));
 
   const outlets = useMemo(() => outletsQuery.data ?? [], [outletsQuery.data]);
@@ -81,6 +85,7 @@ export default function RedeemConsole() {
     setBusy(true);
     try {
       const voucher = await lookupVoucher(session, raw);
+      redeemAction.restart();
       setPhase({ kind: 'found', voucher, via: parsed.kind });
       setLiveCode('');
       setBill('');
@@ -115,12 +120,15 @@ export default function RedeemConsole() {
     }
     setBusy(true);
     try {
-      const redemption = await redeemVoucher(session, {
+      const request = {
         voucherId: phase.voucher.voucherId,
         outletId,
         billMinor,
         ...(phase.via === 'code' ? { liveCode: liveCode.replace(/\s/g, '') } : {}),
-      });
+      };
+      const redemption = await redeemAction.attempt((idempotencyKey) =>
+        redeemVoucher(session, request, { idempotencyKey }),
+      );
       setPhase({ kind: 'done', voucher: phase.voucher, redemption });
       setDemoVouchers(demoVouchersFor(session));
       void historyQuery.reload();
@@ -132,6 +140,7 @@ export default function RedeemConsole() {
   }
 
   function reset() {
+    redeemAction.restart();
     setPhase({ kind: 'input' });
     setInput('');
     setLiveCode('');

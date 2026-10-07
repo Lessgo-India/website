@@ -31,6 +31,7 @@ import { PARTNER_PORTAL_CONFIG } from '@web/lib/partner/config';
 import { DUMMY_CREATIVE_LIBRARY } from '@web/lib/partner/dummyData';
 import { EVENT_TYPES, eventTypeLabel } from '@web/lib/partner/eventTypes';
 import { formatCompact, formatCount, formatDate, formatInr, fromDateInputValue, toDateInputValue } from '@web/lib/partner/format';
+import { createIdempotentAction } from '@web/lib/partner/idempotency';
 import {
   fetchAudienceEstimate,
   getPartnerCampaign,
@@ -441,6 +442,11 @@ function WizardForm({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [serverErrors, setServerErrors] = useState<DraftErrors>({});
+  // One Idempotency-Key per wizard session, reused by every submit retry until
+  // one succeeds — on purpose even if the draft was edited in between: after a
+  // timeout the first attempt may have created the campaign, and replaying it
+  // is what stops a duplicate.
+  const [submitAction] = useState(() => createIdempotentAction());
 
   const update = (patch: Partial<FormState>) => setForm((current) => ({ ...current, ...patch }));
   const draft = useMemo(() => toDraft(form), [form]);
@@ -495,7 +501,9 @@ function WizardForm({
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const created = await submitPartnerCampaign(session, draft, { resubmitOf });
+      const created = await submitAction.attempt((idempotencyKey) =>
+        submitPartnerCampaign(session, draft, { idempotencyKey, resubmitOf }),
+      );
       router.push(`/partner/campaigns/${created.id}?submitted=1`);
     } catch (caught) {
       setSubmitError((caught as Error).message);

@@ -1,21 +1,29 @@
 /**
  * Partner (merchant) portal flags — also gate Admin → Partners.
  *
- * The portal and the admin console's Partners section currently run on dummy
- * data (web/lib/partner/demoStore.ts + dummyData.ts) so the merchant and
- * onboarding flows can be reviewed before backend-offers-service exists.
+ * The portal and the admin console's Partners section run on dummy data
+ * (web/lib/partner/demoStore.ts + dummyData.ts) unless
+ * NEXT_PUBLIC_PARTNER_PORTAL_BACKEND=true, so the merchant and onboarding
+ * flows can be reviewed before backend-offers-service is live.
+ *
+ * Backend mode (README → "Partner portal: backend mode"):
+ *  - Portal: app/api/partner/* (web/lib/partner/partnerBff.ts) keeps the
+ *    session in the httpOnly `lessgo_partner_session` cookie and forwards to
+ *    the gateway's BFF-only /partner-auth/* and /partner/* routes with the
+ *    server-only PARTNER_GATEWAY_KEY.
+ *  - Admin → Partners: the admin BFF (app/api/admin/gateway/[...path])
+ *    allowlists the gateway's /admin/partners routes
+ *    (web/lib/adminGatewayPolicy.js).
  *
  * TODO(backend), in order:
- *  1. Add the BFF routes app/api/partner/* mirroring app/api/admin/*: login
- *     sets an httpOnly `lessgo_partner_session` cookie, every other route
- *     forwards to the gateway's /partners/* proxy with the partner's identity.
- *  2. Implement the gateway's /admin/partners routes (stubbed in
- *     gateway-service/src/modules/admin/admin-partners.controller.ts) and
- *     allowlist them for the admin BFF (see web/lib/adminPartnersApi.ts).
- *  3. Set NEXT_PUBLIC_PARTNER_PORTAL_BACKEND=true — partnerApi.ts and
+ *  1. Implement the gateway's /admin/partners routes (stubbed in
+ *     gateway-service/src/modules/admin/admin-partners.controller.ts) and its
+ *     /partner-auth/* + /partner/* portal proxy.
+ *  2. Set NEXT_PUBLIC_PARTNER_PORTAL_BACKEND=true (build time) with
+ *     PARTNER_GATEWAY_URL / PARTNER_GATEWAY_KEY — partnerApi.ts and
  *     adminPartnersApi.ts then call those routes instead of the dummy store
  *     (see each function's contract).
- *  4. Serve the portal on a partners.* subdomain (rewrite to /partner in
+ *  3. Serve the portal on a partners.* subdomain (rewrite to /partner in
  *     proxy.ts, set NEXT_PUBLIC_PARTNER_LOGIN_URL) and delete demoStore.ts
  *     and dummyData.ts.
  */

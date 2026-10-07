@@ -343,3 +343,193 @@ test("rejects cross-origin PATCH and DELETE mutations", async () => {
   assert.equal(deleted.status, 403);
   assert.equal(calls.length, 0);
 });
+
+/** Next hands route handlers an (empty) stream even when the browser sent no body. */
+function emptyStream() {
+  return new ReadableStream({ start: (controller) => controller.close() });
+}
+
+const sameOrigin = { origin: "http://local", "sec-fetch-site": "same-origin" };
+
+test("forwards Admin → Partners reads with partner ids, user ids and handles", async () => {
+  const overview = await route.GET(
+    new Request("http://local/api/admin/gateway/partners"),
+    context("partners"),
+  );
+  const detail = await route.GET(
+    new Request("http://local/api/admin/gateway/partners/ptr_brew_bros"),
+    context("partners", "ptr_brew_bros"),
+  );
+  const handle = await route.GET(
+    new Request("http://local/api/admin/gateway/partner-handles/brewbros"),
+    context("partner-handles", "brewbros"),
+  );
+  assert.deepEqual(
+    [overview.status, detail.status, handle.status],
+    [200, 200, 200],
+  );
+  assert.deepEqual(
+    calls.map((call) => call[0]),
+    ["partners", "partners/ptr_brew_bros", "partner-handles/brewbros"],
+  );
+
+  for (const segments of [
+    ["partners", ".."],
+    ["partners", ".ptr_x"],
+    ["partners", "ptr_brew_bros", "_x"],
+  ]) {
+    const denied = await route.GET(
+      new Request(`http://local/api/admin/gateway/${segments.join("/")}`),
+      context(...segments),
+    );
+    assert.equal(denied.status, 404, segments.join("/"));
+  }
+  assert.equal(calls.length, 3);
+});
+
+test("forwards exact partner mutations, including bodiless approval as Next delivers it", async () => {
+  const approve = [
+    "partners",
+    "ptr_stylecart",
+    "integrations",
+    "online_code",
+    "approve",
+  ];
+  const approved = await route.POST(
+    new Request(`http://local/api/admin/gateway/${approve.join("/")}`, {
+      method: "POST",
+      headers: sameOrigin,
+      body: emptyStream(),
+      duplex: "half",
+    }),
+    context(...approve),
+  );
+  assert.equal(approved.status, 200);
+  assert.deepEqual(calls[0].slice(0, 2), [approve.join("/"), ""]);
+  assert.deepEqual(calls[0][3], { method: "POST" });
+
+  const withBody = await route.POST(
+    new Request(`http://local/api/admin/gateway/${approve.join("/")}`, {
+      method: "POST",
+      headers: { ...sameOrigin, "content-type": "application/json" },
+      body: JSON.stringify({ force: true }),
+    }),
+    context(...approve),
+  );
+  assert.equal(withBody.status, 400);
+
+  const login = ["partners", "ptr_brew_bros", "logins", "brewbros.manager"];
+  const disabled = await route.PATCH(
+    new Request(`http://local/api/admin/gateway/${login.join("/")}`, {
+      method: "PATCH",
+      headers: { ...sameOrigin, "content-type": "application/json" },
+      body: JSON.stringify({ status: "disabled" }),
+    }),
+    context(...login),
+  );
+  assert.equal(disabled.status, 200);
+  assert.deepEqual(calls[1][3], {
+    method: "PATCH",
+    body: { status: "disabled" },
+  });
+
+  const broad = await route.PATCH(
+    new Request(`http://local/api/admin/gateway/${login.join("/")}`, {
+      method: "PATCH",
+      headers: { ...sameOrigin, "content-type": "application/json" },
+      body: JSON.stringify({ status: "disabled", role: "owner" }),
+    }),
+    context(...login),
+  );
+  assert.equal(broad.status, 400);
+
+  const review = await route.POST(
+    new Request(
+      "http://local/api/admin/gateway/campaigns/cmp_brew_bros_blr/review",
+      {
+        method: "POST",
+        headers: { ...sameOrigin, "content-type": "application/json" },
+        body: JSON.stringify({ decision: "reject", note: "Fix the dates." }),
+      },
+    ),
+    context("campaigns", "cmp_brew_bros_blr", "review"),
+  );
+  assert.equal(review.status, 200);
+  assert.deepEqual(calls[2], [
+    "campaigns/cmp_brew_bros_blr/review",
+    "",
+    session,
+    { method: "POST", body: { decision: "reject", note: "Fix the dates." } },
+  ]);
+
+  const crossOrigin = await route.POST(
+    new Request(`http://local/api/admin/gateway/${approve.join("/")}`, {
+      method: "POST",
+      headers: { origin: "https://attacker.example" },
+    }),
+    context(...approve),
+  );
+  assert.equal(crossOrigin.status, 403);
+  assert.equal(calls.length, 3);
+});
+
+test("existing bodiless admin actions accept the empty stream Next delivers", async () => {
+  const id = "66aa11bb22cc33dd44ee55ff";
+  const cancelled = await route.POST(
+    new Request(
+      `http://local/api/admin/gateway/notifications/campaigns/${id}/cancel`,
+      { method: "POST", headers: sameOrigin, body: emptyStream(), duplex: "half" },
+    ),
+    context("notifications", "campaigns", id, "cancel"),
+  );
+  const cleaned = await route.DELETE(
+    new Request("http://local/api/admin/gateway/bugs/done", {
+      method: "DELETE",
+      headers: sameOrigin,
+      body: emptyStream(),
+      duplex: "half",
+    }),
+    context("bugs", "done"),
+  );
+  assert.equal(cancelled.status, 200);
+  assert.equal(cleaned.status, 200);
+  assert.equal(calls.length, 2);
+});
+
+test("passes gateway errors through with code and details, and relays 204s", async () => {
+  const replies = [
+    {
+      status: 409,
+      body: {
+        statusCode: 409,
+        message: "“brewbros” is already used by another partner.",
+        code: "handle_taken",
+        details: { handle: ["taken"] },
+      },
+    },
+    { status: 204, body: null },
+  ];
+  const relay = createAdminGatewayHandlers({
+    readSession: () => session,
+    callGateway: async () => replies.shift(),
+  });
+  const conflict = await relay.GET(
+    new Request("http://local/api/admin/gateway/partner-handles/brewbros"),
+    context("partner-handles", "brewbros"),
+  );
+  assert.equal(conflict.status, 409);
+  assert.equal(conflict.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await conflict.json(), {
+    statusCode: 409,
+    message: "“brewbros” is already used by another partner.",
+    code: "handle_taken",
+    details: { handle: ["taken"] },
+  });
+
+  const empty = await relay.GET(
+    new Request("http://local/api/admin/gateway/partners"),
+    context("partners"),
+  );
+  assert.equal(empty.status, 204);
+  assert.equal(await empty.text(), "");
+});

@@ -225,6 +225,7 @@ const PARTNER_SEEDS: readonly PartnerSeed[] = [
     id: 'ptr_wanderloop', handle: 'wanderloop', brandName: 'Wanderloop', legalName: 'Wanderloop Travel Technologies Pvt Ltd', pan: 'AAFCW3398E', logoEmoji: '🧳', brandColor: '#0077B6', category: 'Travel & stays', stateCode: 'HR', city: 'Gurugram', contactName: 'Ritika Sen', contactEmail: 'alliances@wanderloop.example', contactPhone: '9876500011', plan: 'enterprise', onboardedDaysAgo: 38,
     channels: ['api_booking'],
     website: 'https://wanderloop.example',
+    integration: { webhookSecretPreview: 'whsec_••••7d3a' },
     booking: (now) => ({
       status: 'live',
       method: 'adapter',
@@ -243,6 +244,7 @@ const PARTNER_SEEDS: readonly PartnerSeed[] = [
     id: 'ptr_stylecart', handle: 'stylecart', brandName: 'StyleCart', legalName: 'StyleCart Retail Pvt Ltd', pan: 'AADCS7741F', logoEmoji: '🛍️', brandColor: '#FF6F91', category: 'Shopping', stateCode: 'KA', city: 'Bengaluru', contactName: 'Tanvi Kapoor', contactEmail: 'brands@stylecart.example', contactPhone: '9876500012', plan: 'standard', onboardedDaysAgo: 52,
     channels: ['online_code'],
     website: 'https://stylecart.example',
+    integration: { webhookSecretPreview: 'whsec_••••e81b' },
     checkout: (now) => ({
       status: 'live',
       allowedDomains: ['stylecart.example', 'm.stylecart.example'],
