@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Copy,
+  Globe,
   IndianRupee,
   Loader2,
   MapPin,
@@ -17,6 +18,16 @@ import {
   Users,
   XCircle,
 } from 'lucide-react';
+import {
+  BOOKING_PRODUCT_DETAILS,
+  CHANNEL_DETAILS,
+  channelIsLive,
+  INTEGRATION_STATUS_DETAILS,
+  integrationStatus,
+  isOnlineChannel,
+  PLATFORM_LABEL,
+  redeemedNoun,
+} from '@web/lib/partner/channels';
 import { eventTypeLabel } from '@web/lib/partner/eventTypes';
 import { formatCount, formatDate, formatInr, formatInrCompact } from '@web/lib/partner/format';
 import {
@@ -31,7 +42,7 @@ import type { CampaignOffer } from '@web/lib/partner/types';
 import CampaignPreview from './CampaignPreview';
 import { useSignedInPartner } from './PartnerSessionProvider';
 import { Funnel, RedemptionTable } from './PartnerOverview';
-import { Card, ErrorNote, LoadingBlock, PageHeader, secondaryButtonClass, StatTile, StatusPill } from './ui';
+import { Card, ChannelBadge, ErrorNote, LoadingBlock, PageHeader, secondaryButtonClass, StatTile, StatusPill } from './ui';
 import { usePartnerQuery } from './usePartnerQuery';
 
 export function describeOffer(offer: CampaignOffer): string {
@@ -74,6 +85,9 @@ export default function CampaignDetail({ campaignId, justSubmitted }: { campaign
   const canWrite = can(session.user.role, 'campaigns.write');
   const started = ['live', 'paused', 'ended'].includes(campaign.status);
   const campaignOutlets = outlets.filter((outlet) => campaign.outletIds.includes(outlet.id));
+  const nouns = redeemedNoun(campaign.channel, 2);
+  const Nouns = `${nouns[0].toUpperCase()}${nouns.slice(1)}`;
+  const waitingForConnection = isOnlineChannel(campaign.channel) && !channelIsLive(session.partner, campaign.channel);
 
   async function togglePause() {
     setBusy(true);
@@ -96,6 +110,7 @@ export default function CampaignDetail({ campaignId, justSubmitted }: { campaign
           <span className="inline-flex items-center gap-2">
             <StatusPill status={campaign.status} />
             <span className="font-semibold text-ink">{campaign.offer.label}</span>
+            <ChannelBadge channel={campaign.channel} />
           </span>
         }
         title={campaign.headline}
@@ -104,7 +119,13 @@ export default function CampaignDetail({ campaignId, justSubmitted }: { campaign
           canWrite ? (
             <>
               {campaign.status === 'live' || campaign.status === 'paused' ? (
-                <button type="button" onClick={togglePause} disabled={busy} className={secondaryButtonClass}>
+                <button
+                  type="button"
+                  onClick={togglePause}
+                  disabled={busy || (campaign.status === 'paused' && waitingForConnection)}
+                  title={campaign.status === 'paused' && waitingForConnection ? 'Resumes once Lessgo puts the connection live again' : undefined}
+                  className={secondaryButtonClass}
+                >
                   {busy ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   ) : campaign.status === 'live' ? (
@@ -137,22 +158,34 @@ export default function CampaignDetail({ campaignId, justSubmitted }: { campaign
             {campaign.reviewNote}
           </Banner>
         ) : null}
-        {campaign.status === 'paused' ? (
+        {campaign.status === 'paused' && waitingForConnection && isOnlineChannel(campaign.channel) ? (
+          <Banner tone="warn" icon={Globe} title="Paused while your connection is offline">
+            Lessgo took your {CHANNEL_DETAILS[campaign.channel].connection} back to “
+            {INTEGRATION_STATUS_DETAILS[integrationStatus(session.partner, campaign.channel)].label}”. Fix it under Integrations; you
+            can resume once it’s live again.
+          </Banner>
+        ) : campaign.status === 'paused' ? (
           <Banner tone="warn" icon={Pause} title="Paused">
             The offer is out of the Vibes tray. Codes people already claimed stay valid until they expire — keep honouring
-            them at the counter.
+            them {campaign.channel === 'in_store' ? 'at the counter' : campaign.channel === 'online_code' ? 'at your checkout' : 'on bookings'}.
+          </Banner>
+        ) : null}
+        {campaign.status === 'in_review' && waitingForConnection && isOnlineChannel(campaign.channel) ? (
+          <Banner tone="warn" icon={Globe} title="Waiting for your connection to go live">
+            Your connection is “{INTEGRATION_STATUS_DETAILS[integrationStatus(session.partner, campaign.channel)].label}”. Lessgo
+            approves this campaign once it’s live — finish the steps under Integrations.
           </Banner>
         ) : null}
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-6">
           {started ? (
             <>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 <StatTile label="Claimed" value={formatCount(campaign.stats.claims)} icon={Ticket} accent="text-events" />
                 <StatTile
-                  label="Redeemed"
+                  label={campaign.channel === 'in_store' ? 'Redeemed' : Nouns}
                   value={formatCount(campaign.stats.redeemed)}
                   icon={TicketCheck}
                   accent="text-ok"
@@ -166,7 +199,7 @@ export default function CampaignDetail({ campaignId, justSubmitted }: { campaign
                 <StatTile label="Sales via Lessgo" value={formatInrCompact(campaign.stats.gmvMinor)} icon={TrendingUp} accent="text-profile" />
               </div>
               <Card title="Funnel">
-                <Funnel totals={campaign.stats} />
+                <Funnel totals={campaign.stats} channel={campaign.channel} />
               </Card>
             </>
           ) : (
@@ -178,11 +211,13 @@ export default function CampaignDetail({ campaignId, justSubmitted }: { campaign
             </Card>
           )}
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <Card title="Offer">
               <dl className="space-y-3 text-sm">
                 <Row label="Discount">{describeOffer(campaign.offer)}</Row>
-                <Row label="Minimum bill">{campaign.offer.minBillMinor ? formatInr(campaign.offer.minBillMinor) : 'None'}</Row>
+                <Row label={campaign.channel === 'in_store' ? 'Minimum bill' : campaign.channel === 'online_code' ? 'Minimum order' : 'Minimum booking'}>
+                  {campaign.offer.minBillMinor ? formatInr(campaign.offer.minBillMinor) : 'None'}
+                </Row>
                 <Row label="Group size">{campaign.offer.minGroupSize}+ people going (host included)</Row>
                 <Row label="Event default">
                   {eventTypeLabel(campaign.eventDefaults.eventType)} · “{campaign.eventDefaults.name}”
@@ -204,7 +239,7 @@ export default function CampaignDetail({ campaignId, justSubmitted }: { campaign
                 <Row label="Valid for">{campaign.voucherPolicy.validityDays} days after claiming</Row>
                 <Row label="Per person">{campaign.voucherPolicy.perUserLimit} voucher{campaign.voucherPolicy.perUserLimit > 1 ? 's' : ''}</Row>
                 <Row label="Total limit">
-                  {campaign.voucherPolicy.redemptionLimit ? `${formatCount(campaign.voucherPolicy.redemptionLimit)} redemptions` : 'Unlimited'}
+                  {campaign.voucherPolicy.redemptionLimit ? `${formatCount(campaign.voucherPolicy.redemptionLimit)} ${nouns}` : 'Unlimited'}
                 </Row>
                 <Row label="Daily limit">
                   {campaign.voucherPolicy.dailyLimit ? `${formatCount(campaign.voucherPolicy.dailyLimit)} new vouchers a day` : 'Unlimited'}
@@ -234,6 +269,32 @@ export default function CampaignDetail({ campaignId, justSubmitted }: { campaign
               </p>
             </Card>
 
+            {campaign.channel === 'online_code' && campaign.online ? (
+              <Card title="Where the code works">
+                <dl className="space-y-3 text-sm">
+                  <Row label="Shop link">
+                    <span className="break-all">{campaign.online.landingUrl}</span>
+                  </Row>
+                  <Row label="Apply link">
+                    <span className="break-all font-mono text-xs">{campaign.online.applyUrlTemplate ?? 'None — groups paste the code'}</span>
+                  </Row>
+                  <Row label="Works on">{campaign.online.platforms.map((platform) => PLATFORM_LABEL[platform]).join(', ')}</Row>
+                  <Row label="Applies to">{campaign.online.appliesTo}</Row>
+                  <Row label="Codes">{campaign.online.codeSource === 'lessgo' ? 'Unique Lessgo codes (Partner API)' : 'Your own code pool'}</Row>
+                </dl>
+              </Card>
+            ) : campaign.channel === 'api_booking' && campaign.booking ? (
+              <Card title="What groups can book">
+                <dl className="space-y-3 text-sm">
+                  <Row label="Product">{BOOKING_PRODUCT_DETAILS[campaign.booking.product].label}</Row>
+                  <Row label="Per booking">
+                    {campaign.booking.minUnits}–{campaign.booking.maxUnits} {BOOKING_PRODUCT_DETAILS[campaign.booking.product].units}
+                  </Row>
+                  <Row label="Bookable">{campaign.booking.scope}</Row>
+                  <Row label="Payment">On your hosted checkout; the coupon is applied in your quote.</Row>
+                </dl>
+              </Card>
+            ) : (
             <Card title="Where events can happen">
               {campaignOutlets.length === 0 ? (
                 <p className="text-sm text-ink-muted">Anywhere — groups pick their own venue.</p>
@@ -253,10 +314,11 @@ export default function CampaignDetail({ campaignId, justSubmitted }: { campaign
                 </ul>
               )}
             </Card>
+            )}
           </div>
 
           {started ? (
-            <Card title="Latest redemptions">
+            <Card title={`Latest ${nouns}`}>
               <RedemptionTable rows={redemptions} campaigns={[campaign]} outlets={outlets} showCampaign={false} />
             </Card>
           ) : null}
@@ -274,6 +336,8 @@ export default function CampaignDetail({ campaignId, justSubmitted }: { campaign
             storyImageUrl={campaign.creative.storyImageUrl}
             terms={campaign.terms}
             minGroupSize={campaign.offer.minGroupSize}
+            channel={campaign.channel}
+            checkoutName={session.partner.brandName}
           />
         </aside>
       </div>

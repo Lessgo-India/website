@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: 'Redeem' };
 
 export default function PartnerRedeemPage() {
   return (
-    <RequirePermission permission="redeem">
+    <RequirePermission permission="redeem" feature="redeem">
       <RedeemConsole />
     </RequirePermission>
   );

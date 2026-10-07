@@ -19,6 +19,8 @@
  *     proxy.ts, set NEXT_PUBLIC_PARTNER_LOGIN_URL) and delete demoStore.ts
  *     and dummyData.ts.
  */
+import { BACKEND_API } from '../config';
+
 export const PARTNER_PORTAL_CONFIG = {
   /** Hidden in production builds until the backend is live. */
   enabled:
@@ -30,6 +32,17 @@ export const PARTNER_PORTAL_CONFIG = {
   /** Smallest audience a campaign may target (k-anonymity floor). */
   minAudience: 1_000,
 } as const;
+
+/**
+ * Where partners' servers call Lessgo: the gateway's /partner-api/v1/* and
+ * /webhooks/offers/:partnerId routes. Shown in the Integrations docs.
+ * NEXT_PUBLIC_PARTNER_API_BASE_URL overrides the gateway URL if partner
+ * traffic gets its own host (e.g. partners-api.lessgo.in).
+ */
+export function partnerApiBaseUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_PARTNER_API_BASE_URL?.trim() || BACKEND_API;
+  return configured ? configured.replace(/\/+$/, '') : 'https://<lessgo-gateway>';
+}
 
 // TODO: switch to a dedicated partner-support inbox once one exists.
 export const PARTNER_SUPPORT_EMAIL = 'hello@lessgo.in';

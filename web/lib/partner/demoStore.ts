@@ -25,6 +25,7 @@ import {
   type DemoVoucher,
 } from './dummyData';
 import { INDIA_GEO } from './indiaGeo';
+import { channelIsLive } from './channels';
 import { estimateAudience, normaliseTargeting, roundEstimate, type AudienceModel } from './rules';
 import type {
   OfferTargeting,
@@ -41,7 +42,7 @@ import type {
 /** localStorage key; other tabs watch it to pick up changes. */
 export const DEMO_STORE_KEY = 'lessgo.partner.demo.v1';
 const STATE_KEY = DEMO_STORE_KEY;
-const STATE_VERSION = 4;
+const STATE_VERSION = 5;
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Demo vouchers say "event in 2 hours", so they're re-minted daily. */
 const VOUCHER_REFRESH_MS = DAY_MS;
@@ -154,13 +155,19 @@ function seed(now: number): DemoState {
   };
 }
 
-/** What the offers service's scheduler does: scheduled → live → ended. */
+/**
+ * What the offers service's scheduler does: scheduled → live → ended. A
+ * scheduled campaign whose online channel isn't live (taken offline by Lessgo)
+ * waits until it is.
+ */
 function runSchedules(state: DemoState, now: number): boolean {
   let changed = false;
   for (const campaign of state.campaigns) {
     const start = Date.parse(campaign.schedule.startAt);
     const end = Date.parse(campaign.schedule.endAt);
-    if (campaign.status === 'scheduled' && start <= now) {
+    const partner = state.partners.find((candidate) => candidate.id === campaign.partnerId);
+    const channelLive = !!partner && channelIsLive(partner, campaign.channel);
+    if (campaign.status === 'scheduled' && start <= now && (channelLive || end <= now)) {
       campaign.status = end <= now ? 'ended' : 'live';
       if (campaign.status === 'live') state.vouchers.push(...dummyVouchers([campaign], now));
       changed = true;

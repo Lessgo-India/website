@@ -3,7 +3,8 @@
 import type { ComponentType, ReactNode } from 'react';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { site } from '@content/site';
-import type { CampaignStatus, PartnerAccount } from '@web/lib/partner/types';
+import { CHANNEL_DETAILS, INTEGRATION_STATUS_DETAILS } from '@web/lib/partner/channels';
+import type { CampaignStatus, IntegrationStatus, PartnerAccount, RedemptionChannel } from '@web/lib/partner/types';
 
 export const inputClass =
   'w-full min-h-11 rounded-md border border-line-strong bg-bg-elev px-3.5 text-sm text-ink ' +
@@ -209,6 +210,46 @@ export function DemoTag({ className = '' }: { className?: string }) {
       className={`inline-flex items-center whitespace-nowrap rounded-full border border-gold-line bg-gold-tint px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-gold ${className}`}
     >
       Demo data
+    </span>
+  );
+}
+
+// Ink text on the tint: the accent colours themselves are too light for 11px text.
+const CHANNEL_STYLE: Record<RedemptionChannel, string> = {
+  in_store: 'bg-groups-tint text-ink',
+  online_code: 'bg-vibes-tint text-ink',
+  api_booking: 'bg-events-tint text-ink',
+};
+
+/** "📍 In-store", "🛒 Online checkout", "🎟️ Bookings via API". */
+export function ChannelBadge({ channel, className = '' }: { channel: RedemptionChannel; className?: string }) {
+  const detail = CHANNEL_DETAILS[channel];
+  return (
+    <span
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${CHANNEL_STYLE[channel]} ${className}`}
+    >
+      <span aria-hidden="true">{detail.emoji}</span>
+      {detail.label}
+    </span>
+  );
+}
+
+const INTEGRATION_TONE: Record<'neutral' | 'warn' | 'info' | 'ok', string> = {
+  neutral: 'bg-surface-2 text-ink-muted',
+  warn: 'bg-warn-tint text-warn',
+  info: 'bg-profile-tint text-profile',
+  ok: 'bg-ok-tint text-ok',
+};
+
+export function IntegrationStatusBadge({ status }: { status: IntegrationStatus }) {
+  const detail = INTEGRATION_STATUS_DETAILS[status];
+  return (
+    <span
+      title={detail.summary}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${INTEGRATION_TONE[detail.tone]}`}
+    >
+      {status === 'live' ? <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" /> : null}
+      {detail.label}
     </span>
   );
 }

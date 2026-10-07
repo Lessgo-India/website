@@ -10,16 +10,20 @@ The Lessgo website. It does four jobs:
    RSVP in a browser without installing the app.
 3. **Admin portal** — an authenticated operations dashboard with production
    health, aggregate metrics, and Bug House triage. Its **Partners** section
-   (`/admin/partners`, dummy data for now) onboards merchants, issues their
-   logins (user ID + one-time temporary password), and reviews their
-   campaigns before they reach the app.
+   (`/admin/partners`, dummy data for now) onboards merchants — their category
+   decides the partner type: in-store, online checkout code or bookings via
+   the partner's API — issues their logins (user ID + one-time temporary
+   password), approves online integrations for production ("go-live"), and
+   reviews their campaigns before they reach the app.
 4. **Partner portal** (`/partner`, prototype on dummy data) — brands sign in
-   with the user ID Lessgo issues them, run offer campaigns for the app's Vibes
-   tray (State/District, age and gender targeting) and redeem guests' vouchers
-   at the counter. Demo logins are listed on `/partner/login`, and logins
-   issued from Admin → Partners work there in the same browser. The backend
-   switch-over steps are in `web/lib/partner/config.ts` and
-   `web/lib/adminPartnersApi.ts`.
+   with the user ID Lessgo issues them and run offer campaigns for the app's
+   Vibes tray (State/District, age and gender targeting). In-store partners
+   redeem guests' vouchers at the counter; online partners (shops,
+   ticketing/travel platforms) see their orders or bookings and connect their
+   checkout or booking API under Integrations. Demo logins are listed on
+   `/partner/login`, and logins issued from Admin → Partners work there in the
+   same browser. The backend switch-over steps are in
+   `web/lib/partner/config.ts` and `web/lib/adminPartnersApi.ts`.
 
 ## ✨ What's here
 

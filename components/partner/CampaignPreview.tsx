@@ -1,7 +1,7 @@
 'use client';
 
 import { Plus, Ticket, Users } from 'lucide-react';
-import type { PartnerAccount } from '@web/lib/partner/types';
+import type { PartnerAccount, RedemptionChannel } from '@web/lib/partner/types';
 
 export interface CampaignPreviewProps {
   partner: Pick<PartnerAccount, 'brandName' | 'logoEmoji' | 'brandColor'>;
@@ -11,6 +11,17 @@ export interface CampaignPreviewProps {
   storyImageUrl: string;
   terms: string[];
   minGroupSize: number;
+  /** Defaults to in-store. */
+  channel?: RedemptionChannel;
+  /** Name on the partner's checkout ("Book on ShowSpot"). */
+  checkoutName?: string;
+}
+
+/** The chip the app's offer story shows under the badge (lessgo-react-native utils/onlineOffers.ts). */
+function channelChip(channel: RedemptionChannel, name: string): string {
+  if (channel === 'online_code') return `🛒 Use the code online at ${name}`;
+  if (channel === 'api_booking') return `🎟️ Book in Lessgo · ${name}`;
+  return '📍 Redeem at the outlet';
 }
 
 const OTHER_BRANDS = [
@@ -95,6 +106,9 @@ export default function CampaignPreview(props: CampaignPreviewProps) {
             <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-white/80">
               <Users className="h-3.5 w-3.5" aria-hidden="true" />
               For groups of {props.minGroupSize}+ on Lessgo
+            </p>
+            <p className="mt-1 text-[12px] font-semibold text-white/90">
+              {channelChip(props.channel ?? 'in_store', props.checkoutName ?? partner.brandName)}
             </p>
             {terms.length > 0 ? (
               <ul className="mt-2 space-y-0.5 text-[11px] text-white/70">

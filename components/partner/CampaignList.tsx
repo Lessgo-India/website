@@ -3,13 +3,14 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { CalendarRange, MapPin, Megaphone, Plus, Users } from 'lucide-react';
+import { redeemedNoun } from '@web/lib/partner/channels';
 import { formatCount, formatDate } from '@web/lib/partner/format';
 import { listPartnerCampaigns } from '@web/lib/partner/partnerApi';
 import { can } from '@web/lib/partner/rules';
 import { summariseTargeting } from '@web/lib/partner/targetingText';
 import type { CampaignStatus, PartnerCampaign } from '@web/lib/partner/types';
 import { useSignedInPartner } from './PartnerSessionProvider';
-import { EmptyState, ErrorNote, LoadingBlock, PageHeader, primaryButtonClass, StatusPill } from './ui';
+import { ChannelBadge, EmptyState, ErrorNote, LoadingBlock, PageHeader, primaryButtonClass, StatusPill } from './ui';
 import { usePartnerQuery } from './usePartnerQuery';
 
 const FILTERS: { key: 'all' | CampaignStatus; label: string }[] = [
@@ -120,6 +121,7 @@ function CampaignCard({ campaign }: { campaign: PartnerCampaign }) {
           <StatusPill status={campaign.status} />
         </div>
         <p className="mt-2 line-clamp-2 font-display text-base font-bold leading-snug text-ink">{campaign.headline}</p>
+        <ChannelBadge channel={campaign.channel} className="mt-1.5 self-start" />
         <p className="mt-1.5 flex items-start gap-1.5 text-xs text-ink-muted">
           <MapPin className="mt-px h-3.5 w-3.5 flex-none" aria-hidden="true" />
           <span className="line-clamp-2">{summariseTargeting(campaign.targeting)}</span>
@@ -137,7 +139,8 @@ function CampaignCard({ campaign }: { campaign: PartnerCampaign }) {
                   {formatCount(campaign.stats.claims)} claimed
                 </span>
                 <span className="font-semibold text-ink">
-                  {formatCount(campaign.stats.redeemed)} redeemed{limit ? ` / ${formatCount(limit)}` : ''}
+                  {formatCount(campaign.stats.redeemed)} {campaign.channel === 'in_store' ? 'redeemed' : redeemedNoun(campaign.channel, campaign.stats.redeemed)}
+                  {limit ? ` / ${formatCount(limit)}` : ''}
                 </span>
               </div>
               {progress !== null ? (

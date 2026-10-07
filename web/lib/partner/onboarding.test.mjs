@@ -18,6 +18,7 @@ import {
   TEMPORARY_PASSWORD_PATTERN,
   uniqueUserId,
   validateOnboarding,
+  categoryDefaults,
 } from './onboarding.ts';
 
 const cryptoBytes = (count) => crypto.getRandomValues(new Uint8Array(count));
@@ -124,6 +125,10 @@ function onboardingInput(overrides = {}) {
     brandName: 'Masala Magic',
     legalName: 'Masala Magic Kitchens Pvt Ltd',
     category: 'Food & Drinks',
+    channels: ['in_store'],
+    website: '',
+    bookingProducts: [],
+    bookingMethod: 'lessgo_connect',
     gstin: first14 + gstinCheckChar(first14),
     city: 'Bengaluru',
     stateCode: 'KA',
@@ -170,4 +175,33 @@ test('validates the onboarding form', () => {
   assert.equal(hasOnboardingErrors(quiet), false);
   assert.match(quiet.warnings.gstin, /different state/);
   assert.match(quiet.warnings.dispatch, /Nothing will be sent/);
+});
+
+test('decides the partner type from the category and checks online details', () => {
+  assert.deepEqual(categoryDefaults('Shopping'), { channels: ['online_code'], bookingProducts: [] });
+  assert.deepEqual(categoryDefaults('Tickets & events'), {
+    channels: ['api_booking'],
+    bookingProducts: ['movie_tickets', 'event_tickets'],
+  });
+  assert.deepEqual(categoryDefaults('Unknown'), { channels: ['in_store'], bookingProducts: [] });
+
+  const shop = validateOnboarding(
+    onboardingInput({ category: 'Shopping', channels: ['online_code'], website: 'https://stylecart.example' }),
+  );
+  assert.equal(hasOnboardingErrors(shop), false);
+  assert.deepEqual(shop.warnings, {});
+
+  const noSite = validateOnboarding(onboardingInput({ category: 'Shopping', channels: ['online_code'], website: 'http://x' }));
+  assert.match(noSite.errors.website, /https website/);
+  const none = validateOnboarding(onboardingInput({ channels: [] }));
+  assert.match(none.errors.channels, /at least one/);
+  const tickets = validateOnboarding(
+    onboardingInput({ category: 'Tickets & events', channels: ['api_booking'], website: 'https://showspot.example' }),
+  );
+  assert.match(tickets.errors.bookingProducts, /what they sell/);
+  const oddMix = validateOnboarding(
+    onboardingInput({ category: 'Shopping', channels: ['in_store'], website: '' }),
+  );
+  assert.equal(hasOnboardingErrors(oddMix), false);
+  assert.match(oddMix.warnings.channels, /usual setup for Shopping/);
 });

@@ -18,7 +18,7 @@ import {
   UserX,
 } from 'lucide-react';
 import AdminConfirmDialog from '@ui/admin/AdminConfirmDialog';
-import { BrandAvatar, StatusPill } from '@ui/partner/ui';
+import { BrandAvatar, ChannelBadge, StatusPill } from '@ui/partner/ui';
 import { usePartnerQuery } from '@ui/partner/usePartnerQuery';
 import {
   addPartnerLogin,
@@ -27,6 +27,7 @@ import {
   setPartnerLoginStatus,
   setPartnerStatus,
 } from '@web/lib/adminPartnersApi';
+import { redeemedNoun } from '@web/lib/partner/channels';
 import { partnerLoginUrl } from '@web/lib/partner/config';
 import { formatDate, formatDateTime, formatRelative, isPast } from '@web/lib/partner/format';
 import { describeDistrict, stateName } from '@web/lib/partner/indiaGeo';
@@ -39,6 +40,7 @@ import {
   ROLE_DETAILS,
   uniqueUserId,
 } from '@web/lib/partner/onboarding';
+import { rolesFor } from '@web/lib/partner/rules';
 import type {
   AdminPartnerDetail,
   IssuedCredential,
@@ -48,6 +50,7 @@ import type {
 } from '@web/lib/partner/types';
 import CampaignReviewCard from './CampaignReviewCard';
 import CredentialReveal from './CredentialReveal';
+import PartnerChannelsCard from './PartnerChannelsCard';
 import {
   adminCard,
   adminDangerButton,
@@ -119,6 +122,11 @@ export default function PartnerAdminDetail({ partnerId }: { partnerId: string })
               {PLAN_DETAILS[partner.plan].label} plan · logins <span className="font-mono">{partner.handle}.*</span> · partner since{' '}
               {formatDate(partner.onboardedAt)}
             </p>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {partner.channels.map((channel) => (
+                <ChannelBadge key={channel} channel={channel} />
+              ))}
+            </div>
           </div>
         </div>
         <StatusControls detail={detail} actor={actor} onChanged={(message) => { setNotice(message); query.reload(); }} />
@@ -157,6 +165,8 @@ export default function PartnerAdminDetail({ partnerId }: { partnerId: string })
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-6">
+          <PartnerChannelsCard detail={detail} actor={actor} onChanged={(message) => { setNotice(message); query.reload(); }} />
+
           <LoginsSection detail={detail} actor={actor} onIssued={showIssued} onChanged={(message) => { setNotice(message); query.reload(); }} />
 
           {inReview.length ? (
@@ -194,9 +204,11 @@ export default function PartnerAdminDetail({ partnerId }: { partnerId: string })
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold text-ink">{campaign.headline}</span>
                       <span className="block text-xs text-ink-muted">
-                        {formatDate(campaign.schedule.startAt)} – {formatDate(campaign.schedule.endAt)} · {campaign.stats.redeemed} redeemed
+                        {formatDate(campaign.schedule.startAt)} – {formatDate(campaign.schedule.endAt)} ·{' '}
+                        {campaign.stats.redeemed.toLocaleString('en-IN')} {redeemedNoun(campaign.channel, campaign.stats.redeemed)}
                       </span>
                     </span>
+                    {partner.channels.length > 1 ? <ChannelBadge channel={campaign.channel} /> : null}
                     <StatusPill status={campaign.status} />
                   </li>
                 ))}
@@ -204,6 +216,7 @@ export default function PartnerAdminDetail({ partnerId }: { partnerId: string })
             )}
           </section>
 
+          {partner.channels.includes('in_store') || detail.outlets.length > 0 ? (
           <section aria-labelledby="partner-outlets-heading" className={`${adminCard} p-5`}>
             <SectionHeading>
               <span id="partner-outlets-heading">Outlets</span>
@@ -229,6 +242,7 @@ export default function PartnerAdminDetail({ partnerId }: { partnerId: string })
               </ul>
             )}
           </section>
+          ) : null}
         </div>
 
         <aside className="space-y-6">
@@ -242,6 +256,11 @@ export default function PartnerAdminDetail({ partnerId }: { partnerId: string })
                 <span className="font-mono">{partner.gstin}</span>
               </Row>
               <Row label="Category">{partner.category}</Row>
+              {partner.website ? (
+                <Row label="Website">
+                  <span className="break-all">{partner.website}</span>
+                </Row>
+              ) : null}
               <Row label="Location">
                 {partner.city}, {stateName(partner.stateCode)}
               </Row>
@@ -625,6 +644,7 @@ function AddLoginForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const roles = rolesFor(partner.channels);
   const outlet = activeOutlets.find((candidate) => candidate.id === outletId);
   const preview = uniqueUserId(baseUserId(partner.handle, role, outlet?.name), new Set(detail.logins.map((login) => login.userId)));
 
@@ -655,8 +675,8 @@ function AddLoginForm({
     <form onSubmit={submit} noValidate className="mb-5 rounded-md border border-line bg-bg-elev p-4">
       <fieldset>
         <legend className={adminLabel}>Role</legend>
-        <div className="grid gap-2 sm:grid-cols-3">
-          {(['owner', 'manager', 'cashier'] as const).map((option) => (
+        <div className={`grid gap-2 ${roles.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+          {roles.map((option) => (
             <label key={option} className={`flex cursor-pointer gap-2.5 rounded-md border px-3 py-2.5 ${role === option ? 'border-profile bg-profile-tint' : 'border-line bg-surface hover:bg-surface-2'}`}>
               <input type="radio" name="login-role" checked={role === option} onChange={() => setRole(option)} className="mt-0.5 h-4 w-4 accent-[var(--profile)]" />
               <span>
@@ -750,6 +770,12 @@ const ACTION_LABEL: Record<PartnerAuditEntry['action'], string> = {
   'campaign.submitted': 'Campaign submitted',
   'campaign.approved': 'Campaign approved',
   'campaign.rejected': 'Changes requested',
+  'partner.channels_changed': 'Channels changed',
+  'integration.updated': 'Integration updated',
+  'integration.tested': 'Integration tested',
+  'integration.go_live_requested': 'Go-live requested',
+  'integration.approved': 'Go-live approved',
+  'integration.rolled_back': 'Integration sent back',
 };
 
 function ActivityList({ entries }: { entries: PartnerAuditEntry[] }) {

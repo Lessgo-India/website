@@ -5,10 +5,22 @@ import { CheckCircle2, KeyRound, Loader2, RotateCcw, Send, Webhook } from 'lucid
 import { PARTNER_PORTAL_CONFIG, PARTNER_SUPPORT_EMAIL } from '@web/lib/partner/config';
 import { formatDate, formatDateTime, formatRelative } from '@web/lib/partner/format';
 import { changePartnerPassword, listPartnerTeam, resetPartnerDemo, sendTestWebhook } from '@web/lib/partner/partnerApi';
+import { CHANNEL_DETAILS } from '@web/lib/partner/channels';
 import { can, newPasswordProblem } from '@web/lib/partner/rules';
 import type { PartnerRole } from '@web/lib/partner/types';
 import { useSignedInPartner } from './PartnerSessionProvider';
-import { BrandAvatar, Card, DemoTag, ErrorNote, inputClass, labelClass, PageHeader, primaryButtonClass, secondaryButtonClass } from './ui';
+import {
+  BrandAvatar,
+  Card,
+  ChannelBadge,
+  DemoTag,
+  ErrorNote,
+  inputClass,
+  labelClass,
+  PageHeader,
+  primaryButtonClass,
+  secondaryButtonClass,
+} from './ui';
 import { usePartnerQuery } from './usePartnerQuery';
 
 const ROLE_LABEL: Record<PartnerRole, string> = { owner: 'Owner', manager: 'Manager', cashier: 'Counter staff' };
@@ -40,7 +52,7 @@ export default function PartnerSettings() {
   return (
     <>
       <PageHeader title="Settings" description="Your business profile, login and integrations." />
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Card title="Business profile">
           <div className="mb-4 flex items-center gap-3">
             <BrandAvatar partner={partner} size={48} />
@@ -54,6 +66,22 @@ export default function PartnerSettings() {
               <span className="font-mono">{partner.id}</span>
             </Row>
             <Row label="Category">{partner.category}</Row>
+            <Row label="Groups redeem">
+              <span className="flex flex-wrap gap-1">
+                {partner.channels.map((channel) => (
+                  <ChannelBadge key={channel} channel={channel} />
+                ))}
+              </span>
+              <span className="mt-1 block text-xs text-ink-muted">
+                {partner.channels.map((channel) => CHANNEL_DETAILS[channel].confirmation).join(' · ')}. Lessgo sets this up; ask
+                {` ${PARTNER_SUPPORT_EMAIL}`} to change it.
+              </span>
+            </Row>
+            {partner.website ? (
+              <Row label="Website">
+                <span className="break-all">{partner.website}</span>
+              </Row>
+            ) : null}
             <Row label="GSTIN">
               <span className="font-mono">{partner.gstin}</span>
             </Row>
@@ -122,7 +150,8 @@ export default function PartnerSettings() {
           </Card>
         ) : null}
 
-        {can(user.role, 'integrations') ? <Integrations /> : null}
+        {/* POS redemption + webhooks are for in-store partners; online ones use the Integrations page. */}
+        {can(user.role, 'integrations') && partner.channels.includes('in_store') ? <Integrations /> : null}
 
         {PARTNER_PORTAL_CONFIG.useDummyData ? <DemoReset /> : null}
       </div>
@@ -241,7 +270,7 @@ function Integrations() {
         Optional, for chains with their own billing system: redeem through the API from your POS and get a signed webhook for
         every redemption. The console above keeps working alongside it.
       </p>
-      <div className="mt-4 grid gap-6 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <dl className="space-y-2.5 text-sm">
           <Row label="API key">
             <span className="font-mono">{integration.apiKeyPreview}</span>

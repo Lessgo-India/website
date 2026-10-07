@@ -2,15 +2,17 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { ChevronRight, ClipboardCheck, Handshake, Plus, RefreshCw, Search, ShieldOff, Sparkles } from 'lucide-react';
-import { BrandAvatar, DemoTag } from '@ui/partner/ui';
+import { ArrowRight, ChevronRight, ClipboardCheck, Handshake, PlugZap, Plus, RefreshCw, Search, ShieldOff, Sparkles } from 'lucide-react';
+import IntegrationTestResult from '@ui/partner/IntegrationTestResult';
+import { BrandAvatar, ChannelBadge, DemoTag } from '@ui/partner/ui';
 import { usePartnerQuery } from '@ui/partner/usePartnerQuery';
 import { getAdminPartnersOverview, resetPartnersDemo } from '@web/lib/adminPartnersApi';
+import { CHANNEL_DETAILS, REDEMPTION_CHANNELS } from '@web/lib/partner/channels';
 import { PARTNER_PORTAL_CONFIG } from '@web/lib/partner/config';
 import { formatDate, formatRelative } from '@web/lib/partner/format';
 import { stateName } from '@web/lib/partner/indiaGeo';
 import { PLAN_DETAILS } from '@web/lib/partner/onboarding';
-import type { AdminPartnerSummary, PartnerStatus } from '@web/lib/partner/types';
+import type { AdminGoLiveRequest, AdminPartnerSummary, PartnerStatus, RedemptionChannel } from '@web/lib/partner/types';
 import CampaignReviewCard from './CampaignReviewCard';
 import { adminCard, adminInput, adminPrimaryButton, adminSecondaryButton, PartnerStatusBadge, SectionHeading } from './partnerAdminUi';
 
@@ -25,6 +27,7 @@ export default function PartnersDirectory() {
   const query = usePartnerQuery(getAdminPartnersOverview, 'admin-partners');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<(typeof FILTERS)[number]['value']>('all');
+  const [channel, setChannel] = useState<'all' | RedemptionChannel>('all');
   const [resetting, setResetting] = useState(false);
 
   const partners = useMemo(() => query.data?.partners ?? [], [query.data]);
@@ -33,15 +36,22 @@ export default function PartnersDirectory() {
     return partners.filter(
       (row) =>
         (filter === 'all' || row.partner.status === filter) &&
+        (channel === 'all' || row.partner.channels.includes(channel)) &&
         (!term ||
-          [row.partner.brandName, row.partner.handle, row.partner.city, row.partner.legalName, row.partner.contactName].some((value) =>
-            value.toLowerCase().includes(term),
-          )),
+          [
+            row.partner.brandName,
+            row.partner.handle,
+            row.partner.city,
+            row.partner.legalName,
+            row.partner.contactName,
+            row.partner.category,
+          ].some((value) => value.toLowerCase().includes(term))),
     );
-  }, [filter, partners, search]);
+  }, [channel, filter, partners, search]);
 
   const count = (status: PartnerStatus) => partners.filter((row) => row.partner.status === status).length;
   const reviewQueue = query.data?.reviewQueue ?? [];
+  const goLiveQueue = query.data?.goLiveQueue ?? [];
 
   return (
     <div className="space-y-8">
@@ -54,13 +64,27 @@ export default function PartnersDirectory() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Kpi label="Partners" value={partners.length} icon={Handshake} />
         <Kpi label="Active" value={count('active')} icon={Sparkles} tone="text-ok" />
         <Kpi label="Awaiting first sign-in" value={count('invited')} icon={Plus} tone="text-warn" />
         <Kpi label="Suspended" value={count('suspended')} icon={ShieldOff} tone="text-down" />
+        <Kpi label="Go-live requests" value={goLiveQueue.length} icon={PlugZap} tone="text-profile" />
         <Kpi label="Campaigns to review" value={reviewQueue.length} icon={ClipboardCheck} tone="text-profile" />
       </div>
+
+      {goLiveQueue.length > 0 ? (
+        <section aria-labelledby="go-live-heading">
+          <SectionHeading>
+            <span id="go-live-heading">Integrations waiting for go-live</span>
+          </SectionHeading>
+          <ul className="grid gap-4 xl:grid-cols-2">
+            {goLiveQueue.map((request) => (
+              <GoLiveCard key={`${request.partner.id}:${request.channel}`} request={request} />
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section aria-labelledby="review-queue-heading">
         <SectionHeading>
@@ -105,6 +129,22 @@ export default function PartnersDirectory() {
               className={`${adminInput} pl-9`}
             />
           </div>
+          <label className="sr-only" htmlFor="partner-type-filter">
+            Filter by partner type
+          </label>
+          <select
+            id="partner-type-filter"
+            value={channel}
+            onChange={(event) => setChannel(event.target.value as 'all' | RedemptionChannel)}
+            className={`${adminInput} sm:w-48`}
+          >
+            <option value="all">All partner types</option>
+            {REDEMPTION_CHANNELS.map((option) => (
+              <option key={option} value={option}>
+                {CHANNEL_DETAILS[option].label}
+              </option>
+            ))}
+          </select>
           <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Filter by status">
             {FILTERS.map((option) => (
               <button
@@ -124,10 +164,11 @@ export default function PartnersDirectory() {
         </div>
 
         <div className={`${adminCard} overflow-x-auto`}>
-          <table className="w-full min-w-[820px] text-left text-sm">
+          <table className="w-full min-w-[960px] text-left text-sm">
             <thead>
               <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-muted">
                 <th className="px-4 py-3 font-semibold">Partner</th>
+                <th className="px-3 py-3 font-semibold">Type</th>
                 <th className="px-3 py-3 font-semibold">Status</th>
                 <th className="px-3 py-3 font-semibold">Plan</th>
                 <th className="px-3 py-3 font-semibold">Location</th>
@@ -143,7 +184,7 @@ export default function PartnersDirectory() {
               ))}
               {query.data && visible.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-sm text-ink-muted">
+                  <td colSpan={9} className="px-4 py-8 text-center text-sm text-ink-muted">
                     No partners match.
                   </td>
                 </tr>
@@ -190,6 +231,14 @@ function PartnerRow({ row }: { row: AdminPartnerSummary }) {
         </Link>
       </td>
       <td className="px-3 py-3">
+        <span className="flex flex-col items-start gap-1">
+          {partner.channels.map((channel) => (
+            <ChannelBadge key={channel} channel={channel} />
+          ))}
+        </span>
+        <span className="mt-1 block text-xs text-ink-muted">{partner.category}</span>
+      </td>
+      <td className="px-3 py-3">
         <PartnerStatusBadge status={partner.status} />
       </td>
       <td className="px-3 py-3 text-ink">{PLAN_DETAILS[partner.plan].label}</td>
@@ -214,6 +263,33 @@ function PartnerRow({ row }: { row: AdminPartnerSummary }) {
         </Link>
       </td>
     </tr>
+  );
+}
+
+function GoLiveCard({ request }: { request: AdminGoLiveRequest }) {
+  const { partner, channel } = request;
+  return (
+    <li className={`${adminCard} p-4`}>
+      <div className="flex flex-wrap items-center gap-3">
+        <BrandAvatar partner={partner} size={34} />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-ink">{partner.brandName}</p>
+          <p className="text-xs text-ink-muted">Asked {formatRelative(request.requestedAt)} to go live</p>
+        </div>
+        <ChannelBadge channel={channel} />
+      </div>
+      {request.lastTest ? (
+        <div className="mt-3 rounded-md bg-bg-elev px-3 py-2.5">
+          <IntegrationTestResult run={request.lastTest} compact />
+        </div>
+      ) : null}
+      <Link
+        href={`/admin/partners/${partner.id}`}
+        className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-profile hover:underline"
+      >
+        Review the connection <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+      </Link>
+    </li>
   );
 }
 

@@ -8,10 +8,14 @@
  */
 import type {
   AgeBracket,
+  BookingConfig,
+  BookingProduct,
   CampaignOffer,
   OfferGender,
   OfferTargeting,
+  OnlineCheckoutConfig,
   PartnerRole,
+  RedemptionChannel,
   VoucherPolicy,
 } from './types';
 
@@ -395,12 +399,35 @@ export interface CampaignDraft {
   offer: Omit<CampaignOffer, 'label'>;
   voucherPolicy: VoucherPolicy;
   targeting: OfferTargeting;
+  channel: RedemptionChannel;
+  /** online_code only. */
+  online?: OnlineCheckoutConfig;
+  /** api_booking only. */
+  booking?: BookingConfig;
+  /** in_store only. */
   outletIds: string[];
   startAt: string;
   endAt: string;
   eventType: string;
   eventName: string;
 }
+
+/** What the partner's campaigns may use; the offers service checks the same. */
+export interface DraftPartnerContext {
+  channels: readonly RedemptionChannel[];
+  bookingProducts: readonly BookingProduct[];
+  /** https link on one of the partner's domains (channels.ts isAllowedPartnerUrl). */
+  isAllowedUrl: (url: string) => boolean;
+}
+
+/** Products booked per person: one ticket/seat/slot each, so a booking must fit the group. */
+export const PER_PERSON_PRODUCTS: readonly BookingProduct[] = [
+  'movie_tickets',
+  'event_tickets',
+  'flights',
+  'buses',
+  'activities',
+];
 
 export type DraftStep = 'offer' | 'creative' | 'audience' | 'rules';
 
@@ -419,13 +446,15 @@ function isHttpsUrl(value: string): boolean {
 /** Step-by-step errors for the campaign wizard; empty object = valid. */
 export function validateCampaignDraft(
   draft: CampaignDraft,
-  options: { now?: number; nameOf?: (codeOrId: string) => string } = {},
+  options: { now?: number; nameOf?: (codeOrId: string) => string; partner?: DraftPartnerContext } = {},
 ): DraftErrors {
   const now = options.now ?? Date.now();
   const errors: DraftErrors = {};
   const add = (step: DraftStep, message: string) => {
     (errors[step] ??= []).push(message);
   };
+  const isWhole = (value: number) => Number.isInteger(value);
+  const partner = options.partner;
 
   const headline = draft.headline.trim();
   if (headline.length < 8 || headline.length > 60) add('offer', 'Headline must be 8–60 characters.');
@@ -453,6 +482,51 @@ export function validateCampaignDraft(
   if ((offer.type === 'bogo' || offer.type === 'freebie') && !offer.freebieItem?.trim()) {
     add('offer', 'Say what the group gets for free.');
   }
+  if (partner && !partner.channels.includes(draft.channel)) {
+    add('offer', 'Pick one of your redemption channels.');
+  }
+
+  if (draft.channel === 'online_code') {
+    const online = draft.online;
+    if (!online) {
+      add('rules', 'Add where the code is used online.');
+    } else {
+      if (!isHttpsUrl(online.landingUrl)) add('rules', 'The shop link must be an https URL.');
+      else if (partner && !partner.isAllowedUrl(online.landingUrl)) add('rules', 'The shop link must be on your website’s domain.');
+      const template = online.applyUrlTemplate?.trim();
+      if (template) {
+        const sample = template.split('{code}').join('CODE');
+        if (!template.includes('{code}')) add('rules', 'The apply-code link must contain {code}.');
+        else if (!isHttpsUrl(sample)) add('rules', 'The apply-code link must be an https URL.');
+        else if (partner && !partner.isAllowedUrl(sample)) add('rules', 'The apply-code link must be on your website’s domain.');
+      }
+      if (online.platforms.length === 0) add('rules', 'Pick where the code works: website or apps.');
+      const appliesTo = online.appliesTo.trim();
+      if (appliesTo.length < 3 || appliesTo.length > 80) add('rules', 'Say what the code applies to (3–80 characters).');
+    }
+  }
+
+  if (draft.channel === 'api_booking') {
+    const booking = draft.booking;
+    if (!booking) {
+      add('rules', 'Add what can be booked.');
+    } else {
+      if (partner && !partner.bookingProducts.includes(booking.product)) {
+        add('rules', 'Pick a product your booking connection supports.');
+      }
+      if (!isWhole(booking.minUnits) || booking.minUnits < 1 || booking.minUnits > 20) {
+        add('rules', 'Minimum per booking must be 1–20.');
+      }
+      if (!isWhole(booking.maxUnits) || booking.maxUnits < booking.minUnits || booking.maxUnits > 20) {
+        add('rules', 'Maximum per booking must be between the minimum and 20.');
+      }
+      if (PER_PERSON_PRODUCTS.includes(booking.product) && booking.maxUnits < offer.minGroupSize) {
+        add('rules', `Allow at least ${offer.minGroupSize} per booking so the whole group fits.`);
+      }
+      const scope = booking.scope.trim();
+      if (scope.length < 3 || scope.length > 80) add('rules', 'Describe what can be booked (3–80 characters).');
+    }
+  }
 
   if (!isHttpsUrl(draft.storyImageUrl)) add('creative', 'Add a story creative (https image URL).');
   if (!isHttpsUrl(draft.coverImageUrl)) add('creative', 'Add an event cover (https image URL).');
@@ -464,7 +538,6 @@ export function validateCampaignDraft(
   }
 
   const policy = draft.voucherPolicy;
-  const isWhole = (value: number) => Number.isInteger(value);
   if (!/^[A-Z]{2,5}$/.test(policy.codePrefix)) add('rules', 'Code prefix must be 2–5 capital letters.');
   if (!isWhole(policy.validityDays) || policy.validityDays < 1 || policy.validityDays > 90) {
     add('rules', 'Vouchers must be valid for 1–90 days.');
@@ -528,17 +601,37 @@ export type PartnerPermission =
   | 'outlets'
   | 'outlets.write'
   | 'redeem'
+  | 'sales'
   | 'settings'
   | 'integrations';
 
 const ROLE_PERMISSIONS: Record<PartnerRole, readonly PartnerPermission[]> = {
-  owner: ['overview', 'campaigns', 'campaigns.write', 'outlets', 'outlets.write', 'redeem', 'settings', 'integrations'],
-  manager: ['overview', 'campaigns', 'campaigns.write', 'outlets', 'redeem', 'settings'],
+  owner: ['overview', 'campaigns', 'campaigns.write', 'outlets', 'outlets.write', 'redeem', 'sales', 'settings', 'integrations'],
+  manager: ['overview', 'campaigns', 'campaigns.write', 'outlets', 'redeem', 'sales', 'settings'],
   cashier: ['redeem', 'settings'],
 };
 
 export function can(role: PartnerRole, permission: PartnerPermission): boolean {
   return ROLE_PERMISSIONS[role].includes(permission);
+}
+
+/** Portal areas that only exist for some redemption channels. */
+export type PartnerFeature = 'outlets' | 'redeem' | 'sales' | 'integrations';
+
+const FEATURE_CHANNELS: Record<PartnerFeature, readonly RedemptionChannel[]> = {
+  outlets: ['in_store'],
+  redeem: ['in_store'],
+  sales: ['online_code', 'api_booking'],
+  integrations: ['online_code', 'api_booking'],
+};
+
+export function hasFeature(channels: readonly RedemptionChannel[], feature: PartnerFeature): boolean {
+  return FEATURE_CHANNELS[feature].some((channel) => channels.includes(channel));
+}
+
+/** Roles a partner can issue: counter staff exist only where groups redeem in person. */
+export function rolesFor(channels: readonly RedemptionChannel[]): PartnerRole[] {
+  return channels.includes('in_store') ? ['owner', 'manager', 'cashier'] : ['owner', 'manager'];
 }
 
 export function homePathFor(role: PartnerRole): string {

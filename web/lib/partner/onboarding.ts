@@ -5,7 +5,13 @@
  * Self-contained (type-only imports) so node's test runner can load it — see
  * onboarding.test.mjs. The offers service re-validates everything server-side.
  */
-import type { PartnerOnboardingInput, PartnerPlan, PartnerRole } from './types';
+import type {
+  BookingProduct,
+  PartnerOnboardingInput,
+  PartnerPlan,
+  PartnerRole,
+  RedemptionChannel,
+} from './types';
 
 // ── Handles and user IDs ────────────────────────────────────────────────────
 
@@ -212,22 +218,71 @@ export function buildInviteMessage(input: InviteMessageInput): { subject: string
 
 // ── Onboarding form ─────────────────────────────────────────────────────────
 
-export const PARTNER_CATEGORIES = [
-  'Food & Drinks',
-  'Cafés',
-  'Movies',
-  'Games',
-  'Live music',
-  'Outdoors',
-  'Fitness',
-  'Shopping',
-  'Experiences',
-] as const;
+export interface PartnerCategoryDetail {
+  name: string;
+  /** Redemption channels pre-selected for this category (the admin can change them). */
+  channels: readonly RedemptionChannel[];
+  /** api_booking products pre-selected. */
+  bookingProducts?: readonly BookingProduct[];
+  /** Shown under the picker, e.g. "Like BookMyShow or Paytm Insider". */
+  hint: string;
+}
+
+/**
+ * The category decides the partner type: which channels the portal, the
+ * campaign wizard and the app's coupon flow use.
+ */
+export const PARTNER_CATEGORY_DETAILS: readonly PartnerCategoryDetail[] = [
+  { name: 'Food & Drinks', channels: ['in_store'], hint: 'Restaurants, QSR and bars — groups redeem at the outlet.' },
+  { name: 'Cafés', channels: ['in_store'], hint: 'Cafés and dessert places — groups redeem at the outlet.' },
+  { name: 'Movies', channels: ['in_store'], hint: 'Cinema chains’ box offices. Add “Bookings via API” for online booking.' },
+  { name: 'Games', channels: ['in_store'], hint: 'Bowling, arcades, gaming cafés.' },
+  { name: 'Live music', channels: ['in_store'], hint: 'Venues and bars with gigs.' },
+  { name: 'Outdoors', channels: ['in_store'], hint: 'Trek and adventure operators with base camps.' },
+  { name: 'Fitness', channels: ['in_store'], hint: 'Gyms, studios, sports courts.' },
+  {
+    name: 'Shopping',
+    channels: ['online_code'],
+    hint: 'Online stores and D2C brands — groups apply the code at your checkout.',
+  },
+  {
+    name: 'Tickets & events',
+    channels: ['api_booking'],
+    bookingProducts: ['movie_tickets', 'event_tickets'],
+    hint: 'Ticketing platforms like BookMyShow — groups book through Lessgo.',
+  },
+  {
+    name: 'Travel & stays',
+    channels: ['api_booking'],
+    bookingProducts: ['hotels', 'buses', 'flights'],
+    hint: 'Travel platforms like MakeMyTrip — groups book through Lessgo.',
+  },
+  {
+    name: 'Experiences',
+    channels: ['in_store', 'api_booking'],
+    bookingProducts: ['activities'],
+    hint: 'Workshops and activities — at the venue or booked through Lessgo.',
+  },
+];
+
+export const PARTNER_CATEGORIES: readonly string[] = PARTNER_CATEGORY_DETAILS.map((category) => category.name);
+
+/** Channels and booking products to pre-select for `category`. */
+export function categoryDefaults(category: string): {
+  channels: RedemptionChannel[];
+  bookingProducts: BookingProduct[];
+} {
+  const detail = PARTNER_CATEGORY_DETAILS.find((candidate) => candidate.name === category);
+  return {
+    channels: [...(detail?.channels ?? ['in_store'])],
+    bookingProducts: [...(detail?.bookingProducts ?? [])],
+  };
+}
 
 export const PLAN_DETAILS: Record<PartnerPlan, { label: string; summary: string }> = {
-  pilot: { label: 'Pilot', summary: 'Trial partner: up to 2 live campaigns, console redemption.' },
-  standard: { label: 'Standard', summary: 'Self-serve campaigns and outlets, console redemption.' },
-  enterprise: { label: 'Enterprise', summary: 'Adds POS/API redemption and signed webhooks.' },
+  pilot: { label: 'Pilot', summary: 'Trial partner: up to 2 live campaigns.' },
+  standard: { label: 'Standard', summary: 'Self-serve campaigns on every channel the partner uses.' },
+  enterprise: { label: 'Enterprise', summary: 'Adds POS/API redemption, signed webhooks and custom booking adapters.' },
 };
 
 export const ROLE_DETAILS: Record<PartnerRole, { label: string; summary: string }> = {
@@ -240,6 +295,9 @@ export type OnboardingField =
   | 'brandName'
   | 'legalName'
   | 'category'
+  | 'channels'
+  | 'website'
+  | 'bookingProducts'
   | 'gstin'
   | 'stateCode'
   | 'city'
@@ -264,6 +322,25 @@ const between = (value: string, min: number, max: number) => {
   return length >= min && length <= max;
 };
 
+const KNOWN_CHANNELS: readonly RedemptionChannel[] = ['in_store', 'online_code', 'api_booking'];
+const KNOWN_PRODUCTS: readonly BookingProduct[] = ['movie_tickets', 'event_tickets', 'flights', 'hotels', 'buses', 'activities'];
+
+/** https home page without credentials or a custom port, on a real-looking host. */
+export function isHttpsWebsite(value: string): boolean {
+  try {
+    const url = new URL(value.trim());
+    return (
+      url.protocol === 'https:' &&
+      !url.username &&
+      !url.password &&
+      !url.port &&
+      /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(url.hostname)
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function validateOnboarding(input: PartnerOnboardingInput, takenHandles: Iterable<string> = []): OnboardingCheck {
   const errors: OnboardingCheck['errors'] = {};
   const warnings: OnboardingCheck['warnings'] = {};
@@ -271,6 +348,30 @@ export function validateOnboarding(input: PartnerOnboardingInput, takenHandles: 
   if (!between(input.brandName, 2, 40)) errors.brandName = 'Brand name must be 2–40 characters.';
   if (!between(input.legalName, 3, 100)) errors.legalName = 'Add the registered business name.';
   if (!input.category) errors.category = 'Pick a category.';
+
+  const channels = input.channels ?? [];
+  if (channels.length === 0 || channels.some((channel) => !KNOWN_CHANNELS.includes(channel))) {
+    errors.channels = 'Pick at least one way groups redeem with this partner.';
+  } else if (input.category) {
+    const usual = categoryDefaults(input.category).channels;
+    if (!channels.some((channel) => usual.includes(channel))) {
+      warnings.channels = `That isn’t the usual setup for ${input.category} — double-check before onboarding.`;
+    }
+  }
+  const sellsOnline = channels.some((channel) => channel !== 'in_store');
+  if (sellsOnline && !isHttpsWebsite(input.website ?? '')) {
+    errors.website = 'Online partners need their https website, e.g. https://shop.example.com.';
+  } else if (!sellsOnline && input.website?.trim() && !isHttpsWebsite(input.website)) {
+    errors.website = 'Use an https address, e.g. https://brand.example.com.';
+  }
+  if (channels.includes('api_booking')) {
+    const products = input.bookingProducts ?? [];
+    if (products.length === 0 || products.some((product) => !KNOWN_PRODUCTS.includes(product))) {
+      errors.bookingProducts = 'Pick what they sell through Lessgo.';
+    } else if (input.bookingMethod !== 'lessgo_connect' && input.bookingMethod !== 'adapter') {
+      errors.bookingProducts = 'Pick how the booking API connects.';
+    }
+  }
   if (!input.stateCode) errors.stateCode = 'Pick the state or union territory.';
   if (!between(input.city, 2, 40)) errors.city = 'Add the city.';
   if (!input.logoEmoji.trim() || input.logoEmoji.length > 8) errors.logoEmoji = 'Pick one emoji.';

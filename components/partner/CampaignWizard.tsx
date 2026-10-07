@@ -15,6 +15,18 @@ import {
   Send,
   Users,
 } from 'lucide-react';
+import {
+  BOOKING_PRODUCT_DETAILS,
+  CHANNEL_DETAILS,
+  channelIsLive,
+  CHECKOUT_PLATFORMS,
+  draftContextFor,
+  INTEGRATION_STATUS_DETAILS,
+  integrationStatus,
+  isOnlineChannel,
+  PLATFORM_LABEL,
+  redeemedNoun,
+} from '@web/lib/partner/channels';
 import { PARTNER_PORTAL_CONFIG } from '@web/lib/partner/config';
 import { DUMMY_CREATIVE_LIBRARY } from '@web/lib/partner/dummyData';
 import { EVENT_TYPES, eventTypeLabel } from '@web/lib/partner/eventTypes';
@@ -44,7 +56,9 @@ import {
 import { describeAges, describeGender, formatAgeBracket, geoName, ruleNames } from '@web/lib/partner/targetingText';
 import type {
   AgeBracket,
+  BookingProduct,
   CampaignOffer,
+  CheckoutPlatform,
   OfferDiscountType,
   OfferGender,
   OfferGeoRule,
@@ -52,6 +66,7 @@ import type {
   PartnerAccount,
   PartnerCampaign,
   PartnerOutlet,
+  RedemptionChannel,
 } from '@web/lib/partner/types';
 import CampaignPreview from './CampaignPreview';
 import { describeOffer } from './CampaignDetail';
@@ -79,6 +94,23 @@ const STEPS: { key: StepKey; label: string }[] = [
   { key: 'rules', label: 'Vouchers & outlets' },
   { key: 'review', label: 'Review' },
 ];
+
+/** Step 4 is about where the coupon is used, which depends on the channel. */
+const RULES_LABEL: Record<RedemptionChannel, string> = {
+  in_store: 'Vouchers & outlets',
+  online_code: 'Vouchers & checkout',
+  api_booking: 'Vouchers & booking',
+};
+
+function stepsFor(channel: RedemptionChannel): { key: StepKey; label: string }[] {
+  return STEPS.map((step) => (step.key === 'rules' ? { ...step, label: RULES_LABEL[channel] } : step));
+}
+
+const MIN_BILL_LABEL: Record<RedemptionChannel, string> = {
+  in_store: 'Minimum bill (₹)',
+  online_code: 'Minimum order (₹)',
+  api_booking: 'Minimum booking (₹)',
+};
 
 const OFFER_TYPES: { value: OfferDiscountType; label: string }[] = [
   { value: 'flat', label: '₹ off' },
@@ -117,8 +149,20 @@ interface FormState {
   dailyLimit: string;
   startDate: string;
   endDate: string;
+  channel: RedemptionChannel;
   restrictOutlets: boolean;
   outletIds: string[];
+  /** online_code */
+  landingUrl: string;
+  applyUrlTemplate: string;
+  platforms: CheckoutPlatform[];
+  appliesTo: string;
+  codeSource: 'lessgo' | 'partner_pool';
+  /** api_booking */
+  bookingProduct: BookingProduct;
+  minUnits: string;
+  maxUnits: string;
+  bookingScope: string;
   confirmed: boolean;
 }
 
@@ -174,7 +218,29 @@ function toDraft(form: FormState): CampaignDraft {
       dailyLimit: form.dailyLimit.trim() ? toInt(form.dailyLimit) : null,
     },
     targeting: toTargeting(form),
-    outletIds: form.restrictOutlets ? form.outletIds : [],
+    channel: form.channel,
+    ...(form.channel === 'online_code'
+      ? {
+          online: {
+            landingUrl: form.landingUrl.trim(),
+            ...(form.applyUrlTemplate.trim() ? { applyUrlTemplate: form.applyUrlTemplate.trim() } : {}),
+            platforms: form.platforms,
+            appliesTo: form.appliesTo,
+            codeSource: form.codeSource,
+          },
+        }
+      : {}),
+    ...(form.channel === 'api_booking'
+      ? {
+          booking: {
+            product: form.bookingProduct,
+            minUnits: toInt(form.minUnits),
+            maxUnits: toInt(form.maxUnits),
+            scope: form.bookingScope,
+          },
+        }
+      : {}),
+    outletIds: form.channel === 'in_store' && form.restrictOutlets ? form.outletIds : [],
     startAt: form.startDate ? fromDateInputValue(form.startDate) : '',
     endAt: form.endDate ? fromDateInputValue(form.endDate, true) : '',
     eventType: form.eventType,
@@ -195,10 +261,46 @@ function initialForm(
     campaigns[0]?.voucherPolicy.codePrefix ?? partner.brandName.replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 3);
   const start = toDateInputValue(new Date(now + 2 * DAY_MS).toISOString());
   const end = toDateInputValue(new Date(now + 32 * DAY_MS).toISOString());
+  const products = partner.integration.booking?.products ?? [];
+  const firstProduct: BookingProduct = products[0] ?? 'movie_tickets';
+  const perPerson = BOOKING_PRODUCT_DETAILS[firstProduct].perPerson;
+  const channelDefaults = {
+    landingUrl: partner.website ?? '',
+    applyUrlTemplate: '',
+    platforms: [...CHECKOUT_PLATFORMS],
+    appliesTo: '',
+    codeSource: 'lessgo' as const,
+    bookingProduct: firstProduct,
+    // Tickets/seats are one per person; rooms aren't.
+    minUnits: perPerson ? '3' : '1',
+    maxUnits: perPerson ? '10' : '4',
+    bookingScope: '',
+  };
 
   if (source) {
     const include = source.targeting.geo?.include ?? {};
+    // A duplicated/edited campaign keeps its channel while the partner still has it.
+    const channel = partner.channels.includes(source.channel) ? source.channel : partner.channels[0];
     return {
+      ...channelDefaults,
+      channel,
+      ...(source.online
+        ? {
+            landingUrl: source.online.landingUrl,
+            applyUrlTemplate: source.online.applyUrlTemplate ?? '',
+            platforms: [...source.online.platforms],
+            appliesTo: source.online.appliesTo,
+            codeSource: source.online.codeSource,
+          }
+        : {}),
+      ...(source.booking
+        ? {
+            bookingProduct: source.booking.product,
+            minUnits: String(source.booking.minUnits),
+            maxUnits: String(source.booking.maxUnits),
+            bookingScope: source.booking.scope,
+          }
+        : {}),
       headline: source.headline,
       description: source.description,
       terms: [...source.terms],
@@ -233,7 +335,11 @@ function initialForm(
   }
 
   const creative = DUMMY_CREATIVE_LIBRARY[0];
+  const channel = partner.channels[0];
+  const inStore = channel === 'in_store';
   return {
+    ...channelDefaults,
+    channel,
     headline: '',
     description: '',
     terms: [`Needs a Lessgo group of 3 or more.`, 'One coupon per event. Not valid with other offers.'],
@@ -251,8 +357,9 @@ function initialForm(
     eventName: `Plan at ${partner.brandName}`,
     ageBrackets: [],
     gender: 'all',
-    geoMode: outletDistricts.length ? 'custom' : 'all',
-    include: outletDistricts.length ? { districts: outletDistricts } : {},
+    // In-store offers start near the outlets; online ones start All India.
+    geoMode: inStore && outletDistricts.length ? 'custom' : 'all',
+    include: inStore && outletDistricts.length ? { districts: outletDistricts } : {},
     exclude: {},
     codePrefix: prefix,
     validityDays: '14',
@@ -261,7 +368,7 @@ function initialForm(
     dailyLimit: '50',
     startDate: start,
     endDate: end,
-    restrictOutlets: activeOutlets.length > 0,
+    restrictOutlets: inStore && activeOutlets.length > 0,
     outletIds: activeOutlets.map((outlet) => outlet.id),
     confirmed: false,
   };
@@ -338,12 +445,13 @@ function WizardForm({
   const update = (patch: Partial<FormState>) => setForm((current) => ({ ...current, ...patch }));
   const draft = useMemo(() => toDraft(form), [form]);
   const errors = useMemo(() => {
-    const result = validateCampaignDraft(draft, { nameOf: geoName });
-    if (form.restrictOutlets && form.outletIds.length === 0) {
+    const result = validateCampaignDraft(draft, { nameOf: geoName, partner: draftContextFor(partner) });
+    if (form.channel === 'in_store' && form.restrictOutlets && form.outletIds.length === 0) {
       (result.rules ??= []).push('Pick at least one outlet, or allow any venue.');
     }
     return result;
-  }, [draft, form.restrictOutlets, form.outletIds.length]);
+  }, [draft, form.channel, form.restrictOutlets, form.outletIds.length, partner]);
+  const steps = useMemo(() => stepsFor(form.channel), [form.channel]);
   const targetingKey = JSON.stringify(draft.targeting);
 
   useEffect(() => {
@@ -364,7 +472,7 @@ function WizardForm({
   }, [targetingKey]);
 
   const tooNarrow = estimate !== null && estimate < PARTNER_PORTAL_CONFIG.minAudience;
-  const stepIndex = STEPS.findIndex((candidate) => candidate.key === step);
+  const stepIndex = steps.findIndex((candidate) => candidate.key === step);
   const label = offerLabel(draft.offer);
 
   function go(next: StepKey) {
@@ -378,11 +486,11 @@ function WizardForm({
       setShowErrors((current) => new Set(current).add(step));
       return;
     }
-    go(STEPS[stepIndex + 1].key);
+    go(steps[stepIndex + 1].key);
   }
 
   async function submit() {
-    setShowErrors(new Set(STEPS.map((candidate) => candidate.key)));
+    setShowErrors(new Set(steps.map((candidate) => candidate.key)));
     if (hasDraftErrors(errors) || tooNarrow || !form.confirmed) return;
     setSubmitting(true);
     setSubmitError(null);
@@ -402,7 +510,7 @@ function WizardForm({
   return (
     <>
       <ol className="mb-6 flex gap-2 overflow-x-auto pb-1" aria-label="Steps">
-        {STEPS.map((candidate, index) => {
+        {steps.map((candidate, index) => {
           const active = candidate.key === step;
           const done = index < stepIndex;
           const reachable = visited.has(candidate.key);
@@ -441,7 +549,9 @@ function WizardForm({
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0">
           <Card>
-            {step === 'offer' ? <OfferStep form={form} update={update} label={label} errors={stepErrors('offer')} /> : null}
+            {step === 'offer' ? (
+              <OfferStep form={form} update={update} label={label} errors={stepErrors('offer')} partner={partner} />
+            ) : null}
             {step === 'creative' ? <CreativeStep form={form} update={update} errors={stepErrors('creative')} /> : null}
             {step === 'audience' ? (
               <AudienceStep
@@ -454,7 +564,9 @@ function WizardForm({
                 showNarrow={showErrors.has('audience')}
               />
             ) : null}
-            {step === 'rules' ? <RulesStep form={form} update={update} outlets={outlets} errors={stepErrors('rules')} /> : null}
+            {step === 'rules' ? (
+              <RulesStep form={form} update={update} outlets={outlets} errors={stepErrors('rules')} partner={partner} />
+            ) : null}
             {step === 'review' ? (
               <ReviewStep
                 form={form}
@@ -467,6 +579,7 @@ function WizardForm({
                 errors={errors}
                 showConfirmError={showErrors.has('review') && !form.confirmed}
                 onEdit={go}
+                steps={steps}
               />
             ) : null}
           </Card>
@@ -480,7 +593,7 @@ function WizardForm({
           <div className="mt-5 flex items-center justify-between gap-3">
             <button
               type="button"
-              onClick={() => go(STEPS[Math.max(0, stepIndex - 1)].key)}
+              onClick={() => go(steps[Math.max(0, stepIndex - 1)].key)}
               disabled={stepIndex === 0 || submitting}
               className={secondaryButtonClass}
             >
@@ -494,7 +607,7 @@ function WizardForm({
               </button>
             ) : (
               <button type="button" onClick={goNext} className={primaryButtonClass}>
-                Next: {STEPS[stepIndex + 1].label}
+                Next: {steps[stepIndex + 1].label}
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </button>
             )}
@@ -511,6 +624,8 @@ function WizardForm({
             storyImageUrl={form.storyImageUrl}
             terms={form.terms}
             minGroupSize={Number.isNaN(draft.offer.minGroupSize) ? 2 : draft.offer.minGroupSize}
+            channel={form.channel}
+            checkoutName={partner.brandName}
           />
           <ReachBadge estimate={estimate} tooNarrow={tooNarrow} />
         </aside>
@@ -526,10 +641,46 @@ interface StepProps {
   update: (patch: Partial<FormState>) => void;
 }
 
-function OfferStep({ form, update, label, errors }: StepProps & { label: string; errors: string[] }) {
+function OfferStep({
+  form,
+  update,
+  label,
+  errors,
+  partner,
+}: StepProps & { label: string; errors: string[]; partner: PartnerAccount }) {
+  const live = channelIsLive(partner, form.channel);
   return (
     <div className="space-y-5">
       <StepIntro title="What are you offering?" body="Keep it short — the headline is the first thing people read on the story." />
+      <div>
+        <p className={labelClass}>How groups use it</p>
+        {partner.channels.length > 1 ? (
+          <div className={`grid gap-2 ${partner.channels.length === 3 ? 'md:grid-cols-3' : 'sm:grid-cols-2'}`}>
+            {partner.channels.map((channel) => (
+              <RadioCard
+                key={channel}
+                checked={form.channel === channel}
+                onChange={() => update({ channel })}
+                title={`${CHANNEL_DETAILS[channel].emoji} ${CHANNEL_DETAILS[channel].label}`}
+                body={CHANNEL_DETAILS[channel].summary}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-ink">
+            <span aria-hidden="true">{CHANNEL_DETAILS[form.channel].emoji}</span> {CHANNEL_DETAILS[form.channel].label} —{' '}
+            <span className="text-ink-muted">{CHANNEL_DETAILS[form.channel].summary}</span>
+          </p>
+        )}
+        {!live && isOnlineChannel(form.channel) ? (
+          <p className="mt-2 flex gap-2 rounded-md border border-warn bg-warn-tint px-3 py-2 text-sm text-ink">
+            <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-warn" aria-hidden="true" />
+            Your {CHANNEL_DETAILS[form.channel].connection} is “
+            {INTEGRATION_STATUS_DETAILS[integrationStatus(partner, form.channel)].label}”. You can submit now; Lessgo approves the
+            campaign once the connection is live (Integrations).
+          </p>
+        ) : null}
+      </div>
       <Field id="headline" label="Headline" hint={`${form.headline.trim().length}/60`}>
         <input
           id="headline"
@@ -583,7 +734,7 @@ function OfferStep({ form, update, label, errors }: StepProps & { label: string;
               />
             </Field>
           ) : null}
-          <Field id="minbill" label="Minimum bill (₹)" hint="Optional">
+          <Field id="minbill" label={MIN_BILL_LABEL[form.channel]} hint={form.channel === 'api_booking' ? 'Optional · before fees' : 'Optional'}>
             <input id="minbill" inputMode="decimal" value={form.minBillRupees} onChange={(event) => update({ minBillRupees: event.target.value })} className={inputClass} />
           </Field>
           <Field id="group" label="Minimum group size" hint="People going, host included, before the coupon can be applied.">
@@ -859,15 +1010,35 @@ function AudienceStep({
   );
 }
 
-function RulesStep({ form, update, outlets, errors }: StepProps & { outlets: PartnerOutlet[]; errors: string[] }) {
+const RULES_INTRO: Record<RedemptionChannel, { title: string; body: string }> = {
+  in_store: {
+    title: 'Vouchers, limits and outlets',
+    body: 'Every person who claims gets their own one-time code. Limits are enforced by Lessgo when codes are claimed.',
+  },
+  online_code: {
+    title: 'Vouchers, limits and checkout',
+    body: 'Every group gets its own one-time code to apply on your checkout, which checks it with the Lessgo Partner API.',
+  },
+  api_booking: {
+    title: 'Vouchers, limits and booking',
+    body: 'Groups book inside Lessgo; we send the coupon with the quote and your booking API applies it.',
+  },
+};
+
+function RulesStep({
+  form,
+  update,
+  outlets,
+  errors,
+  partner,
+}: StepProps & { outlets: PartnerOutlet[]; errors: string[]; partner: PartnerAccount }) {
   const example = /^[A-Z]{2,5}$/.test(form.codePrefix) ? buildVoucherCode(form.codePrefix, 'K7P2M9QX') : '—';
   const today = toDateInputValue(new Date().toISOString());
+  const intro = RULES_INTRO[form.channel];
+  const noun = redeemedNoun(form.channel, 2);
   return (
     <div className="space-y-6">
-      <StepIntro
-        title="Vouchers, limits and outlets"
-        body="Every person who claims gets their own one-time code. Limits are enforced by Lessgo when codes are claimed."
-      />
+      <StepIntro title={intro.title} body={intro.body} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field id="prefix" label="Code prefix" hint={`Codes look like ${example}`}>
           <input
@@ -884,7 +1055,12 @@ function RulesStep({ form, update, outlets, errors }: StepProps & { outlets: Par
         <Field id="per-user" label="Vouchers per person">
           <input id="per-user" inputMode="numeric" value={form.perUserLimit} onChange={(event) => update({ perUserLimit: event.target.value })} className={inputClass} />
         </Field>
-        <LimitField id="total-limit" label="Total redemptions" value={form.redemptionLimit} onChange={(redemptionLimit) => update({ redemptionLimit })} />
+        <LimitField
+          id="total-limit"
+          label={`Total ${noun}`}
+          value={form.redemptionLimit}
+          onChange={(redemptionLimit) => update({ redemptionLimit })}
+        />
         <LimitField id="daily-limit" label="New vouchers per day" value={form.dailyLimit} onChange={(dailyLimit) => update({ dailyLimit })} />
       </div>
 
@@ -897,6 +1073,10 @@ function RulesStep({ form, update, outlets, errors }: StepProps & { outlets: Par
         </Field>
       </div>
 
+      {form.channel === 'online_code' ? <CheckoutFields form={form} update={update} partner={partner} /> : null}
+      {form.channel === 'api_booking' ? <BookingFields form={form} update={update} partner={partner} /> : null}
+
+      {form.channel === 'in_store' ? (
       <div>
         <p className={labelClass}>Where can the event happen?</p>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -945,7 +1125,155 @@ function RulesStep({ form, update, outlets, errors }: StepProps & { outlets: Par
           )
         ) : null}
       </div>
+      ) : null}
       <Errors list={errors} />
+    </div>
+  );
+}
+
+function CheckoutFields({ form, update, partner }: StepProps & { partner: PartnerAccount }) {
+  const insertToken = () => {
+    const base = form.applyUrlTemplate.trim() || `${form.landingUrl.replace(/\/+$/, '') || partner.website || 'https://'}`;
+    update({ applyUrlTemplate: base.includes('{code}') ? base : `${base}${base.includes('?') ? '&' : '?'}coupon={code}` });
+  };
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field id="landing-url" label="Shop link" hint={`Where “Shop on ${partner.brandName}” takes the group. Must be on your domain.`}>
+          <input
+            id="landing-url"
+            type="url"
+            inputMode="url"
+            value={form.landingUrl}
+            onChange={(event) => update({ landingUrl: event.target.value })}
+            placeholder={`${partner.website ?? 'https://shop.example.com'}/lessgo`}
+            className={inputClass}
+          />
+        </Field>
+        <Field
+          id="apply-url"
+          label="Apply-code link"
+          hint={
+            <>
+              Optional. Opens with the code applied — use <span className="font-mono">{'{code}'}</span> where the code goes.{' '}
+              <button type="button" onClick={insertToken} className="font-semibold text-profile hover:underline">
+                Add {'{code}'}
+              </button>
+            </>
+          }
+        >
+          <input
+            id="apply-url"
+            type="url"
+            inputMode="url"
+            value={form.applyUrlTemplate}
+            onChange={(event) => update({ applyUrlTemplate: event.target.value })}
+            placeholder={`${partner.website ?? 'https://shop.example.com'}/cart?coupon={code}`}
+            className={`${inputClass} font-mono text-sm`}
+          />
+        </Field>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <p className={labelClass}>Code works on</p>
+          <div className="flex flex-wrap gap-2">
+            {CHECKOUT_PLATFORMS.map((platform) => (
+              <Chip
+                key={platform}
+                active={form.platforms.includes(platform)}
+                onClick={() =>
+                  update({
+                    platforms: form.platforms.includes(platform)
+                      ? form.platforms.filter((value) => value !== platform)
+                      : CHECKOUT_PLATFORMS.filter((value) => value === platform || form.platforms.includes(value)),
+                  })
+                }
+              >
+                {PLATFORM_LABEL[platform]}
+              </Chip>
+            ))}
+          </div>
+        </div>
+        <Field id="applies-to" label="Applies to" hint="Shown with the terms, e.g. “Fashion & footwear, except gift cards”.">
+          <input
+            id="applies-to"
+            value={form.appliesTo}
+            maxLength={80}
+            onChange={(event) => update({ appliesTo: event.target.value })}
+            className={inputClass}
+          />
+        </Field>
+      </div>
+      <div>
+        <p className={labelClass}>Codes</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <RadioCard
+            checked={form.codeSource === 'lessgo'}
+            onChange={() => update({ codeSource: 'lessgo' })}
+            title="Lessgo codes (recommended)"
+            body="One unique code per group; your checkout validates and redeems it through the Partner API."
+          />
+          <RadioCard
+            checked={form.codeSource === 'partner_pool'}
+            onChange={() => update({ codeSource: 'partner_pool' })}
+            title="Our own code pool"
+            body="Upload single-use codes after approval; report orders with the order.placed webhook."
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BookingFields({ form, update, partner }: StepProps & { partner: PartnerAccount }) {
+  const products = partner.integration.booking?.products ?? [];
+  const detail = BOOKING_PRODUCT_DETAILS[form.bookingProduct];
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Field id="booking-product" label="What can be booked">
+          <select
+            id="booking-product"
+            value={form.bookingProduct}
+            onChange={(event) => update({ bookingProduct: event.target.value as BookingProduct })}
+            className={inputClass}
+          >
+            {(products.length ? products : [form.bookingProduct]).map((product) => (
+              <option key={product} value={product}>
+                {BOOKING_PRODUCT_DETAILS[product].label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field id="min-units" label={`Min ${detail.units} per booking`}>
+          <input id="min-units" inputMode="numeric" value={form.minUnits} onChange={(event) => update({ minUnits: event.target.value })} className={inputClass} />
+        </Field>
+        <Field id="max-units" label={`Max ${detail.units} per booking`}>
+          <input id="max-units" inputMode="numeric" value={form.maxUnits} onChange={(event) => update({ maxUnits: event.target.value })} className={inputClass} />
+        </Field>
+      </div>
+      <Field
+        id="booking-scope"
+        label="Bookable"
+        hint={
+          detail.perPerson
+            ? `Shown with the terms. One ${detail.unit} per person, so the maximum must fit the whole group.`
+            : 'Shown with the terms, e.g. “Partner hotels & homestays, 1–3 nights”.'
+        }
+      >
+        <input
+          id="booking-scope"
+          value={form.bookingScope}
+          maxLength={80}
+          onChange={(event) => update({ bookingScope: event.target.value })}
+          placeholder={detail.perPerson ? 'e.g. All 2D & 3D shows at partner cinemas' : 'e.g. Partner hotels & homestays'}
+          className={inputClass}
+        />
+      </Field>
+      <p className={hintClass}>
+        Groups pay on your hosted checkout; the coupon is applied in your quote. Make sure your booking API is connected under
+        Integrations.
+      </p>
     </div>
   );
 }
@@ -961,6 +1289,7 @@ function ReviewStep({
   errors,
   showConfirmError,
   onEdit,
+  steps,
 }: StepProps & {
   draft: CampaignDraft;
   label: string;
@@ -970,6 +1299,7 @@ function ReviewStep({
   errors: DraftErrors;
   showConfirmError: boolean;
   onEdit: (step: StepKey) => void;
+  steps: { key: StepKey; label: string }[];
 }) {
   const blocking = (Object.entries(errors) as [DraftStep, string[]][]).filter(([, list]) => list.length);
   const chosenOutlets = outlets.filter((outlet) => draft.outletIds.includes(outlet.id));
@@ -987,7 +1317,7 @@ function ReviewStep({
               list.map((message) => (
                 <li key={`${step}-${message}`}>
                   <button type="button" onClick={() => onEdit(step)} className="text-left underline-offset-2 hover:underline">
-                    {STEPS.find((candidate) => candidate.key === step)?.label}: {message}
+                    {steps.find((candidate) => candidate.key === step)?.label}: {message}
                   </button>
                 </li>
               )),
@@ -1009,8 +1339,11 @@ function ReviewStep({
         </p>
         <p className="text-ink-muted">
           {describeOffer({ ...draft.offer, label })}
-          {draft.offer.minBillMinor ? ` · minimum bill ${formatInr(draft.offer.minBillMinor)}` : ''} · groups of{' '}
+          {draft.offer.minBillMinor ? ` · ${MIN_BILL_LABEL[draft.channel].replace(' (₹)', '').toLowerCase()} ${formatInr(draft.offer.minBillMinor)}` : ''} · groups of{' '}
           {draft.offer.minGroupSize}+
+        </p>
+        <p className="text-ink-muted">
+          {CHANNEL_DETAILS[draft.channel].emoji} {CHANNEL_DETAILS[draft.channel].label}
         </p>
       </ReviewBlock>
       <ReviewBlock title="Creative" onEdit={() => onEdit('creative')}>
@@ -1030,16 +1363,32 @@ function ReviewStep({
           {estimate === null ? 'Estimating…' : tooNarrow ? 'Too narrow' : `≈ ${formatCompact(estimate)} people`}
         </p>
       </ReviewBlock>
-      <ReviewBlock title="Vouchers & outlets" onEdit={() => onEdit('rules')}>
+      <ReviewBlock title={RULES_LABEL[draft.channel]} onEdit={() => onEdit('rules')}>
         <p className="text-ink-muted">
           <span className="font-mono">{form.codePrefix}-XXXX-XXXX-X</span> · valid {form.validityDays} days ·{' '}
           {draft.voucherPolicy.redemptionLimit ? `${formatCount(draft.voucherPolicy.redemptionLimit)} redemptions` : 'unlimited'} ·{' '}
           {draft.voucherPolicy.dailyLimit ? `${formatCount(draft.voucherPolicy.dailyLimit)}/day` : 'no daily cap'}
         </p>
         <p className="text-ink-muted">
-          {draft.startAt && draft.endAt ? `${formatDate(draft.startAt)} – ${formatDate(draft.endAt)}` : 'Dates missing'} ·{' '}
-          {chosenOutlets.length ? `${chosenOutlets.length} outlet${chosenOutlets.length > 1 ? 's' : ''}` : 'any venue'}
+          {draft.startAt && draft.endAt ? `${formatDate(draft.startAt)} – ${formatDate(draft.endAt)}` : 'Dates missing'}
+          {draft.channel === 'in_store'
+            ? ` · ${chosenOutlets.length ? `${chosenOutlets.length} outlet${chosenOutlets.length > 1 ? 's' : ''}` : 'any venue'}`
+            : ''}
         </p>
+        {draft.online ? (
+          <p className="text-ink-muted">
+            <span className="break-all">{draft.online.applyUrlTemplate || draft.online.landingUrl || 'Shop link missing'}</span> ·{' '}
+            {draft.online.platforms.map((platform) => PLATFORM_LABEL[platform]).join(', ') || 'no platforms'} ·{' '}
+            {draft.online.codeSource === 'lessgo' ? 'Lessgo codes' : 'your code pool'}
+          </p>
+        ) : null}
+        {draft.booking ? (
+          <p className="text-ink-muted">
+            {BOOKING_PRODUCT_DETAILS[draft.booking.product].label} · {Number.isNaN(draft.booking.minUnits) ? '?' : draft.booking.minUnits}–
+            {Number.isNaN(draft.booking.maxUnits) ? '?' : draft.booking.maxUnits} {BOOKING_PRODUCT_DETAILS[draft.booking.product].units} per
+            booking · {draft.booking.scope || 'scope missing'}
+          </p>
+        ) : null}
       </ReviewBlock>
 
       <label className={`flex items-start gap-3 rounded-md border px-4 py-3 text-sm ${showConfirmError ? 'border-down' : 'border-line'}`}>
@@ -1050,8 +1399,11 @@ function ReviewStep({
           className="mt-0.5 h-4 w-4 accent-[var(--profile)]"
         />
         <span className="text-ink">
-          The offer and terms are accurate, and our staff will honour valid Lessgo vouchers at the counter until they expire,
-          even if we pause the campaign.
+          {draft.channel === 'in_store'
+            ? 'The offer and terms are accurate, and our staff will honour valid Lessgo vouchers at the counter until they expire, even if we pause the campaign.'
+            : draft.channel === 'online_code'
+              ? 'The offer and terms are accurate, and our checkout will accept valid Lessgo codes until they expire, even if we pause the campaign.'
+              : 'The offer and terms are accurate, and our booking API will apply the coupon to bookings made through Lessgo until vouchers expire, even if we pause the campaign.'}
         </span>
       </label>
     </div>

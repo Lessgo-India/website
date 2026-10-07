@@ -14,6 +14,14 @@
  * they go), which proxy to backend-offers-service. Then delete the dummy
  * branch of every function below, demoStore.ts and dummyData.ts.
  */
+import {
+  channelIsLive,
+  draftContextFor,
+  httpsHostOf,
+  isWithinDomain,
+  normaliseDomain,
+  type OnlineChannel,
+} from './channels';
 import { PARTNER_PORTAL_CONFIG, PARTNER_SUPPORT_EMAIL } from './config';
 import {
   credentialAccepts,
@@ -30,7 +38,7 @@ import {
   type DemoState,
   type DemoVoucher,
 } from './demoStore';
-import { dummyDailySeries } from './dummyData';
+import { dummyDailySeries, dummyIntegrationTest } from './dummyData';
 import { getGeoDistrict, isPincodeInState, stateCodeOfDistrict } from './indiaGeo';
 import {
   computeDiscount,
@@ -45,10 +53,16 @@ import {
   type DraftErrors,
 } from './rules';
 import type {
+  BookingIntegration,
+  BookingIntegrationInput,
   CampaignStats,
+  CheckoutIntegration,
+  CheckoutIntegrationInput,
+  IntegrationTestRun,
   OfferTargeting,
   PartnerAccount,
   PartnerCampaign,
+  PartnerChannelTotals,
   PartnerLogin,
   PartnerOutlet,
   PartnerOverview,
@@ -56,6 +70,7 @@ import type {
   PartnerSession,
   PartnerUser,
   PartnerVoucherLookup,
+  RedemptionChannel,
 } from './types';
 
 export class PartnerApiError extends Error {
@@ -440,8 +455,8 @@ function partnerCampaigns(partnerId: string): PartnerCampaign[] {
   return store().campaigns.filter((campaign) => campaign.partnerId === partnerId);
 }
 
-function sumStats(campaigns: readonly PartnerCampaign[]): CampaignStats {
-  const totals: CampaignStats = {
+function zeroStats(): CampaignStats {
+  return {
     reach: 0,
     impressions: 0,
     opens: 0,
@@ -451,7 +466,14 @@ function sumStats(campaigns: readonly PartnerCampaign[]): CampaignStats {
     redeemed: 0,
     discountMinor: 0,
     gmvMinor: 0,
+    checkouts: 0,
+    units: 0,
+    reversed: 0,
   };
+}
+
+function sumStats(campaigns: readonly PartnerCampaign[]): CampaignStats {
+  const totals = zeroStats();
   for (const campaign of campaigns) {
     for (const key of Object.keys(totals) as (keyof CampaignStats)[]) {
       totals[key] = key === 'reach' ? Math.max(totals.reach, campaign.stats.reach) : totals[key] + campaign.stats[key];
@@ -461,7 +483,7 @@ function sumStats(campaigns: readonly PartnerCampaign[]): CampaignStats {
 }
 
 /**
- * Dashboard numbers for the signed-in partner.
+ * Dashboard numbers for the signed-in partner, overall and per channel.
  *
  * BACKEND: GET /api/partner/overview?days=30 → PartnerOverview
  *   (aggregated from offer_events + redemptions by the offers service).
@@ -470,24 +492,36 @@ export async function getPartnerOverview(session: PartnerSession): Promise<Partn
   if (backendEnabled()) return bff<PartnerOverview>('GET', '/overview?days=30');
 
   await pause();
-  const campaigns = partnerCampaigns(session.partner.id);
-  const running = campaigns.filter((campaign) => ['live', 'paused', 'ended'].includes(campaign.status));
+  const state = store();
+  const account = partnerById(session.partner.id, state);
+  const campaigns = state.campaigns.filter((campaign) => campaign.partnerId === account.id);
+  const isRunning = (campaign: PartnerCampaign) => ['live', 'paused', 'ended'].includes(campaign.status);
+  const running = campaigns.filter(isRunning);
   const live = campaigns.filter((campaign) => campaign.status === 'live');
   const totals = sumStats(running);
   const campaignIds = new Set(campaigns.map((campaign) => campaign.id));
-  const redemptions = store().redemptions.filter((row) => campaignIds.has(row.campaignId));
-  const outlets = store().outlets;
+  const redemptions = state.redemptions.filter((row) => campaignIds.has(row.campaignId));
 
   const byDistrict = new Map<string, number>();
   for (const row of redemptions) {
-    const districtId = outlets.find((candidate) => candidate.id === row.outletId)?.districtId;
+    const districtId = row.outletId ? state.outlets.find((candidate) => candidate.id === row.outletId)?.districtId : undefined;
     if (districtId) byDistrict.set(districtId, (byDistrict.get(districtId) ?? 0) + 1);
   }
+  const byChannel: PartnerChannelTotals[] = account.channels.map((channel) => {
+    const own = campaigns.filter((campaign) => campaign.channel === channel);
+    return {
+      channel,
+      campaigns: own.length,
+      liveCampaigns: own.filter((campaign) => campaign.status === 'live').length,
+      totals: sumStats(own.filter(isRunning)),
+    };
+  });
 
   return {
-    partner: session.partner,
+    partner: account,
     totals,
-    liveCampaigns: campaigns.filter((campaign) => campaign.status === 'live').length,
+    byChannel,
+    liveCampaigns: live.length,
     // A partner with nothing live has no activity to chart (e.g. just onboarded).
     daily: live.length > 0 ? dummyDailySeries(session.partner.id, sumStats(live)) : [],
     recentRedemptions: redemptions.slice(0, 8),
@@ -530,9 +564,23 @@ export async function getPartnerCampaign(session: PartnerSession, campaignId: st
   return campaign;
 }
 
-/** The partner-editable fields of a campaign, built from a validated draft. */
+/**
+ * The partner-editable fields of a campaign, built from a validated draft.
+ * Only the chosen channel's settings are kept (a resubmission can switch
+ * channel), so stale online/booking/outlet settings never linger.
+ */
 function campaignFields(draft: CampaignDraft) {
   const targeting = normaliseTargeting(draft.targeting);
+  const online =
+    draft.channel === 'online_code' && draft.online
+      ? {
+          ...draft.online,
+          landingUrl: draft.online.landingUrl.trim(),
+          ...(draft.online.applyUrlTemplate?.trim() ? { applyUrlTemplate: draft.online.applyUrlTemplate.trim() } : {}),
+          appliesTo: draft.online.appliesTo.trim(),
+        }
+      : undefined;
+  if (online && !draft.online?.applyUrlTemplate?.trim()) delete online.applyUrlTemplate;
   return {
     headline: draft.headline.trim(),
     description: draft.description.trim(),
@@ -541,7 +589,11 @@ function campaignFields(draft: CampaignDraft) {
     offer: { ...draft.offer, label: offerLabel(draft.offer) },
     voucherPolicy: draft.voucherPolicy,
     targeting,
-    outletIds: draft.outletIds,
+    channel: draft.channel,
+    online,
+    booking:
+      draft.channel === 'api_booking' && draft.booking ? { ...draft.booking, scope: draft.booking.scope.trim() } : undefined,
+    outletIds: draft.channel === 'in_store' ? draft.outletIds : [],
     schedule: { startAt: draft.startAt, endAt: draft.endAt },
     eventDefaults: { eventType: draft.eventType, name: draft.eventName.trim() },
   } satisfies Partial<PartnerCampaign>;
@@ -574,12 +626,12 @@ export async function submitPartnerCampaign(
   }
 
   await pause(600);
-  const errors = validateCampaignDraft(draft);
+  // Synchronous from here: read the store once and save that same object.
+  const state = store();
+  const errors = validateCampaignDraft(draft, { partner: draftContextFor(partnerById(session.partner.id, state)) });
   if (hasDraftErrors(errors)) {
     throw new PartnerApiError('Fix the highlighted steps and submit again.', 422, 'validation', errors);
   }
-  // Synchronous from here: read the store once and save that same object.
-  const state = store();
   const ownOutletIds = new Set(
     state.outlets.filter((candidate) => candidate.partnerId === session.partner.id).map((candidate) => candidate.id),
   );
@@ -599,6 +651,8 @@ export async function submitPartnerCampaign(
       throw new PartnerApiError('Only campaigns that need changes can be resubmitted.', 409, 'invalid_state');
     }
     Object.assign(rejected, fields, { status: 'in_review', updatedAt: now, submittedAt: now });
+    if (!fields.online) delete rejected.online;
+    if (!fields.booking) delete rejected.booking;
     delete rejected.reviewNote;
     rejected.stats.reach = estimateReach(fields.targeting);
     recordAudit(state, {
@@ -619,18 +673,10 @@ export async function submitPartnerCampaign(
     createdAt: now,
     updatedAt: now,
     submittedAt: now,
-    stats: {
-      reach: estimateReach(fields.targeting),
-      impressions: 0,
-      opens: 0,
-      claims: 0,
-      eventsCreated: 0,
-      applied: 0,
-      redeemed: 0,
-      discountMinor: 0,
-      gmvMinor: 0,
-    },
+    stats: { ...zeroStats(), reach: estimateReach(fields.targeting) },
   };
+  if (!campaign.online) delete campaign.online;
+  if (!campaign.booking) delete campaign.booking;
   state.campaigns.unshift(campaign);
   recordAudit(state, {
     partnerId: session.partner.id,
@@ -647,6 +693,8 @@ export async function submitPartnerCampaign(
  * vouchers already claimed stay valid until they expire.
  *
  * BACKEND: PATCH /api/partner/campaigns/:id { status: "paused" | "live" }
+ *   → 409 channel_not_live when resuming a campaign whose online channel
+ *   Lessgo has taken offline (or not approved yet) — only Lessgo can undo that.
  */
 export async function setCampaignPaused(
   session: PartnerSession,
@@ -667,6 +715,13 @@ export async function setCampaignPaused(
   if (!campaign) throw new PartnerApiError('Campaign not found.', 404, 'not_found');
   if (campaign.status !== (paused ? 'live' : 'paused')) {
     throw new PartnerApiError(`A ${campaign.status.replace('_', ' ')} campaign can’t be ${paused ? 'paused' : 'resumed'}.`, 409, 'invalid_state');
+  }
+  if (!paused && !channelIsLive(partnerById(session.partner.id, state), campaign.channel)) {
+    throw new PartnerApiError(
+      'Lessgo has taken this channel offline. It can be resumed once the connection is live again (Integrations).',
+      409,
+      'channel_not_live',
+    );
   }
   campaign.status = paused ? 'paused' : 'live';
   campaign.updatedAt = new Date().toISOString();
@@ -872,6 +927,7 @@ export async function redeemVoucher(session: PartnerSession, request: RedeemRequ
     voucherId: voucher.voucherId,
     maskedCode: maskVoucherCode(voucher.code),
     campaignId: campaign.id,
+    channel: 'in_store',
     outletId,
     staffUserId: session.user.userId,
     holderDisplayName: voucher.holderDisplayName,
@@ -892,14 +948,22 @@ export async function redeemVoucher(session: PartnerSession, request: RedeemRequ
   return redemption;
 }
 
-/** BACKEND: GET /api/partner/redemptions?campaignId=&limit= → { redemptions } */
+/**
+ * Confirmed coupon uses: outlet redemptions, online orders and bookings.
+ *
+ * BACKEND: GET /api/partner/redemptions?campaignId=&channel=&limit=
+ *   → { redemptions }. Online orders arrive through the Partner API
+ *   (POST /partner-api/v1/vouchers/redeem) and bookings through the
+ *   booking.confirmed webhook; cancellations set `reversedAt`.
+ */
 export async function listPartnerRedemptions(
   session: PartnerSession,
-  options: { campaignId?: string; limit?: number } = {},
+  options: { campaignId?: string; channel?: RedemptionChannel; limit?: number } = {},
 ): Promise<PartnerRedemption[]> {
   if (backendEnabled()) {
     const query = new URLSearchParams();
     if (options.campaignId) query.set('campaignId', options.campaignId);
+    if (options.channel) query.set('channel', options.channel);
     if (options.limit) query.set('limit', String(options.limit));
     return (await bff<{ redemptions: PartnerRedemption[] }>('GET', `/redemptions?${query}`)).redemptions;
   }
@@ -910,6 +974,7 @@ export async function listPartnerRedemptions(
     (row) =>
       campaignIds.has(row.campaignId) &&
       (!options.campaignId || row.campaignId === options.campaignId) &&
+      (!options.channel || row.channel === options.channel) &&
       (session.user.role !== 'cashier' || row.outletId === session.user.outletId),
   );
   return rows.slice(0, options.limit ?? 50);
@@ -968,4 +1033,258 @@ export async function sendTestWebhook(session: PartnerSession): Promise<{ status
     throw new PartnerApiError('Ask Lessgo to register a webhook URL first.', 400, 'no_webhook');
   }
   return { status: 200, latencyMs: 140 + Math.round(Math.random() * 120) };
+}
+
+// ── Online integrations ─────────────────────────────────────────────────────
+// online_code: the partner's checkout calls Lessgo (Partner API) — the portal
+// manages its domains and sandbox checks. api_booking: Lessgo calls the
+// partner's booking API — the portal manages the connection details.
+
+export interface PartnerIntegrations {
+  channels: RedemptionChannel[];
+  website?: string;
+  checkout?: CheckoutIntegration;
+  booking?: BookingIntegration;
+}
+
+/** Days a passing sandbox run stays good enough to request go-live. */
+const TEST_FRESH_MS = 7 * 24 * 60 * 60 * 1000;
+
+function ownerOnly(session: PartnerSession): void {
+  if (session.user.role !== 'owner') {
+    throw new PartnerApiError('Only the account owner can manage integrations.', 403, 'forbidden');
+  }
+}
+
+function integrationOf(account: PartnerAccount, channel: OnlineChannel): CheckoutIntegration | BookingIntegration {
+  const integration = channel === 'online_code' ? account.integration.checkout : account.integration.booking;
+  if (!account.channels.includes(channel) || !integration) {
+    throw new PartnerApiError('This channel isn’t enabled for your account. Ask Lessgo to add it.', 404, 'not_found');
+  }
+  return integration;
+}
+
+const CHANNEL_NAME: Record<OnlineChannel, string> = { online_code: 'Online checkout', api_booking: 'Booking API' };
+
+/** BACKEND: GET /api/partner/integrations → PartnerIntegrations (owner only). */
+export async function getPartnerIntegrations(session: PartnerSession): Promise<PartnerIntegrations> {
+  if (backendEnabled()) return bff<PartnerIntegrations>('GET', '/integrations');
+
+  await pause(250);
+  ownerOnly(session);
+  const account = partnerById(session.partner.id);
+  const { checkout, booking } = account.integration;
+  return {
+    channels: [...account.channels],
+    ...(account.website ? { website: account.website } : {}),
+    ...(checkout && account.channels.includes('online_code') ? { checkout: structuredClone(checkout) } : {}),
+    ...(booking && account.channels.includes('api_booking') ? { booking: structuredClone(booking) } : {}),
+  };
+}
+
+/** A live connection is changed by Lessgo (roll back to testing first), never silently by the partner. */
+function assertEditable(integration: CheckoutIntegration | BookingIntegration): void {
+  if (integration.status === 'live') {
+    throw new PartnerApiError(
+      'This connection is live. Ask Lessgo to move it back to testing before changing it.',
+      409,
+      'integration_live',
+    );
+  }
+}
+
+/**
+ * Checkout domains for the online checkout code channel.
+ *
+ * BACKEND: PUT /api/partner/integrations/checkout { allowedDomains }
+ *   → CheckoutIntegration. The offers service verifies each domain (DNS TXT
+ *   record) before it counts, and only ever opens or accepts links on them.
+ */
+export async function saveCheckoutIntegration(
+  session: PartnerSession,
+  input: CheckoutIntegrationInput,
+): Promise<CheckoutIntegration> {
+  if (backendEnabled()) return bff<CheckoutIntegration>('PUT', '/integrations/checkout', input);
+
+  await pause(450);
+  ownerOnly(session);
+  const state = store();
+  const account = partnerById(session.partner.id, state);
+  const integration = integrationOf(account, 'online_code') as CheckoutIntegration;
+  assertEditable(integration);
+  const websiteHost = account.website ? httpsHostOf(account.website) : null;
+  const domains = [...new Set(input.allowedDomains.map((domain) => normaliseDomain(domain)))];
+  if (domains.length === 0 || domains.length > 5 || domains.some((domain) => !domain)) {
+    throw new PartnerApiError('Add 1–5 domains like shop.example.com (no https:// or paths).', 422, 'validation');
+  }
+  if (websiteHost && domains.some((domain) => !isWithinDomain(domain as string, websiteHost))) {
+    throw new PartnerApiError(`Checkout domains must be on ${websiteHost}.`, 422, 'validation');
+  }
+  integration.allowedDomains = domains as string[];
+  if (integration.status === 'not_connected' || integration.status === 'ready_for_review') {
+    integration.status = 'testing';
+    delete integration.goLiveRequestedAt;
+  }
+  recordAudit(state, {
+    partnerId: account.id,
+    actor: session.user.userId,
+    action: 'integration.updated',
+    detail: `Online checkout domains: ${integration.allowedDomains.join(', ')}.`,
+  });
+  persist(state);
+  return structuredClone(integration);
+}
+
+/**
+ * Connection to the partner's booking API (Lessgo Connect or an adapter).
+ *
+ * BACKEND: PUT /api/partner/integrations/booking
+ *   { sandboxBaseUrl, liveBaseUrl?, auth, clientId, clientSecret? }
+ *   → BookingIntegration. The secret is write-only: the offers service
+ *   encrypts it (AES-256-GCM, Key Vault) and never returns it.
+ */
+export async function saveBookingIntegration(
+  session: PartnerSession,
+  input: BookingIntegrationInput,
+): Promise<BookingIntegration> {
+  if (backendEnabled()) return bff<BookingIntegration>('PUT', '/integrations/booking', input);
+
+  await pause(450);
+  ownerOnly(session);
+  const state = store();
+  const account = partnerById(session.partner.id, state);
+  const integration = integrationOf(account, 'api_booking') as BookingIntegration;
+  assertEditable(integration);
+  if (!httpsHostOf(input.sandboxBaseUrl)) {
+    throw new PartnerApiError('The sandbox base URL must be an https address.', 422, 'validation');
+  }
+  if (input.liveBaseUrl?.trim() && !httpsHostOf(input.liveBaseUrl)) {
+    throw new PartnerApiError('The production base URL must be an https address.', 422, 'validation');
+  }
+  if (!/^[A-Za-z0-9._-]{3,64}$/.test(input.clientId.trim())) {
+    throw new PartnerApiError('The client ID must be 3–64 letters, digits, dots, dashes or underscores.', 422, 'validation');
+  }
+  const secret = input.clientSecret?.trim();
+  if (secret !== undefined && secret !== '' && secret.length < 16) {
+    throw new PartnerApiError('The client secret must be at least 16 characters.', 422, 'validation');
+  }
+  if (!secret && !integration.secretPreview) {
+    throw new PartnerApiError('Add the client secret or API key.', 422, 'validation');
+  }
+
+  integration.sandboxBaseUrl = input.sandboxBaseUrl.trim();
+  if (input.liveBaseUrl?.trim()) integration.liveBaseUrl = input.liveBaseUrl.trim();
+  else delete integration.liveBaseUrl;
+  integration.auth = input.auth;
+  integration.clientId = input.clientId.trim();
+  // DUMMY: only a preview is kept; the secret itself is never stored here.
+  if (secret) integration.secretPreview = `••••${secret.slice(-4)}`;
+  // Any change needs a fresh sandbox run before go-live.
+  integration.status = 'testing';
+  delete integration.goLiveRequestedAt;
+  delete integration.lastTest;
+  recordAudit(state, {
+    partnerId: account.id,
+    actor: session.user.userId,
+    action: 'integration.updated',
+    detail: `Booking API: ${integration.sandboxBaseUrl} (${input.auth === 'api_key' ? 'API key' : 'OAuth client credentials'}).`,
+  });
+  persist(state);
+  return structuredClone(integration);
+}
+
+/**
+ * Run the end-to-end check for an online channel.
+ *
+ * BACKEND: POST /api/partner/integrations/:channel/test → IntegrationTestRun
+ *   api_booking: the offers service calls the partner's sandbox —
+ *     GET /lessgo/v1/inventory → POST /quotes (test coupon) → POST /bookings
+ *     → waits for the signed booking.confirmed webhook → POST /bookings/:id/cancel.
+ *   online_code: reports the sandbox calls the partner's checkout made with
+ *     its lgp_test_ key — validate → redeem → reverse, signatures checked.
+ *   Live integrations run the same checks against production as a health check.
+ */
+export async function runIntegrationTest(session: PartnerSession, channel: OnlineChannel): Promise<IntegrationTestRun> {
+  if (backendEnabled()) return bff<IntegrationTestRun>('POST', `/integrations/${channel}/test`);
+
+  await pause(1_200);
+  ownerOnly(session);
+  const state = store();
+  const account = partnerById(session.partner.id, state);
+  const integration = integrationOf(account, channel);
+  if (integration.status === 'not_connected') {
+    throw new PartnerApiError('Save the connection details first.', 409, 'not_configured');
+  }
+  const environment = integration.status === 'live' ? 'live' : 'sandbox';
+  let failAt: number | undefined;
+  let failure: string | undefined;
+  if (channel === 'api_booking') {
+    const booking = integration as BookingIntegration;
+    const host = httpsHostOf((environment === 'live' ? booking.liveBaseUrl : booking.sandboxBaseUrl) ?? '') ?? '';
+    // DUMMY failure modes so the error states can be seen.
+    if (/fail|down/.test(host)) {
+      failAt = 0;
+      failure = `Connection to ${host} timed out after 10 s`;
+    } else if (/bad|wrong/.test(booking.clientId ?? '')) {
+      failAt = 1;
+      failure = '401 invalid_client — check the client ID and secret';
+    }
+  }
+  const run = dummyIntegrationTest(channel, {
+    at: Date.now(),
+    environment,
+    failAt,
+    failure,
+    product: channel === 'api_booking' ? (integration as BookingIntegration).products[0] : undefined,
+  });
+  integration.lastTest = run;
+  recordAudit(state, {
+    partnerId: account.id,
+    actor: session.user.userId,
+    action: 'integration.tested',
+    detail: `${CHANNEL_NAME[channel]}: ${environment} checks ${run.ok ? 'passed' : 'failed'}.`,
+  });
+  persist(state);
+  return structuredClone(run);
+}
+
+/**
+ * Ask Lessgo to approve production for a channel.
+ *
+ * BACKEND: POST /api/partner/integrations/:channel/go-live
+ *   → { status: "ready_for_review" }. Needs a passing sandbox run from the
+ *   last 7 days; an admin approves it under Admin → Partners.
+ */
+export async function requestIntegrationGoLive(
+  session: PartnerSession,
+  channel: OnlineChannel,
+): Promise<CheckoutIntegration | BookingIntegration> {
+  if (backendEnabled()) return bff('POST', `/integrations/${channel}/go-live`);
+
+  await pause(450);
+  ownerOnly(session);
+  const state = store();
+  const account = partnerById(session.partner.id, state);
+  const integration = integrationOf(account, channel);
+  if (integration.status !== 'testing') {
+    throw new PartnerApiError(
+      integration.status === 'ready_for_review' ? 'Lessgo is already reviewing this connection.' : 'Save and test the connection first.',
+      409,
+      'invalid_state',
+    );
+  }
+  const test = integration.lastTest;
+  if (!test || !test.ok || test.environment !== 'sandbox' || Date.now() - Date.parse(test.at) > TEST_FRESH_MS) {
+    throw new PartnerApiError('Run the sandbox checks until they pass, then ask to go live.', 409, 'test_required');
+  }
+  integration.status = 'ready_for_review';
+  integration.goLiveRequestedAt = new Date().toISOString();
+  recordAudit(state, {
+    partnerId: account.id,
+    actor: session.user.userId,
+    action: 'integration.go_live_requested',
+    detail: `${CHANNEL_NAME[channel]}: asked Lessgo to go live.`,
+  });
+  persist(state);
+  return structuredClone(integration);
 }

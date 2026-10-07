@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: 'Outlets' };
 
 export default function PartnerOutletsPage() {
   return (
-    <RequirePermission permission="outlets">
+    <RequirePermission permission="outlets" feature="outlets">
       <PartnerOutlets />
     </RequirePermission>
   );

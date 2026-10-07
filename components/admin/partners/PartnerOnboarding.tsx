@@ -3,21 +3,37 @@
 import Link from 'next/link';
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { ArrowRight, BadgeCheck, CircleCheck, Loader2, Plus, Send } from 'lucide-react';
-import { BrandAvatar } from '@ui/partner/ui';
+import { BrandAvatar, ChannelBadge } from '@ui/partner/ui';
 import { usePartnerQuery } from '@ui/partner/usePartnerQuery';
 import { isPartnerHandleAvailable, onboardPartner, takenPartnerHandles } from '@web/lib/adminPartnersApi';
+import {
+  BOOKING_METHOD_DETAILS,
+  BOOKING_PRODUCT_DETAILS,
+  BOOKING_PRODUCTS,
+  CHANNEL_DETAILS,
+  REDEMPTION_CHANNELS,
+} from '@web/lib/partner/channels';
 import { PARTNER_PORTAL_CONFIG } from '@web/lib/partner/config';
 import { INDIA_GEO, stateName } from '@web/lib/partner/indiaGeo';
 import {
+  categoryDefaults,
   checkGstin,
   hasOnboardingErrors,
-  PARTNER_CATEGORIES,
+  PARTNER_CATEGORY_DETAILS,
   PLAN_DETAILS,
   suggestHandle,
   validateOnboarding,
   type OnboardingField,
 } from '@web/lib/partner/onboarding';
-import type { IssuedCredential, PartnerAccount, PartnerOnboardingInput, PartnerPlan } from '@web/lib/partner/types';
+import type {
+  BookingConnectMethod,
+  BookingProduct,
+  IssuedCredential,
+  PartnerAccount,
+  PartnerOnboardingInput,
+  PartnerPlan,
+  RedemptionChannel,
+} from '@web/lib/partner/types';
 import CredentialReveal from './CredentialReveal';
 import {
   adminCard,
@@ -31,7 +47,7 @@ import {
   useAdminActor,
 } from './partnerAdminUi';
 
-const EMOJI_CHOICES = ['☕', '🍕', '🍔', '🍛', '🌶️', '🍦', '🧋', '🎬', '🎳', '🕹️', '🎶', '🏕️', '🛍️', '💪'];
+const EMOJI_CHOICES = ['☕', '🍕', '🍔', '🍛', '🌶️', '🍦', '🧋', '🎬', '🎟️', '🎳', '🕹️', '🎶', '🏕️', '🧳', '✈️', '🛍️', '💪'];
 const COLOUR_CHOICES = ['#C0392B', '#E67E22', '#F1C40F', '#27AE60', '#16A085', '#2980B9', '#6C5CE7', '#E84393', '#8D5524', '#2D3436'];
 const PLANS: PartnerPlan[] = ['pilot', 'standard', 'enterprise'];
 
@@ -39,6 +55,12 @@ interface FormState {
   brandName: string;
   legalName: string;
   category: string;
+  channels: RedemptionChannel[];
+  /** Once the admin picks channels by hand, a category change no longer resets them. */
+  channelsEdited: boolean;
+  website: string;
+  bookingProducts: BookingProduct[];
+  bookingMethod: BookingConnectMethod;
   gstin: string;
   stateCode: string;
   city: string;
@@ -62,6 +84,11 @@ const EMPTY: FormState = {
   brandName: '',
   legalName: '',
   category: '',
+  channels: ['in_store'],
+  channelsEdited: false,
+  website: '',
+  bookingProducts: [],
+  bookingMethod: 'lessgo_connect',
   gstin: '',
   stateCode: '',
   city: '',
@@ -86,6 +113,10 @@ function toInput(form: FormState): PartnerOnboardingInput {
     brandName: form.brandName,
     legalName: form.legalName,
     category: form.category,
+    channels: form.channels,
+    website: form.website,
+    bookingProducts: form.channels.includes('api_booking') ? form.bookingProducts : [],
+    bookingMethod: form.bookingMethod,
     gstin: form.gstin,
     city: form.city,
     stateCode: form.stateCode,
@@ -124,6 +155,40 @@ export default function PartnerOnboarding() {
   function changeBrand(brandName: string) {
     update(form.handleEdited ? { brandName } : { brandName, handle: suggestHandle(brandName) });
   }
+
+  /** The category decides the partner type until the admin picks channels by hand. */
+  function changeCategory(category: string) {
+    if (form.channelsEdited) {
+      update({ category });
+      return;
+    }
+    const defaults = categoryDefaults(category);
+    update({ category, channels: defaults.channels, bookingProducts: defaults.bookingProducts });
+  }
+
+  function toggleChannel(channel: RedemptionChannel) {
+    const channels = form.channels.includes(channel)
+      ? form.channels.filter((candidate) => candidate !== channel)
+      : REDEMPTION_CHANNELS.filter((candidate) => candidate === channel || form.channels.includes(candidate));
+    const bookingProducts =
+      channel === 'api_booking' && channels.includes('api_booking') && form.bookingProducts.length === 0
+        ? categoryDefaults(form.category).bookingProducts
+        : form.bookingProducts;
+    update({ channels, bookingProducts, channelsEdited: true });
+    touch('channels');
+  }
+
+  function toggleProduct(product: BookingProduct) {
+    update({
+      bookingProducts: form.bookingProducts.includes(product)
+        ? form.bookingProducts.filter((candidate) => candidate !== product)
+        : BOOKING_PRODUCTS.filter((candidate) => candidate === product || form.bookingProducts.includes(candidate)),
+    });
+    touch('bookingProducts');
+  }
+
+  const categoryHint = PARTNER_CATEGORY_DETAILS.find((category) => category.name === form.category)?.hint;
+  const sellsOnline = form.channels.some((channel) => channel !== 'in_store');
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -223,18 +288,23 @@ export default function PartnerOnboarding() {
                 className={adminInput}
               />
             </Field>
-            <Field id="category" label="Category" error={errorFor('category')}>
+            <Field
+              id="category"
+              label="Category"
+              error={errorFor('category')}
+              hint={categoryHint ?? 'Decides the partner type: in-store, online checkout or bookings.'}
+            >
               <select
                 id="category"
                 value={form.category}
-                onChange={(event) => update({ category: event.target.value })}
+                onChange={(event) => changeCategory(event.target.value)}
                 onBlur={() => touch('category')}
                 aria-invalid={!!errorFor('category')}
                 className={adminInput}
               >
                 <option value="">Choose…</option>
-                {PARTNER_CATEGORIES.map((category) => (
-                  <option key={category}>{category}</option>
+                {PARTNER_CATEGORY_DETAILS.map((category) => (
+                  <option key={category.name}>{category.name}</option>
                 ))}
               </select>
             </Field>
@@ -365,6 +435,114 @@ export default function PartnerOnboarding() {
               ))}
             </div>
           </fieldset>
+        </Section>
+
+        <Section
+          title="Partner type"
+          description="How groups use the coupon. It decides the partner’s dashboard, campaign wizard and the app’s coupon flow."
+        >
+          <fieldset aria-describedby={errorFor('channels') ? 'channels-error' : undefined}>
+            <legend className="sr-only">Redemption channels</legend>
+            <div className="grid gap-3 md:grid-cols-3">
+              {REDEMPTION_CHANNELS.map((channel) => {
+                const detail = CHANNEL_DETAILS[channel];
+                const checked = form.channels.includes(channel);
+                return (
+                  <label
+                    key={channel}
+                    className={`flex cursor-pointer gap-3 rounded-md border p-3 transition-colors ${
+                      checked ? 'border-profile bg-profile-tint' : 'border-line hover:bg-surface-2'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleChannel(channel)}
+                      className="mt-0.5 h-4 w-4 flex-none accent-[var(--profile)]"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-ink">
+                        <span aria-hidden="true">{detail.emoji}</span> {detail.label}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-ink-muted">{detail.summary}</span>
+                      <span className="mt-1 block text-[11px] text-ink-faint">{detail.examples}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+          <FieldError id="channels-error" message={errorFor('channels')} />
+          {!errorFor('channels') ? <FieldWarning message={check.warnings.channels} /> : null}
+
+          {sellsOnline ? (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <Field
+                id="website"
+                label="Website"
+                error={errorFor('website')}
+                hint="Links Lessgo opens and the codes your checkout accepts are limited to this domain."
+              >
+                <input
+                  id="website"
+                  type="url"
+                  inputMode="url"
+                  value={form.website}
+                  onChange={(event) => update({ website: event.target.value })}
+                  onBlur={() => touch('website')}
+                  placeholder="https://shop.example.com"
+                  aria-invalid={!!errorFor('website')}
+                  className={adminInput}
+                />
+              </Field>
+            </div>
+          ) : null}
+
+          {form.channels.includes('api_booking') ? (
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <fieldset>
+                <legend className={adminLabel}>Sold through Lessgo</legend>
+                <div className="flex flex-wrap gap-1.5">
+                  {BOOKING_PRODUCTS.map((product) => (
+                    <button
+                      key={product}
+                      type="button"
+                      aria-pressed={form.bookingProducts.includes(product)}
+                      onClick={() => toggleProduct(product)}
+                      className={`min-h-9 rounded-full border px-3 text-sm font-semibold ${
+                        form.bookingProducts.includes(product)
+                          ? 'border-profile bg-profile-tint text-ink'
+                          : 'border-line text-ink-muted hover:bg-surface-2'
+                      }`}
+                    >
+                      {BOOKING_PRODUCT_DETAILS[product].label}
+                    </button>
+                  ))}
+                </div>
+                <FieldError id="bookingProducts-error" message={errorFor('bookingProducts')} />
+              </fieldset>
+              <fieldset>
+                <legend className={adminLabel}>Booking connection</legend>
+                <div className="space-y-2">
+                  {(Object.keys(BOOKING_METHOD_DETAILS) as BookingConnectMethod[]).map((method) => (
+                    <label key={method} className="flex items-start gap-2.5 text-sm text-ink">
+                      <input
+                        type="radio"
+                        name="bookingMethod"
+                        checked={form.bookingMethod === method}
+                        onChange={() => update({ bookingMethod: method })}
+                        className="mt-0.5 h-4 w-4 accent-[var(--profile)]"
+                      />
+                      <span>
+                        <span className="font-semibold">{BOOKING_METHOD_DETAILS[method].label}</span>
+                        <span className="block text-xs text-ink-muted">{BOOKING_METHOD_DETAILS[method].summary}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            </div>
+          ) : null}
         </Section>
 
         <Section title="Contact and owner login" description="The owner gets the first login and can ask Lessgo for more.">
@@ -532,7 +710,12 @@ export default function PartnerOnboarding() {
               </p>
             </div>
           </div>
-          <p className="mt-3 text-xs text-ink-muted">
+          <div className="mt-3 flex flex-wrap gap-1">
+            {form.channels.map((channel) => (
+              <ChannelBadge key={channel} channel={channel} />
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-ink-muted">
             {PLAN_DETAILS[form.plan].label} plan · signs in as{' '}
             <span className="font-mono text-ink">{form.handle ? `${form.handle}.owner` : '—'}</span>
           </p>
@@ -543,7 +726,16 @@ export default function PartnerOnboarding() {
             <li>The partner is created as Invited, with an owner login.</li>
             <li>The owner gets their user ID and a 72-hour temporary password.</li>
             <li>At first sign-in they choose their own password and the partner becomes Active.</li>
-            <li>They add outlets and submit a campaign, which lands in your review queue.</li>
+            {sellsOnline ? (
+              <li>
+                They connect {form.channels.includes('api_booking') ? 'their booking API' : 'their checkout'} under Integrations, pass the
+                sandbox checks and ask to go live — you approve it here.
+              </li>
+            ) : null}
+            <li>
+              {form.channels.includes('in_store') ? 'They add outlets and submit' : 'They submit'} a campaign, which lands in your review
+              queue.
+            </li>
           </ol>
         </div>
       </aside>

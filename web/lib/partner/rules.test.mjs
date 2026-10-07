@@ -6,6 +6,7 @@ import {
   computeDiscount,
   estimateAudience,
   hasDraftErrors,
+  hasFeature,
   isRotatingCode,
   isWellFormedVoucherCode,
   maskVoucherCode,
@@ -14,6 +15,7 @@ import {
   normaliseVoucherCode,
   offerLabel,
   parseRedemptionInput,
+  rolesFor,
   roundEstimate,
   rupeesToMinor,
   safeNextPath,
@@ -184,6 +186,7 @@ function validDraft(overrides = {}) {
       offer: { type: 'flat', valueMinor: 15000, minBillMinor: 60000, minGroupSize: 3 },
       voucherPolicy: { codePrefix: 'BRB', validityDays: 14, redemptionLimit: 500, dailyLimit: 50, perUserLimit: 1 },
       targeting: { geo: { include: { districts: ['KA-bengaluru-urban'] } } },
+      channel: 'in_store',
       outletIds: [],
       startAt: '2026-06-02T00:00:00.000Z',
       endAt: '2026-07-02T00:00:00.000Z',
@@ -221,6 +224,83 @@ test('validates campaign drafts step by step', () => {
     voucherPolicy: { codePrefix: 'BRB', validityDays: NaN, redemptionLimit: NaN, dailyLimit: null, perUserLimit: NaN },
   });
   assert.equal(validateCampaignDraft(blankNumbers.draft, { now: blankNumbers.now }).rules.length, 3);
+});
+
+test('validates online checkout and booking campaigns against the partner', () => {
+  const partner = {
+    channels: ['online_code', 'api_booking'],
+    bookingProducts: ['movie_tickets'],
+    isAllowedUrl: (url) => new URL(url).protocol === 'https:' && new URL(url).hostname.endsWith('stylecart.example'),
+  };
+  const online = (config) =>
+    validDraft({
+      channel: 'online_code',
+      online: {
+        landingUrl: 'https://stylecart.example/lessgo',
+        applyUrlTemplate: 'https://stylecart.example/cart?coupon={code}',
+        platforms: ['web', 'android'],
+        appliesTo: 'Fashion & footwear',
+        codeSource: 'lessgo',
+        ...config,
+      },
+    });
+  const ok = online({});
+  assert.equal(hasDraftErrors(validateCampaignDraft(ok.draft, { now: ok.now, partner })), false);
+
+  const bad = online({
+    landingUrl: 'https://evil.example/stylecart',
+    applyUrlTemplate: 'https://stylecart.example/cart',
+    platforms: [],
+    appliesTo: 'x',
+  });
+  assert.deepEqual(validateCampaignDraft(bad.draft, { now: bad.now, partner }).rules, [
+    'The shop link must be on your website’s domain.',
+    'The apply-code link must contain {code}.',
+    'Pick where the code works: website or apps.',
+    'Say what the code applies to (3–80 characters).',
+  ]);
+  const insecure = online({ applyUrlTemplate: 'http://stylecart.example/cart?coupon={code}' });
+  assert.deepEqual(validateCampaignDraft(insecure.draft, { now: insecure.now, partner }).rules, [
+    'The apply-code link must be an https URL.',
+  ]);
+
+  const booking = (config) =>
+    validDraft({
+      channel: 'api_booking',
+      offer: { type: 'flat', valueMinor: 30000, minBillMinor: 100000, minGroupSize: 4 },
+      booking: { product: 'movie_tickets', minUnits: 4, maxUnits: 10, scope: 'All 2D & 3D shows', ...config },
+    });
+  const fine = booking({});
+  assert.equal(hasDraftErrors(validateCampaignDraft(fine.draft, { now: fine.now, partner })), false);
+  const tooSmall = booking({ product: 'hotels', minUnits: 0, maxUnits: 3, scope: '' });
+  assert.deepEqual(validateCampaignDraft(tooSmall.draft, { now: tooSmall.now, partner }).rules, [
+    'Pick a product your booking connection supports.',
+    'Minimum per booking must be 1–20.',
+    'Describe what can be booked (3–80 characters).',
+  ]);
+  const groupDoesntFit = booking({ maxUnits: 3, minUnits: 2 });
+  assert.deepEqual(validateCampaignDraft(groupDoesntFit.draft, { now: groupDoesntFit.now, partner }).rules, [
+    'Allow at least 4 per booking so the whole group fits.',
+  ]);
+
+  const inStore = validDraft();
+  assert.deepEqual(validateCampaignDraft(inStore.draft, { now: inStore.now, partner }).offer, [
+    'Pick one of your redemption channels.',
+  ]);
+  const missing = validDraft({ channel: 'api_booking' });
+  assert.deepEqual(validateCampaignDraft(missing.draft, { now: missing.now }).rules, ['Add what can be booked.']);
+});
+
+test('gates portal areas by channel and issues counter staff only in store', () => {
+  assert.equal(hasFeature(['in_store'], 'redeem'), true);
+  assert.equal(hasFeature(['in_store'], 'sales'), false);
+  assert.equal(hasFeature(['online_code'], 'outlets'), false);
+  assert.equal(hasFeature(['api_booking'], 'integrations'), true);
+  assert.equal(hasFeature(['in_store', 'api_booking'], 'sales'), true);
+  assert.deepEqual(rolesFor(['online_code']), ['owner', 'manager']);
+  assert.deepEqual(rolesFor(['in_store', 'api_booking']), ['owner', 'manager', 'cashier']);
+  assert.equal(can('manager', 'sales'), true);
+  assert.equal(can('cashier', 'sales'), false);
 });
 
 test('scopes roles and only honours same-portal redirects', () => {

@@ -19,13 +19,21 @@
  *  2. Allowlist them in web/lib/adminGatewayPolicy.js (+ its tests):
  *       GET   partners, partners/:id, partner-handles/:handle
  *       POST  partners, partners/:id/logins,
- *             partners/:id/logins/:userId/reset-password, campaigns/:id/review
- *       PATCH partners/:id, partners/:id/logins/:userId
+ *             partners/:id/logins/:userId/reset-password, campaigns/:id/review,
+ *             partners/:id/integrations/:channel/{approve,rollback}
+ *       PATCH partners/:id, partners/:id/logins/:userId, partners/:id/channels
  *  3. Set NEXT_PUBLIC_PARTNER_PORTAL_BACKEND=true and delete every dummy
  *     branch below.
  */
 import { ApiError } from './api';
 import { adminRequest } from './adminApi';
+import {
+  CHANNEL_DETAILS,
+  channelIsLive,
+  httpsHostOf,
+  REDEMPTION_CHANNELS,
+  type OnlineChannel,
+} from './partner/channels';
 import { PARTNER_PORTAL_CONFIG, partnerLoginUrl } from './partner/config';
 import {
   demoPause as pause,
@@ -44,6 +52,7 @@ import {
   formatIndianMobile,
   generateTemporaryPassword,
   hasOnboardingErrors,
+  isHttpsWebsite,
   isValidEmail,
   isValidIndianMobile,
   normaliseGstin,
@@ -53,19 +62,25 @@ import {
   validateOnboarding,
 } from './partner/onboarding';
 import type {
+  AdminGoLiveRequest,
+  AdminPartnerBadge,
   AdminPartnerDetail,
   AdminPartnerSummary,
   AdminPartnersOverview,
+  BookingIntegration,
   CampaignReviewDecision,
+  CheckoutIntegration,
   CredentialDispatch,
   IssuedCredential,
   NewPartnerLoginInput,
   PartnerAccount,
   PartnerCampaign,
+  PartnerChannelsInput,
   PartnerLogin,
   PartnerOnboardingInput,
   PartnerRole,
   PartnerUser,
+  RedemptionChannel,
 } from './partner/types';
 
 const backendEnabled = () => !PARTNER_PORTAL_CONFIG.useDummyData;
@@ -85,6 +100,35 @@ function partnerOr404(state: DemoState, partnerId: string): PartnerAccount {
   if (!found) throw new ApiError('Partner not found.', 404);
   return found;
 }
+
+function badgeOf(partner: PartnerAccount): AdminPartnerBadge {
+  const { id, brandName, logoEmoji, brandColor, plan, status, channels, integration } = partner;
+  return { id, brandName, logoEmoji, brandColor, plan, status, channels: [...channels], integration: structuredClone(integration) };
+}
+
+/** Last four characters of a fresh random key, for "lgp_test_••••c4d1"-style previews. */
+function keyPreview(prefix: string): string {
+  const alphabet = '0123456789abcdef';
+  const tail = Array.from(randomBytes(4), (byte) => alphabet[byte % 16]).join('');
+  return `${prefix}••••${tail}`;
+}
+
+function newCheckoutIntegration(website: string | undefined): CheckoutIntegration {
+  const host = website ? httpsHostOf(website) : null;
+  return { status: 'not_connected', allowedDomains: host ? [host] : [], sandboxKeyPreview: keyPreview('lgp_test_') };
+}
+
+function newBookingIntegration(input: Pick<PartnerChannelsInput, 'bookingProducts' | 'bookingMethod'>): BookingIntegration {
+  return {
+    status: 'not_connected',
+    method: input.bookingMethod ?? 'lessgo_connect',
+    products: [...(input.bookingProducts ?? [])],
+    auth: 'oauth2_client_credentials',
+  };
+}
+
+const channelNames = (channels: readonly RedemptionChannel[]) =>
+  channels.map((channel) => CHANNEL_DETAILS[channel].label).join(' + ');
 
 function userOr404(state: DemoState, partnerId: string, userId: string): PartnerUser {
   const found = state.users.find((candidate) => candidate.userId === userId && candidate.partnerId === partnerId);
@@ -184,12 +228,27 @@ export async function getAdminPartnersOverview(): Promise<AdminPartnersOverview>
   const reviewQueue = state.campaigns
     .filter((campaign) => campaign.status === 'in_review')
     .sort((a, b) => (a.submittedAt ?? '').localeCompare(b.submittedAt ?? ''))
-    .map((campaign) => {
-      const { id, brandName, logoEmoji, brandColor, plan, status } = partnerOr404(state, campaign.partnerId);
-      return { campaign, partner: { id, brandName, logoEmoji, brandColor, plan, status } };
-    });
+    .map((campaign) => ({ campaign, partner: badgeOf(partnerOr404(state, campaign.partnerId)) }));
 
-  return { partners, reviewQueue };
+  const goLiveQueue: AdminGoLiveRequest[] = [];
+  for (const partner of state.partners) {
+    const requests: [OnlineChannel, CheckoutIntegration | BookingIntegration | undefined][] = [
+      ['online_code', partner.integration.checkout],
+      ['api_booking', partner.integration.booking],
+    ];
+    for (const [channel, integration] of requests) {
+      if (integration?.status !== 'ready_for_review' || !partner.channels.includes(channel)) continue;
+      goLiveQueue.push({
+        partner: badgeOf(partner),
+        channel,
+        requestedAt: integration.goLiveRequestedAt ?? partner.onboardedAt,
+        ...(integration.lastTest ? { lastTest: structuredClone(integration.lastTest) } : {}),
+      });
+    }
+  }
+  goLiveQueue.sort((a, b) => a.requestedAt.localeCompare(b.requestedAt));
+
+  return { partners, reviewQueue, goLiveQueue };
 }
 
 /** BACKEND: GET /admin/partners/:id → AdminPartnerDetail */
@@ -271,6 +330,8 @@ export async function onboardPartner(
     logoEmoji: input.logoEmoji.trim(),
     brandColor: input.brandColor.toUpperCase(),
     category: input.category,
+    channels: [...input.channels],
+    ...(input.website.trim() ? { website: input.website.trim() } : {}),
     gstin: normaliseGstin(input.gstin),
     contactName: input.contactName.trim(),
     contactEmail: input.contactEmail.trim().toLowerCase(),
@@ -279,7 +340,13 @@ export async function onboardPartner(
     stateCode: input.stateCode,
     plan: input.plan,
     onboardedAt: now,
-    integration: { apiKeyPreview: 'Not issued' },
+    integration: {
+      apiKeyPreview: 'Not issued',
+      // Online channels start unconnected: the owner sets them up in the
+      // portal (Integrations) and Lessgo approves go-live.
+      ...(input.channels.includes('online_code') ? { checkout: newCheckoutIntegration(input.website.trim()) } : {}),
+      ...(input.channels.includes('api_booking') ? { booking: newBookingIntegration(input) } : {}),
+    },
   };
   const ownerPhone = mobileOrUndefined(input.owner.phone);
   const owner: PartnerUser = {
@@ -294,7 +361,12 @@ export async function onboardPartner(
   state.users.push(owner);
   const credential = applyTemporaryCredential(state, owner, minted, input.dispatch);
 
-  recordAudit(state, { partnerId: id, actor, action: 'partner.onboarded', detail: `Onboarded on the ${partner.plan} plan.` });
+  recordAudit(state, {
+    partnerId: id,
+    actor,
+    action: 'partner.onboarded',
+    detail: `Onboarded on the ${partner.plan} plan · ${channelNames(partner.channels)}.`,
+  });
   recordAudit(state, {
     partnerId: id,
     actor,
@@ -328,6 +400,9 @@ export async function addPartnerLogin(
   const state = store();
   const partner = partnerOr404(state, partnerId);
   if (partner.status === 'suspended') throw new ApiError('Reactivate the partner before adding logins.', 409);
+  if (input.role === 'cashier' && !partner.channels.includes('in_store')) {
+    throw new ApiError('Counter-staff logins are only for partners whose groups redeem in store.', 422);
+  }
   if (input.name.trim().length < 2) throw new ApiError('Add the person’s name.', 422);
   if (!isValidEmail(input.email)) throw new ApiError('Enter a valid email address.', 422);
   // The mobile is stored on the login (resets are texted to it), so a typo is rejected even without SMS.
@@ -436,6 +511,9 @@ export async function setPartnerLoginStatus(
   const user = userOr404(state, partnerId, userId);
   const credential = state.credentials[userId];
   if (!credential) throw new ApiError('Login not found.', 404);
+  if (status === 'active' && user.role === 'cashier' && !partnerOr404(state, partnerId).channels.includes('in_store')) {
+    throw new ApiError('Counter-staff logins only work for partners that redeem in store.', 409);
+  }
   if (status === 'disabled' && user.role === 'owner') {
     const otherOwners = state.users.filter(
       (member) =>
@@ -508,6 +586,191 @@ export async function setPartnerStatus(
   return partner;
 }
 
+// ── Channels & integrations ─────────────────────────────────────────────────
+
+const OPEN_CAMPAIGN_STATUSES: readonly PartnerCampaign['status'][] = ['in_review', 'scheduled', 'live', 'paused'];
+
+/**
+ * Change how a partner's groups redeem (e.g. add online booking to a cinema
+ * chain). Removing a channel needs its campaigns ended first.
+ *
+ * BACKEND: PATCH /admin/partners/:id/channels PartnerChannelsInput
+ *   → PartnerAccount | 409 (open campaigns / counter staff on a removed channel) | 422.
+ *   Removing an online channel deletes its integration (keys revoked); adding
+ *   it back starts unconnected.
+ */
+export async function setPartnerChannels(
+  partnerId: string,
+  input: PartnerChannelsInput,
+  { actor }: AdminActor,
+): Promise<PartnerAccount> {
+  if (backendEnabled()) {
+    return adminRequest<PartnerAccount>(`/gateway/partners/${encodeURIComponent(partnerId)}/channels`, {
+      method: 'PATCH',
+      body: input,
+    });
+  }
+
+  await pause(400);
+  const state = store();
+  const partner = partnerOr404(state, partnerId);
+  const channels = [...new Set(input.channels)];
+  if (channels.length === 0) throw new ApiError('Keep at least one channel.', 422);
+  const website = input.website?.trim() || partner.website || '';
+  if (channels.some((channel) => channel !== 'in_store') && !isHttpsWebsite(website)) {
+    throw new ApiError('Online channels need the partner’s https website.', 422);
+  }
+  const products = input.bookingProducts ?? partner.integration.booking?.products ?? [];
+  if (channels.includes('api_booking') && products.length === 0) {
+    throw new ApiError('Pick what the partner sells through Lessgo.', 422);
+  }
+  for (const removed of partner.channels.filter((channel) => !channels.includes(channel))) {
+    const open = state.campaigns.filter(
+      (campaign) => campaign.partnerId === partnerId && campaign.channel === removed && OPEN_CAMPAIGN_STATUSES.includes(campaign.status),
+    );
+    if (open.length > 0) {
+      throw new ApiError(
+        `${CHANNEL_DETAILS[removed].label} still has ${open.length} open campaign${open.length === 1 ? '' : 's'}. End or reject them first.`,
+        409,
+      );
+    }
+    if (removed === 'in_store') {
+      const counterStaff = state.users.filter(
+        (member) => member.partnerId === partnerId && member.role === 'cashier' && state.credentials[member.userId]?.status === 'active',
+      );
+      if (counterStaff.length > 0) throw new ApiError('Turn off the counter-staff logins before removing In-store.', 409);
+    }
+  }
+
+  const before = channelNames(partner.channels);
+  // A removed online channel loses its connection: adding it back starts from
+  // "not connected" and needs a fresh go-live review.
+  if (!channels.includes('online_code')) delete partner.integration.checkout;
+  if (!channels.includes('api_booking')) delete partner.integration.booking;
+  partner.channels = REDEMPTION_CHANNELS.filter((channel) => channels.includes(channel));
+  if (website) partner.website = website;
+  if (channels.includes('online_code') && !partner.integration.checkout) {
+    partner.integration.checkout = newCheckoutIntegration(website);
+  }
+  if (channels.includes('api_booking')) {
+    if (!partner.integration.booking) {
+      partner.integration.booking = newBookingIntegration({ bookingProducts: products, bookingMethod: input.bookingMethod });
+    } else {
+      partner.integration.booking.products = [...products];
+      if (input.bookingMethod) partner.integration.booking.method = input.bookingMethod;
+    }
+  }
+  recordAudit(state, {
+    partnerId,
+    actor,
+    action: 'partner.channels_changed',
+    detail: `Channels: ${before} → ${channelNames(partner.channels)}.`,
+  });
+  persist(state);
+  return partner;
+}
+
+function onlineIntegration(partner: PartnerAccount, channel: OnlineChannel): CheckoutIntegration | BookingIntegration {
+  const integration = channel === 'online_code' ? partner.integration.checkout : partner.integration.booking;
+  if (!integration || !partner.channels.includes(channel)) throw new ApiError('This partner doesn’t use that channel.', 404);
+  return integration;
+}
+
+/**
+ * Approve production for an online channel after its sandbox checks passed.
+ *
+ * BACKEND: POST /admin/partners/:id/integrations/:channel/approve
+ *   → integration { status: "live" } | 409 unless "ready_for_review".
+ *   online_code also issues the partner's lgp_live_ Partner API key (shown
+ *   once to the owner in the portal).
+ */
+export async function approveIntegrationGoLive(
+  partnerId: string,
+  channel: OnlineChannel,
+  { actor }: AdminActor,
+): Promise<CheckoutIntegration | BookingIntegration> {
+  if (backendEnabled()) {
+    return adminRequest(`/gateway/partners/${encodeURIComponent(partnerId)}/integrations/${channel}/approve`, {
+      method: 'POST',
+    });
+  }
+
+  await pause(400);
+  const state = store();
+  const partner = partnerOr404(state, partnerId);
+  if (partner.status === 'suspended') throw new ApiError('Reactivate the partner first.', 409);
+  const integration = onlineIntegration(partner, channel);
+  if (integration.status !== 'ready_for_review') throw new ApiError('The partner hasn’t asked to go live.', 409);
+  if (!integration.lastTest?.ok) throw new ApiError('The last sandbox run failed. Send it back instead.', 409);
+  integration.status = 'live';
+  integration.liveSince = new Date().toISOString();
+  if (channel === 'online_code') (integration as CheckoutIntegration).liveKeyPreview = keyPreview('lgp_live_');
+  recordAudit(state, {
+    partnerId,
+    actor,
+    action: 'integration.approved',
+    detail: `${CHANNEL_DETAILS[channel].label}: approved for production.`,
+  });
+  persist(state);
+  return integration;
+}
+
+/**
+ * Send a go-live request back, or take a live channel offline (kill switch):
+ * the integration returns to testing and that channel's live campaigns pause.
+ *
+ * BACKEND: POST /admin/partners/:id/integrations/:channel/rollback { reason }
+ *   → integration { status: "testing" }
+ */
+export async function rollbackIntegration(
+  partnerId: string,
+  channel: OnlineChannel,
+  reason: string,
+  { actor }: AdminActor,
+): Promise<CheckoutIntegration | BookingIntegration> {
+  if (backendEnabled()) {
+    return adminRequest(`/gateway/partners/${encodeURIComponent(partnerId)}/integrations/${channel}/rollback`, {
+      method: 'POST',
+      body: { reason },
+    });
+  }
+
+  await pause(400);
+  const note = reason.trim();
+  if (note.length < 5) throw new ApiError('Say why (the partner sees this in their activity).', 422);
+  const state = store();
+  const partner = partnerOr404(state, partnerId);
+  const integration = onlineIntegration(partner, channel);
+  if (integration.status !== 'live' && integration.status !== 'ready_for_review') {
+    throw new ApiError('Only live or pending connections can be sent back.', 409);
+  }
+  const wasLive = integration.status === 'live';
+  integration.status = 'testing';
+  delete integration.goLiveRequestedAt;
+  delete integration.liveSince;
+  let paused = 0;
+  if (wasLive) {
+    const nowIso = new Date().toISOString();
+    for (const campaign of state.campaigns) {
+      if (campaign.partnerId === partnerId && campaign.channel === channel && campaign.status === 'live') {
+        campaign.status = 'paused';
+        campaign.updatedAt = nowIso;
+        paused += 1;
+      }
+    }
+  }
+  recordAudit(state, {
+    partnerId,
+    actor,
+    action: 'integration.rolled_back',
+    detail: `${CHANNEL_DETAILS[channel].label}: ${wasLive ? 'taken offline' : 'go-live sent back'} — ${note}${
+      paused ? ` (${paused} campaign${paused === 1 ? '' : 's'} paused)` : ''
+    }`,
+  });
+  persist(state);
+  return integration;
+}
+
 // ── Campaign review ─────────────────────────────────────────────────────────
 
 /**
@@ -515,7 +778,8 @@ export async function setPartnerStatus(
  * send it back with a note the partner sees.
  *
  * BACKEND: POST /admin/campaigns/:id/review CampaignReviewDecision
- *   → PartnerCampaign | 409 not_in_review
+ *   → PartnerCampaign | 409 not_in_review | 409 integration_not_live (an
+ *   online campaign whose channel Lessgo hasn't approved for production)
  */
 export async function reviewPartnerCampaign(
   campaignId: string,
@@ -553,6 +817,12 @@ export async function reviewPartnerCampaign(
     });
   } else {
     if (partner.status === 'suspended') throw new ApiError('Reactivate the partner before approving campaigns.', 409);
+    if (!channelIsLive(partner, campaign.channel)) {
+      throw new ApiError(
+        `${partner.brandName}’s ${CHANNEL_DETAILS[campaign.channel].connection} isn’t live yet. Approve its go-live first.`,
+        409,
+      );
+    }
     if (Date.parse(campaign.schedule.endAt) <= now) {
       throw new ApiError('This campaign’s end date has passed. Send it back for new dates.', 409);
     }

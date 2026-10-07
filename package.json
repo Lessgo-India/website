@@ -15,7 +15,7 @@
     "test:delete-account": "node --experimental-strip-types --test components/analytics.test.mjs",
     "test:footer-links": "node --experimental-strip-types --test content/site.test.mjs",
     "test:admin-policy": "node --experimental-strip-types --test web/lib/adminGatewayPolicy.test.mjs web/lib/adminLoginRateLimitPolicy.test.mjs web/lib/boundedJsonBody.test.mjs web/lib/bugHouseView.test.mjs web/lib/adminGatewayRoute.test.mjs",
-    "test:partner": "node --experimental-strip-types --test web/lib/partner/rules.test.mjs web/lib/partner/onboarding.test.mjs web/lib/partner/indiaGeo.test.mjs web/lib/internalRoutes.test.mjs",
+    "test:partner": "node --experimental-strip-types --test web/lib/partner/rules.test.mjs web/lib/partner/onboarding.test.mjs web/lib/partner/channels.test.mjs web/lib/partner/indiaGeo.test.mjs web/lib/internalRoutes.test.mjs",
     "test:admin-e2e": "playwright test tests/admin-pwa.spec.ts"
   },
   "dependencies": {
