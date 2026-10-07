@@ -1,24 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { contentSecurityPolicyFor } from '@web/lib/contentSecurityPolicy';
 
+/** Nonce-based CSP for the admin console and the partner portal (web/lib/contentSecurityPolicy.ts). */
 export function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
-  const development = process.env.NODE_ENV === 'development';
-  const contentSecurityPolicy = [
-    "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}'${development ? " 'unsafe-eval'" : ''}`,
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https://lessgo-asset.s3.ap-south-1.amazonaws.com",
-    "font-src 'self' data:",
-    "connect-src 'self'",
-    "worker-src 'self'",
-    "manifest-src 'self'",
-    "object-src 'none'",
-    "media-src 'none'",
-    "frame-src 'none'",
-    "frame-ancestors 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-  ].join('; ');
+  const contentSecurityPolicy = contentSecurityPolicyFor(request.nextUrl.pathname, {
+    nonce,
+    development: process.env.NODE_ENV === 'development',
+  });
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
@@ -30,5 +19,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/partner/:path*'],
 };

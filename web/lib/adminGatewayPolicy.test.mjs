@@ -5,9 +5,11 @@ import {
   isAllowedAdminPatch,
   isAllowedAdminPost,
   isAllowedAdminRead,
+  isBodylessAdminPost,
   isValidAdminAlertPreferencesBody,
   isValidAdminAlertUnsubscribeBody,
   isValidAdminBugPatchBody,
+  isValidAdminPatchBody,
   isValidAdminReportPatchBody,
   isValidAdminPostBody,
 } from "./adminGatewayPolicy.js";
@@ -270,4 +272,228 @@ test("allows only exact user report review mutations", () => {
     }),
     false,
   );
+});
+
+// ── Admin → Partners (web/lib/adminPartnersApi.ts) ──────────────────────────
+
+const partnerId = "ptr_brew_bros";
+const onboarding = {
+  brandName: "Brew Bros Café",
+  legalName: "Brew Brothers Hospitality Pvt Ltd",
+  category: "Cafés",
+  channels: ["in_store"],
+  website: "",
+  bookingProducts: [],
+  bookingMethod: "lessgo_connect",
+  gstin: "29AABCB4821K1Z5",
+  city: "Bengaluru",
+  stateCode: "KA",
+  logoEmoji: "☕",
+  brandColor: "#8D5524",
+  plan: "standard",
+  contactName: "Rohan Mehta",
+  contactEmail: "partnerships@brewbros.example",
+  contactPhone: "9876500001",
+  handle: "brewbros",
+  owner: {
+    name: "Rohan Mehta",
+    email: "partnerships@brewbros.example",
+    phone: "9876500001",
+  },
+  dispatch: { email: true, sms: false },
+};
+
+test("allows exactly the partner reads the admin console makes", () => {
+  const none = new URLSearchParams();
+  assert.equal(isAllowedAdminRead(["partners"], none), true);
+  assert.equal(isAllowedAdminRead(["partners", partnerId], none), true);
+  assert.equal(isAllowedAdminRead(["partners", "ptr_stylecart"], none), true);
+  assert.equal(isAllowedAdminRead(["partner-handles", "brewbros"], none), true);
+
+  assert.equal(
+    isAllowedAdminRead(["partners"], new URLSearchParams({ status: "active" })),
+    false,
+  );
+  assert.equal(isAllowedAdminRead(["partners", "brew_bros"], none), false);
+  assert.equal(isAllowedAdminRead(["partners", "ptr_Brew"], none), false);
+  assert.equal(isAllowedAdminRead(["partners", partnerId, "logins"], none), false);
+  assert.equal(isAllowedAdminRead(["partner-handles", "Brew-Bros"], none), false);
+  assert.equal(isAllowedAdminRead(["partner-handles", "ab"], none), false);
+  assert.equal(isAllowedAdminRead(["campaigns", "cmp_1"], none), false);
+});
+
+test("allows exactly the partner POSTs, and only approve is bodiless", () => {
+  const allowed = [
+    ["partners"],
+    ["partners", partnerId, "logins"],
+    ["partners", partnerId, "logins", "brewbros.owner", "reset-password"],
+    ["partners", partnerId, "logins", "brewbros.hsrlayout2", "reset-password"],
+    ["partners", partnerId, "integrations", "online_code", "approve"],
+    ["partners", partnerId, "integrations", "api_booking", "rollback"],
+    ["campaigns", "cmp_brew_bros_blr", "review"],
+    ["campaigns", "cmp_lz3k9q1x8f2a", "review"],
+  ];
+  for (const segments of allowed) {
+    assert.equal(isAllowedAdminPost(segments), true, segments.join("/"));
+  }
+  assert.deepEqual(
+    allowed.filter((segments) => isBodylessAdminPost(segments)),
+    [["partners", partnerId, "integrations", "online_code", "approve"]],
+  );
+
+  for (const segments of [
+    ["partners", partnerId],
+    ["partners", "brewbros", "logins"],
+    ["partners", partnerId, "logins", "brewbros", "reset-password"],
+    ["partners", partnerId, "logins", "brewbros.owner", "delete"],
+    ["partners", partnerId, "integrations", "in_store", "approve"],
+    ["partners", partnerId, "integrations", "online_code", "delete"],
+    ["partners", partnerId, "integrations", "online_code"],
+    ["campaigns", "66aa11bb22cc33dd44ee55ff", "review"],
+    ["campaigns", "cmp_1", "approve"],
+    ["campaigns", "cmp_1"],
+  ]) {
+    assert.equal(isAllowedAdminPost(segments), false, segments.join("/"));
+  }
+  // The notification actions keep their bodiless contract.
+  assert.equal(isBodylessAdminPost(["notifications", "campaigns", id, "cancel"]), true);
+  assert.equal(isBodylessAdminPost(["notifications", "alerts", "test"]), true);
+  assert.equal(isBodylessAdminPost(["notifications", "campaigns"]), false);
+});
+
+test("validates partner POST bodies by shape, leaving business rules to the offers service", () => {
+  assert.equal(isValidAdminPostBody(["partners"], onboarding), true);
+  assert.equal(
+    isValidAdminPostBody(["partners"], {
+      ...onboarding,
+      channels: ["online_code", "api_booking"],
+      website: "https://showspot.example",
+      bookingProducts: ["movie_tickets", "event_tickets"],
+      bookingMethod: "adapter",
+      plan: "enterprise",
+    }),
+    true,
+  );
+  // An empty channel list is a 422 from the service, not a BFF rejection.
+  assert.equal(isValidAdminPostBody(["partners"], { ...onboarding, channels: [] }), true);
+  for (const broken of [
+    { ...onboarding, status: "active" },
+    { ...onboarding, channels: ["in_store", "in_store"] },
+    { ...onboarding, channels: ["teleport"] },
+    { ...onboarding, bookingMethod: "fax" },
+    { ...onboarding, plan: "free" },
+    { ...onboarding, brandName: 42 },
+    { ...onboarding, legalName: "x".repeat(201) },
+    { ...onboarding, owner: { ...onboarding.owner, role: "admin" } },
+    { ...onboarding, dispatch: { email: "yes", sms: false } },
+    Object.fromEntries(Object.entries(onboarding).filter(([key]) => key !== "handle")),
+  ]) {
+    assert.equal(isValidAdminPostBody(["partners"], broken), false);
+  }
+
+  const logins = ["partners", partnerId, "logins"];
+  const cashier = {
+    name: "Asha",
+    email: "asha@brewbros.example",
+    phone: "9876500101",
+    role: "cashier",
+    outletId: "out_brew_hsr",
+    dispatch: { email: true, sms: true },
+  };
+  assert.equal(isValidAdminPostBody(logins, cashier), true);
+  assert.equal(
+    isValidAdminPostBody(logins, {
+      name: "Ira",
+      email: "ira@brewbros.example",
+      role: "manager",
+      dispatch: { email: true, sms: false },
+    }),
+    true,
+  );
+  assert.equal(isValidAdminPostBody(logins, { ...cashier, role: "admin" }), false);
+  assert.equal(isValidAdminPostBody(logins, { ...cashier, outletId: "../x" }), false);
+  assert.equal(isValidAdminPostBody(logins, { ...cashier, password: "hunter2" }), false);
+
+  const reset = ["partners", partnerId, "logins", "brewbros.owner", "reset-password"];
+  assert.equal(isValidAdminPostBody(reset, { dispatch: { email: true, sms: false } }), true);
+  assert.equal(
+    isValidAdminPostBody(reset, { dispatch: { email: true, sms: false }, to: "x@evil.example" }),
+    false,
+  );
+
+  const rollback = ["partners", partnerId, "integrations", "online_code", "rollback"];
+  assert.equal(isValidAdminPostBody(rollback, { reason: "Checkout errors" }), true);
+  assert.equal(isValidAdminPostBody(rollback, { reason: "" }), true);
+  assert.equal(isValidAdminPostBody(rollback, { reason: 5 }), false);
+  assert.equal(isValidAdminPostBody(rollback, {}), false);
+  assert.equal(
+    isValidAdminPostBody(["partners", partnerId, "integrations", "online_code", "approve"], {}),
+    false,
+  );
+
+  const review = ["campaigns", "cmp_brew_bros_blr", "review"];
+  assert.equal(isValidAdminPostBody(review, { decision: "approve" }), true);
+  assert.equal(isValidAdminPostBody(review, { decision: "reject", note: "Fix the dates please." }), true);
+  assert.equal(isValidAdminPostBody(review, { decision: "approve", note: "x" }), false);
+  assert.equal(isValidAdminPostBody(review, { decision: "reject" }), false);
+  assert.equal(isValidAdminPostBody(review, { decision: "publish" }), false);
+});
+
+test("allows exactly the partner PATCHes with their bodies", () => {
+  const status = ["partners", partnerId];
+  const channels = ["partners", partnerId, "channels"];
+  const login = ["partners", partnerId, "logins", "brewbros.manager"];
+  for (const segments of [status, channels, login]) {
+    assert.equal(isAllowedAdminPatch(segments), true, segments.join("/"));
+  }
+  for (const segments of [
+    ["partners"],
+    ["partners", "66aa11bb22cc33dd44ee55ff"],
+    ["partners", partnerId, "integration"],
+    ["partners", partnerId, "logins", "brewbros"],
+    ["partners", partnerId, "logins", "brewbros.owner", "status"],
+  ]) {
+    assert.equal(isAllowedAdminPatch(segments), false, segments.join("/"));
+  }
+
+  assert.equal(isValidAdminPatchBody(status, { status: "suspended", reason: "Unpaid invoices" }), true);
+  assert.equal(isValidAdminPatchBody(status, { status: "active" }), true);
+  assert.equal(isValidAdminPatchBody(status, { status: "active", reason: "x" }), false);
+  assert.equal(isValidAdminPatchBody(status, { status: "invited" }), false);
+  assert.equal(isValidAdminPatchBody(status, { status: "suspended" }), false);
+
+  assert.equal(isValidAdminPatchBody(channels, { channels: ["in_store"] }), true);
+  assert.equal(
+    isValidAdminPatchBody(channels, {
+      channels: ["in_store", "api_booking"],
+      website: "https://reelhouse.example",
+      bookingProducts: ["movie_tickets"],
+      bookingMethod: "lessgo_connect",
+    }),
+    true,
+  );
+  assert.equal(isValidAdminPatchBody(channels, { channels: ["in_store"], allowedDomains: ["x"] }), false);
+  assert.equal(isValidAdminPatchBody(channels, { channels: "in_store" }), false);
+  assert.equal(isValidAdminPatchBody(channels, { website: "https://x.example" }), false);
+
+  assert.equal(isValidAdminPatchBody(login, { status: "disabled" }), true);
+  assert.equal(isValidAdminPatchBody(login, { status: "active" }), true);
+  assert.equal(isValidAdminPatchBody(login, { status: "deleted" }), false);
+  assert.equal(isValidAdminPatchBody(login, { status: "active", role: "owner" }), false);
+
+  // Existing PATCH contracts route through the same check.
+  assert.equal(isValidAdminPatchBody(["bugs", id], { done: true }), true);
+  assert.equal(isValidAdminPatchBody(["reports", id], { note: "Seen", revision: 1 }), true);
+  assert.equal(
+    isValidAdminPatchBody(["notifications", "alerts", "preferences"], {
+      enabled: true,
+      bugs: true,
+      campaigns: false,
+      serviceHealth: true,
+    }),
+    true,
+  );
+  assert.equal(isValidAdminPatchBody(["stats"], { done: true }), false);
+  // Partner endpoints never gain DELETE.
+  assert.equal(isAllowedAdminDelete(["partners", partnerId]), false);
 });

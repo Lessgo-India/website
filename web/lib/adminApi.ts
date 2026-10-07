@@ -39,7 +39,9 @@ export async function adminRequest<T>(
   }
 
   const body = (await res.json().catch(() => null)) as {
-    message?: string;
+    message?: string | string[];
+    code?: unknown;
+    details?: unknown;
   } | null;
   if (!res.ok) {
     if (
@@ -49,9 +51,16 @@ export async function adminRequest<T>(
     ) {
       window.dispatchEvent(new Event("admin:unauthorized"));
     }
+    // Upstream services (e.g. the offers service behind Admin → Partners)
+    // add a machine-readable `code` and validation `details`; keep them.
+    const message = Array.isArray(body?.message)
+      ? body.message.join(", ")
+      : body?.message;
     throw new ApiError(
-      body?.message ?? `Request failed (${res.status})`,
+      message ?? `Request failed (${res.status})`,
       res.status,
+      typeof body?.code === "string" ? body.code : undefined,
+      body?.details,
     );
   }
   return body as T;

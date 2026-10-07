@@ -38,6 +38,27 @@ const USER_REPORT_CATEGORIES = new Set([
 ]);
 const URL_SAFE_BASE64 = /^[A-Za-z0-9_-]+={0,2}$/;
 
+// Admin → Partners (web/lib/adminPartnersApi.ts). Ids as the offers service
+// mints them; user ids and handles as web/lib/partner/onboarding.ts allows.
+const PARTNER_ID = /^ptr_[a-z0-9][a-z0-9_]{0,47}$/;
+const CAMPAIGN_ID = /^cmp_[A-Za-z0-9_-]{1,64}$/;
+const PARTNER_USER_ID = /^[a-z][a-z0-9]{2,15}\.[a-z][a-z0-9]{1,23}$/;
+const PARTNER_HANDLE = /^[a-z][a-z0-9]{2,15}$/;
+const OUTLET_ID = /^[A-Za-z0-9_-]{1,80}$/;
+const ONLINE_CHANNELS = new Set(["online_code", "api_booking"]);
+const REDEMPTION_CHANNELS = ["in_store", "online_code", "api_booking"];
+const BOOKING_PRODUCTS = [
+  "movie_tickets",
+  "event_tickets",
+  "flights",
+  "hotels",
+  "buses",
+  "activities",
+];
+const BOOKING_METHODS = new Set(["lessgo_connect", "adapter"]);
+const PARTNER_PLANS = new Set(["pilot", "standard", "enterprise"]);
+const PARTNER_ROLES = new Set(["owner", "manager", "cashier"]);
+
 function hasOnlyParams(params, allowed) {
   const seen = new Set();
   for (const [key, value] of params) {
@@ -105,7 +126,15 @@ export function isAllowedAdminRead(segments, params) {
           integerInRange(params.get("limit") ?? "", 1, 50))
       );
     }
+    if (resource === "partners") return hasOnlyParams(params, new Set());
     return false;
+  }
+
+  if (segments.length === 2 && segments[0] === "partners") {
+    return PARTNER_ID.test(segments[1]) && hasOnlyParams(params, new Set());
+  }
+  if (segments.length === 2 && segments[0] === "partner-handles") {
+    return PARTNER_HANDLE.test(segments[1]) && hasOnlyParams(params, new Set());
   }
 
   if (segments[0] === "notifications") {
@@ -159,6 +188,9 @@ export function isAllowedAdminRead(segments, params) {
 }
 
 export function isAllowedAdminPost(segments) {
+  if (segments[0] === "partners" || segments[0] === "campaigns") {
+    return partnerPostKind(segments) !== null;
+  }
   if (segments[0] !== "notifications") return false;
   if (
     segments.length === 3 &&
@@ -181,8 +213,71 @@ export function isAllowedAdminPost(segments) {
   );
 }
 
+/**
+ * Admin → Partners POSTs (web/lib/adminPartnersApi.ts), or null:
+ *   partners                                          onboard
+ *   partners/:id/logins                               login
+ *   partners/:id/logins/:userId/reset-password        reset-password
+ *   partners/:id/integrations/:channel/approve        approve (no body)
+ *   partners/:id/integrations/:channel/rollback       rollback
+ *   campaigns/:id/review                              review
+ */
+function partnerPostKind(segments) {
+  const [resource, id, child, childId, action] = segments;
+  if (segments.length === 1 && resource === "partners") return "onboard";
+  if (
+    segments.length === 3 &&
+    resource === "campaigns" &&
+    CAMPAIGN_ID.test(id) &&
+    child === "review"
+  ) {
+    return "review";
+  }
+  if (resource !== "partners" || !PARTNER_ID.test(id ?? "")) return null;
+  if (segments.length === 3 && child === "logins") return "login";
+  if (
+    segments.length === 5 &&
+    child === "logins" &&
+    PARTNER_USER_ID.test(childId) &&
+    action === "reset-password"
+  ) {
+    return "reset-password";
+  }
+  if (
+    segments.length === 5 &&
+    child === "integrations" &&
+    ONLINE_CHANNELS.has(childId) &&
+    (action === "approve" || action === "rollback")
+  ) {
+    return action;
+  }
+  return null;
+}
+
+/** Allowed POSTs that take no body: campaign actions, the alert test and go-live approval. */
+export function isBodylessAdminPost(segments) {
+  if (segments[0] === "notifications") {
+    return (
+      (segments.length === 4 && segments[1] === "campaigns") ||
+      segments.join("/") === "notifications/alerts/test"
+    );
+  }
+  return partnerPostKind(segments) === "approve";
+}
+
 export function isValidAdminPostBody(segments, body) {
   if (!isPlainObject(body)) return false;
+  const partnerPost = partnerPostKind(segments);
+  if (partnerPost === "onboard") return validOnboardingInput(body);
+  if (partnerPost === "login") return validNewLoginInput(body);
+  if (partnerPost === "reset-password") {
+    return exactKeys(body, ["dispatch"]) && validDispatch(body.dispatch);
+  }
+  if (partnerPost === "rollback") {
+    return exactKeys(body, ["reason"]) && boundedString(body.reason, 1_000);
+  }
+  if (partnerPost === "review") return validReviewDecision(body);
+  if (partnerPost) return false;
   if (
     segments.length === 3 &&
     segments[1] === "alerts" &&
@@ -370,6 +465,7 @@ function optionalEnumArray(value, allowedValues, maximum) {
 }
 
 export function isAllowedAdminPatch(segments) {
+  if (partnerPatchKind(segments)) return true;
   if (
     segments.length === 3 &&
     segments[0] === "notifications" &&
@@ -403,6 +499,175 @@ export function isAllowedAdminDelete(segments) {
   }
   return (
     segments.length === 2 && segments[0] === "bugs" && segments[1] === "done"
+  );
+}
+
+/**
+ * Admin → Partners PATCHes, or null:
+ *   partners/:id                  status   (suspend / reactivate)
+ *   partners/:id/channels         channels
+ *   partners/:id/logins/:userId   login-status
+ */
+function partnerPatchKind(segments) {
+  const [resource, id, child, userId] = segments;
+  if (resource !== "partners" || !PARTNER_ID.test(id ?? "")) return null;
+  if (segments.length === 2) return "status";
+  if (segments.length === 3 && child === "channels") return "channels";
+  if (
+    segments.length === 4 &&
+    child === "logins" &&
+    PARTNER_USER_ID.test(userId)
+  ) {
+    return "login-status";
+  }
+  return null;
+}
+
+/** Body check for every allowed PATCH (see isAllowedAdminPatch). */
+export function isValidAdminPatchBody(segments, body) {
+  const partnerPatch = partnerPatchKind(segments);
+  if (partnerPatch === "status") return validPartnerStatusChange(body);
+  if (partnerPatch === "channels") return validChannelsInput(body);
+  if (partnerPatch === "login-status") {
+    return (
+      isPlainObject(body) &&
+      exactKeys(body, ["status"]) &&
+      (body.status === "active" || body.status === "disabled")
+    );
+  }
+  if (segments[0] === "bugs") return isValidAdminBugPatchBody(body);
+  if (segments[0] === "reports") return isValidAdminReportPatchBody(body);
+  if (segments.join("/") === "notifications/alerts/preferences") {
+    return isValidAdminAlertPreferencesBody(body);
+  }
+  return false;
+}
+
+// ── Admin → Partners bodies ─────────────────────────────────────────────────
+// Shape only (keys, types, sizes): the offers service owns the business rules
+// and its 409/422 messages, so lengths here are generous ceilings.
+
+function boundedString(value, maximum) {
+  return typeof value === "string" && value.length <= maximum;
+}
+
+function enumList(value, allowedValues) {
+  return (
+    Array.isArray(value) &&
+    optionalEnumArray(value, allowedValues, allowedValues.length)
+  );
+}
+
+function validDispatch(value) {
+  return (
+    isPlainObject(value) &&
+    exactKeys(value, ["email", "sms"]) &&
+    typeof value.email === "boolean" &&
+    typeof value.sms === "boolean"
+  );
+}
+
+const ONBOARDING_TEXT_LIMITS = {
+  brandName: 80,
+  legalName: 200,
+  category: 60,
+  website: 2_048,
+  gstin: 32,
+  city: 80,
+  stateCode: 4,
+  logoEmoji: 16,
+  brandColor: 16,
+  contactName: 100,
+  contactEmail: 254,
+  contactPhone: 32,
+  handle: 32,
+};
+
+/** PartnerOnboardingInput (POST partners). */
+function validOnboardingInput(body) {
+  return (
+    exactKeys(body, [
+      ...Object.keys(ONBOARDING_TEXT_LIMITS),
+      "channels",
+      "bookingProducts",
+      "bookingMethod",
+      "plan",
+      "owner",
+      "dispatch",
+    ]) &&
+    Object.entries(ONBOARDING_TEXT_LIMITS).every(([key, maximum]) =>
+      boundedString(body[key], maximum),
+    ) &&
+    enumList(body.channels, REDEMPTION_CHANNELS) &&
+    enumList(body.bookingProducts, BOOKING_PRODUCTS) &&
+    BOOKING_METHODS.has(body.bookingMethod) &&
+    PARTNER_PLANS.has(body.plan) &&
+    isPlainObject(body.owner) &&
+    exactKeys(body.owner, ["name", "email", "phone"]) &&
+    boundedString(body.owner.name, 100) &&
+    boundedString(body.owner.email, 254) &&
+    boundedString(body.owner.phone, 32) &&
+    validDispatch(body.dispatch)
+  );
+}
+
+/** NewPartnerLoginInput (POST partners/:id/logins). */
+function validNewLoginInput(body) {
+  return (
+    hasAllowedExactKeys(body, [
+      "name",
+      "email",
+      "phone",
+      "role",
+      "outletId",
+      "dispatch",
+    ]) &&
+    boundedString(body.name, 100) &&
+    boundedString(body.email, 254) &&
+    (body.phone === undefined || boundedString(body.phone, 32)) &&
+    PARTNER_ROLES.has(body.role) &&
+    (body.outletId === undefined ||
+      (typeof body.outletId === "string" && OUTLET_ID.test(body.outletId))) &&
+    validDispatch(body.dispatch)
+  );
+}
+
+/** { status: "suspended", reason } | { status: "active" } (PATCH partners/:id). */
+function validPartnerStatusChange(body) {
+  if (!isPlainObject(body)) return false;
+  if (body.status === "active") return exactKeys(body, ["status"]);
+  return (
+    body.status === "suspended" &&
+    exactKeys(body, ["status", "reason"]) &&
+    boundedString(body.reason, 1_000)
+  );
+}
+
+/** PartnerChannelsInput (PATCH partners/:id/channels). */
+function validChannelsInput(body) {
+  return (
+    isPlainObject(body) &&
+    hasAllowedExactKeys(body, [
+      "channels",
+      "website",
+      "bookingProducts",
+      "bookingMethod",
+    ]) &&
+    enumList(body.channels, REDEMPTION_CHANNELS) &&
+    (body.website === undefined || boundedString(body.website, 2_048)) &&
+    (body.bookingProducts === undefined ||
+      enumList(body.bookingProducts, BOOKING_PRODUCTS)) &&
+    (body.bookingMethod === undefined || BOOKING_METHODS.has(body.bookingMethod))
+  );
+}
+
+/** CampaignReviewDecision (POST campaigns/:id/review). */
+function validReviewDecision(body) {
+  if (body.decision === "approve") return exactKeys(body, ["decision"]);
+  return (
+    body.decision === "reject" &&
+    exactKeys(body, ["decision", "note"]) &&
+    boundedString(body.note, 2_000)
   );
 }
 

@@ -5,6 +5,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { changelog, faq, features, footer, hero, nav } from './site.ts';
+import { isInternalToolPath } from '../web/lib/internalRoutes.ts';
 
 const appDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '../app');
 const footerExcludedPaths = new Set(['/me', '/onboarding']);
@@ -23,11 +24,13 @@ function staticPublicPath(pageFile) {
     .split(sep)
     .filter((segment) => segment && !segment.startsWith('('));
 
-  if (segments[0] === 'admin' || segments.some((segment) => segment.includes('['))) {
+  if (segments.some((segment) => segment.includes('['))) {
     return null;
   }
 
   const path = segments.length > 0 ? `/${segments.join('/')}` : '/';
+  // The admin console and partner portal are internal tools, not site pages.
+  if (isInternalToolPath(path)) return null;
   return footerExcludedPaths.has(path) || redirectedPagePaths.has(path) ? null : path;
 }
 
@@ -54,6 +57,13 @@ test('footer omits authenticated utility pages', () => {
 test('footer never exposes admin routes', () => {
   assert.equal(
     footerHrefs.some((href) => href === '/admin' || href.startsWith('/admin/')),
+    false,
+  );
+});
+
+test('footer never exposes the partner portal', () => {
+  assert.equal(
+    footerHrefs.some((href) => href === '/partner' || href.startsWith('/partner/')),
     false,
   );
 });

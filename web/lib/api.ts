@@ -31,11 +31,17 @@ type RequestOptions = {
 
 export class ApiError extends Error {
   status: number;
+  /** Machine-readable reason when the backend sends one, e.g. "handle_taken". */
+  code?: string;
+  /** Structured detail some errors carry (e.g. per-field validation). */
+  details?: unknown;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code?: string, details?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    if (code !== undefined) this.code = code;
+    if (details !== undefined) this.details = details;
   }
 }
 

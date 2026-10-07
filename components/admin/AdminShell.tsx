@@ -8,26 +8,38 @@ import {
   Bug,
   Download,
   Gauge,
+  Handshake,
   LogOut,
   RefreshCw,
   Settings,
   ShieldAlert,
   WifiOff,
+  type LucideIcon,
 } from 'lucide-react';
 import { ThemeToggle } from '@ui/ThemeToggle';
 import { adminLogout } from '@web/lib/adminApi';
 import { unsubscribeCurrentAdminDevice } from '@web/lib/adminAlertsApi';
+import { sameContentSecurityPolicy } from '@web/lib/contentSecurityPolicy';
+import { PARTNER_PORTAL_CONFIG } from '@web/lib/partner/config';
 import { useAdminSession } from './AdminGate';
 import { useAdminPwa } from './AdminPwaProvider';
-import { useState, type ReactNode } from 'react';
+import { useState, type ComponentPropsWithoutRef, type ReactNode } from 'react';
 
-const NAVIGATION = [
+interface AdminNavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+const NAVIGATION: readonly AdminNavItem[] = [
   { href: '/admin', label: 'Operations', icon: Gauge },
   { href: '/admin/reports', label: 'Reports', icon: ShieldAlert },
   { href: '/admin/bugs', label: 'Bugs', icon: Bug },
   { href: '/admin/notifications', label: 'Notifications', icon: BellRing },
+  // Partner onboarding ships with the partner portal (web/lib/partner/config.ts).
+  ...(PARTNER_PORTAL_CONFIG.enabled ? [{ href: '/admin/partners', label: 'Partners', icon: Handshake }] : []),
   { href: '/admin/settings', label: 'Settings', icon: Settings },
-] as const;
+];
 
 export default function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -117,14 +129,15 @@ export default function AdminShell({ children }: { children: ReactNode }) {
             <p className="text-xs text-ink-muted">Lessgo Admin</p>
           </div>
           {pwa.installAvailable ? (
-            <Link
+            <AdminLink
+              pathname={pathname}
               href="/admin/settings"
               title="Install admin app"
               className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-line text-gold"
             >
               <Download className="h-4 w-4" aria-hidden="true" />
               <span className="sr-only">Install admin app</span>
-            </Link>
+            </AdminLink>
           ) : null}
           <ThemeToggle className="rounded-md" />
           <button
@@ -187,7 +200,9 @@ export default function AdminShell({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="Admin sections"
-        className="admin-bottom-nav fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-line bg-surface/95 px-2 pt-2 backdrop-blur lg:hidden"
+        className={`admin-bottom-nav fixed inset-x-0 bottom-0 z-50 grid border-t border-line bg-surface/95 px-2 pt-2 backdrop-blur lg:hidden ${
+          NAVIGATION.length === 6 ? 'grid-cols-6' : 'grid-cols-5'
+        }`}
       >
         {NAVIGATION.map((item) => (
           <AdminNavLink
@@ -230,7 +245,7 @@ function AdminNavLink({
   mobile = false,
   online,
 }: {
-  item: (typeof NAVIGATION)[number];
+  item: AdminNavItem;
   pathname: string;
   mobile?: boolean;
   online: boolean;
@@ -241,7 +256,8 @@ function AdminNavLink({
       : pathname.startsWith(item.href);
   const Icon = item.icon;
   return (
-    <Link
+    <AdminLink
+      pathname={pathname}
       href={item.href}
       aria-current={active ? 'page' : undefined}
       aria-disabled={!online}
@@ -255,8 +271,27 @@ function AdminNavLink({
       }
     >
       <Icon className="h-5 w-5 flex-none" aria-hidden="true" />
-      <span className="truncate">{item.label}</span>
-    </Link>
+      <span className="max-w-full truncate">{item.label}</span>
+    </AdminLink>
+  );
+}
+
+/**
+ * next/link, except between pages with different Content-Security-Policies:
+ * a document keeps the policy it was loaded with, so moving between Admin →
+ * Partners (campaign creatives from any https host) and the rest of the
+ * console loads a new document with the destination's policy
+ * (web/lib/contentSecurityPolicy.ts).
+ */
+function AdminLink({
+  pathname,
+  href,
+  ...props
+}: ComponentPropsWithoutRef<'a'> & { pathname: string; href: string }) {
+  return sameContentSecurityPolicy(pathname, href) ? (
+    <Link href={href} {...props} />
+  ) : (
+    <a href={href} {...props} />
   );
 }
 
