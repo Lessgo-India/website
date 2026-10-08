@@ -184,9 +184,8 @@ export async function resetPartnerDemo(): Promise<void> {
  * DUMMY: computed from made-up per-state user counts (demoStore.ts).
  * BACKEND: POST /api/partner/audience/estimate { targeting } → { estimate }
  *   (the offers service counts profiles by home location + age/gender and
- *   rounds like roundEstimate; anything under
- *   PARTNER_PORTAL_CONFIG.minAudience is shown as "Under 1,000" and blocks
- *   submitting, as in the dummy).
+ *   rounds like roundEstimate). There is no minimum audience: a campaign can
+ *   be submitted and go live whatever the estimate, even 0 or 1.
  */
 export async function fetchAudienceEstimate(targeting: OfferTargeting): Promise<number> {
   if (backendEnabled()) {

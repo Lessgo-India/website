@@ -37,8 +37,6 @@ export const PARTNER_PORTAL_CONFIG = {
   useDummyData: process.env.NEXT_PUBLIC_PARTNER_PORTAL_BACKEND !== 'true',
   /** Mirrors the admin console's 8-hour session. */
   sessionTtlMs: 8 * 60 * 60 * 1000,
-  /** Smallest audience a campaign may target (k-anonymity floor). */
-  minAudience: 1_000,
 } as const;
 
 /**
