@@ -140,7 +140,7 @@ function onboardingInput(overrides = {}) {
     contactPhone: '98450 12345',
     handle: 'masalamagic',
     owner: { name: 'Anita Rao', email: 'anita@masalamagic.example', phone: '9845012345' },
-    dispatch: { email: true, sms: true },
+    dispatch: { email: true },
     ...overrides,
   };
 }
@@ -157,7 +157,7 @@ test('validates the onboarding form', () => {
       contactPhone: '12345',
       handle: 'brewbros',
       brandColor: 'red',
-      owner: { name: 'Anita Rao', email: 'anita@', phone: '' },
+      owner: { name: 'Anita Rao', email: 'anita@', phone: '12345' },
     }),
     ['brewbros'],
   );
@@ -171,7 +171,11 @@ test('validates the onboarding form', () => {
     'ownerPhone',
   ]);
 
-  const quiet = validateOnboarding(onboardingInput({ stateCode: 'MH', dispatch: { email: false, sms: false } }));
+  // The owner's mobile is optional contact info now that nothing is texted.
+  const noPhone = validateOnboarding(onboardingInput({ owner: { name: 'Anita Rao', email: 'anita@masalamagic.example', phone: '' } }));
+  assert.equal('ownerPhone' in noPhone.errors, false);
+
+  const quiet = validateOnboarding(onboardingInput({ stateCode: 'MH', dispatch: { email: false } }));
   assert.equal(hasOnboardingErrors(quiet), false);
   assert.match(quiet.warnings.gstin, /different state/);
   assert.match(quiet.warnings.dispatch, /Nothing will be sent/);

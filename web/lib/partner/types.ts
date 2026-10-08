@@ -295,7 +295,7 @@ export interface PartnerUser {
   partnerId: string;
   name: string;
   email: string;
-  /** The login holder's 10-digit mobile, for SMS invites and resets. */
+  /** The login holder's 10-digit mobile (contact details only). */
   phone?: string;
   role: PartnerRole;
   /** Cashier logins (in-store partners only) are scoped to one outlet. */
@@ -316,13 +316,12 @@ export interface PartnerLogin extends PartnerUser {
   lastSignInAt?: string;
 }
 
-export type CredentialChannel = 'email' | 'sms';
+export type CredentialChannel = 'email';
 
 export interface CredentialDispatch {
   channel: CredentialChannel;
-  /** Email address or 10-digit mobile number. */
   to: string;
-  /** The offers service hands delivery to backend-notification-service. */
+  /** `queued`: accepted by the offers service's SMTP server. `failed`: not sent. */
   status: 'queued' | 'failed';
 }
 
@@ -363,18 +362,18 @@ export interface PartnerOnboardingInput {
   /** Becomes `<handle>.owner` and the prefix of every later login. */
   handle: string;
   owner: { name: string; email: string; phone: string };
-  dispatch: { email: boolean; sms: boolean };
+  dispatch: { email: boolean };
 }
 
 export interface NewPartnerLoginInput {
   name: string;
   email: string;
-  /** Stored on the login; SMS invites and resets go to it. */
+  /** Stored on the login as contact details. */
   phone?: string;
   role: PartnerRole;
   /** Required for cashiers. */
   outletId?: string;
-  dispatch: { email: boolean; sms: boolean };
+  dispatch: { email: boolean };
 }
 
 export interface PartnerAuditEntry {
