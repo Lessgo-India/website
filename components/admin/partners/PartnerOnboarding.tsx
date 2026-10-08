@@ -77,7 +77,6 @@ interface FormState {
   handle: string;
   handleEdited: boolean;
   sendEmail: boolean;
-  sendSms: boolean;
 }
 
 const EMPTY: FormState = {
@@ -105,7 +104,6 @@ const EMPTY: FormState = {
   handle: '',
   handleEdited: false,
   sendEmail: true,
-  sendSms: false,
 };
 
 function toInput(form: FormState): PartnerOnboardingInput {
@@ -130,7 +128,7 @@ function toInput(form: FormState): PartnerOnboardingInput {
     owner: form.ownerIsContact
       ? { name: form.contactName, email: form.contactEmail, phone: form.contactPhone }
       : { name: form.ownerName, email: form.ownerEmail, phone: form.ownerPhone },
-    dispatch: { email: form.sendEmail, sms: form.sendSms },
+    dispatch: { email: form.sendEmail },
   };
 }
 
@@ -648,31 +646,18 @@ export default function PartnerOnboarding() {
         </Section>
 
         <Section title="Send access" description="The temporary password works for 72 hours; they choose their own at first sign-in.">
-          <div className="space-y-2">
-            <label className="flex items-start gap-2.5 text-sm text-ink">
-              <input
-                type="checkbox"
-                checked={form.sendEmail}
-                onChange={(event) => update({ sendEmail: event.target.checked })}
-                className="mt-0.5 h-4 w-4 accent-[var(--profile)]"
-              />
-              <span>
-                <span className="font-semibold">Email</span> the sign-in link, user ID and temporary password to{' '}
-                {input.owner.email || 'the owner'}
-              </span>
-            </label>
-            <label className="flex items-start gap-2.5 text-sm text-ink">
-              <input
-                type="checkbox"
-                checked={form.sendSms}
-                onChange={(event) => update({ sendSms: event.target.checked })}
-                className="mt-0.5 h-4 w-4 accent-[var(--profile)]"
-              />
-              <span>
-                <span className="font-semibold">Text</span> the same details to {input.owner.phone || 'the owner’s mobile'}
-              </span>
-            </label>
-          </div>
+          <label className="flex items-start gap-2.5 text-sm text-ink">
+            <input
+              type="checkbox"
+              checked={form.sendEmail}
+              onChange={(event) => update({ sendEmail: event.target.checked })}
+              className="mt-0.5 h-4 w-4 accent-[var(--profile)]"
+            />
+            <span>
+              <span className="font-semibold">Email</span> the sign-in link, user ID and temporary password to{' '}
+              {input.owner.email || 'the owner'}
+            </span>
+          </label>
           <FieldWarning message={check.warnings.dispatch} />
           <p className={adminHint}>
             You’ll also see the credentials once after creating the partner, to share them yourself.

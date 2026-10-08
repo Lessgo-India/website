@@ -569,11 +569,10 @@ function ResetPanel({
 }: {
   login: PartnerLogin;
   onCancel: () => void;
-  /** Delivery goes to the email and mobile stored on the login. */
-  onReset: (dispatch: { email: boolean; sms: boolean }) => Promise<void>;
+  /** The new password can be emailed to the address stored on the login. */
+  onReset: (dispatch: { email: boolean }) => Promise<void>;
 }) {
   const [email, setEmail] = useState(true);
-  const [sms, setSms] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -581,7 +580,7 @@ function ResetPanel({
     setBusy(true);
     setError(null);
     try {
-      await onReset({ email, sms: sms && !!login.phone });
+      await onReset({ email });
     } catch (caught) {
       setError((caught as Error).message);
       setBusy(false);
@@ -593,20 +592,10 @@ function ResetPanel({
       <p className="text-sm text-ink">
         A new temporary password replaces the current one and signs <span className="font-mono">{login.userId}</span> out everywhere.
       </p>
-      <div className="mt-3 space-y-1.5">
-        <label className="flex items-center gap-2.5 text-sm text-ink">
-          <input type="checkbox" checked={email} onChange={(event) => setEmail(event.target.checked)} className="h-4 w-4 accent-[var(--profile)]" />
-          Email it to {login.email}
-        </label>
-        {login.phone ? (
-          <label className="flex items-center gap-2.5 text-sm text-ink">
-            <input type="checkbox" checked={sms} onChange={(event) => setSms(event.target.checked)} className="h-4 w-4 accent-[var(--profile)]" />
-            Text it to {formatIndianMobile(login.phone)}
-          </label>
-        ) : (
-          <p className="text-xs text-ink-muted">No mobile on file for this login, so it can’t be texted.</p>
-        )}
-      </div>
+      <label className="mt-3 flex items-center gap-2.5 text-sm text-ink">
+        <input type="checkbox" checked={email} onChange={(event) => setEmail(event.target.checked)} className="h-4 w-4 accent-[var(--profile)]" />
+        Email it to {login.email}
+      </label>
       {error ? <p role="alert" className="mt-2 text-sm text-down">{error}</p> : null}
       <div className="mt-3 flex gap-2">
         <button type="button" onClick={confirm} disabled={busy} className={adminPrimaryButton}>
@@ -640,7 +629,6 @@ function AddLoginForm({
   const [role, setRole] = useState<PartnerRole>('manager');
   const [outletId, setOutletId] = useState('');
   const [sendEmail, setSendEmail] = useState(true);
-  const [sendSms, setSendSms] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -654,14 +642,12 @@ function AddLoginForm({
     if (name.trim().length < 2) return setError('Add the person’s name.');
     if (!isValidEmail(email)) return setError('Enter a valid email address.');
     if (role === 'cashier' && !outlet) return setError('Pick the outlet this cashier works at.');
-    if ((sendSms || phone.trim()) && !isValidIndianMobile(phone)) {
-      return setError(sendSms ? 'Enter a 10-digit Indian mobile number to send the SMS.' : 'Enter a 10-digit Indian mobile number.');
-    }
+    if (phone.trim() && !isValidIndianMobile(phone)) return setError('Enter a 10-digit Indian mobile number.');
     setBusy(true);
     try {
       const { login, credential } = await addPartnerLogin(
         partner.id,
-        { name, email, ...(phone.trim() ? { phone } : {}), role, ...(outlet ? { outletId: outlet.id } : {}), dispatch: { email: sendEmail, sms: sendSms } },
+        { name, email, ...(phone.trim() ? { phone } : {}), role, ...(outlet ? { outletId: outlet.id } : {}), dispatch: { email: sendEmail } },
         { actor },
       );
       onIssued({ credential, name: login.name, email: login.email, title: `${ROLE_DETAILS[login.role].label} login issued` });
@@ -729,16 +715,10 @@ function AddLoginForm({
         </div>
       </div>
 
-      <div className="mt-4 space-y-1.5">
-        <label className="flex items-center gap-2.5 text-sm text-ink">
-          <input type="checkbox" checked={sendEmail} onChange={(event) => setSendEmail(event.target.checked)} className="h-4 w-4 accent-[var(--profile)]" />
-          Email the sign-in details
-        </label>
-        <label className="flex items-center gap-2.5 text-sm text-ink">
-          <input type="checkbox" checked={sendSms} onChange={(event) => setSendSms(event.target.checked)} className="h-4 w-4 accent-[var(--profile)]" />
-          Text them to the mobile number
-        </label>
-      </div>
+      <label className="mt-4 flex items-center gap-2.5 text-sm text-ink">
+        <input type="checkbox" checked={sendEmail} onChange={(event) => setSendEmail(event.target.checked)} className="h-4 w-4 accent-[var(--profile)]" />
+        Email the sign-in details
+      </label>
 
       <p className="mt-3 text-sm text-ink-muted">
         They’ll sign in as <span className="font-mono font-semibold text-ink">{preview}</span>.

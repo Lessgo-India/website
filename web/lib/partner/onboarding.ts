@@ -390,10 +390,10 @@ export function validateOnboarding(input: PartnerOnboardingInput, takenHandles: 
 
   if (!between(input.owner.name, 2, 60)) errors.ownerName = 'Add the owner’s name.';
   if (!isValidEmail(input.owner.email)) errors.ownerEmail = 'Enter a valid email address.';
-  if ((input.dispatch.sms || input.owner.phone.trim()) && !isValidIndianMobile(input.owner.phone)) {
-    errors.ownerPhone = 'Enter a 10-digit Indian mobile number to send the SMS.';
+  if (input.owner.phone.trim() && !isValidIndianMobile(input.owner.phone)) {
+    errors.ownerPhone = 'Enter a 10-digit Indian mobile number.';
   }
-  if (!input.dispatch.email && !input.dispatch.sms) {
+  if (!input.dispatch.email) {
     warnings.dispatch = 'Nothing will be sent. Share the credentials with the owner yourself.';
   }
 

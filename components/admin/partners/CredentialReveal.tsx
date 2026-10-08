@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertTriangle, Eye, EyeOff, KeyRound, Mail, MailCheck, Smartphone } from 'lucide-react';
+import { AlertTriangle, Eye, EyeOff, KeyRound, Mail, MailCheck } from 'lucide-react';
 import { DemoTag } from '@ui/partner/ui';
 import { PARTNER_PORTAL_CONFIG } from '@web/lib/partner/config';
 import { formatDateTime } from '@web/lib/partner/format';
-import { buildInviteMessage, formatIndianMobile } from '@web/lib/partner/onboarding';
+import { buildInviteMessage } from '@web/lib/partner/onboarding';
 import type { IssuedCredential } from '@web/lib/partner/types';
 import { adminCard, adminSecondaryButton, CopyButton } from './partnerAdminUi';
 
@@ -108,9 +108,8 @@ export default function CredentialReveal({
                   item.status === 'queued' ? 'bg-ok-tint text-ok' : 'bg-down-tint text-down'
                 }`}
               >
-                {item.channel === 'email' ? <MailCheck className="h-3.5 w-3.5" aria-hidden="true" /> : <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />}
-                {item.channel === 'email' ? 'Email' : 'SMS'} {item.status === 'queued' ? 'queued to' : 'failed for'}{' '}
-                {item.channel === 'sms' ? formatIndianMobile(item.to) : item.to}
+                <MailCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                Email {item.status === 'queued' ? 'queued to' : 'failed for'} {item.to}
               </li>
             ))}
           </ul>

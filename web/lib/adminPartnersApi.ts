@@ -52,7 +52,6 @@ import {
 import { dummyVouchers } from './partner/dummyData';
 import {
   baseUserId,
-  formatIndianMobile,
   generateTemporaryPassword,
   hasOnboardingErrors,
   isHttpsWebsite,
@@ -162,7 +161,7 @@ function applyTemporaryCredential(
   state: DemoState,
   user: PartnerUser,
   minted: MintedPassword,
-  dispatch: { email: boolean; sms: boolean },
+  dispatch: { email: boolean },
 ): IssuedCredential {
   const now = Date.now();
   const expiresAt = new Date(now + TEMPORARY_PASSWORD_TTL_MS).toISOString();
@@ -177,12 +176,10 @@ function applyTemporaryCredential(
     // Any open portal session — or half-finished first sign-in — ends now.
     sessionsRevokedAt: new Date(now).toISOString(),
   };
-  // TODO(backend): the offers service asks backend-notification-service to
-  // send these, always to the email/mobile stored on the login; the dummy
-  // marks them queued and sends nothing.
+  // The offers service emails these over SMTP, always to the address stored
+  // on the login; the dummy marks them queued and sends nothing.
   const sent: CredentialDispatch[] = [];
   if (dispatch.email) sent.push({ channel: 'email', to: user.email, status: 'queued' });
-  if (dispatch.sms && user.phone) sent.push({ channel: 'sms', to: user.phone, status: 'queued' });
   return { userId: user.userId, temporaryPassword: minted.temporaryPassword, expiresAt, loginUrl: partnerLoginUrl(), dispatch: sent };
 }
 
@@ -194,7 +191,7 @@ function mobileOrUndefined(input: string | undefined): string | undefined {
 function describeDispatch(credential: IssuedCredential): string {
   if (credential.dispatch.length === 0) return 'nothing sent — shared manually';
   return credential.dispatch
-    .map((item) => (item.channel === 'email' ? `emailed ${item.to}` : `texted ${formatIndianMobile(item.to)}`))
+    .map((item) => (item.status === 'failed' ? `email to ${item.to} failed` : `emailed ${item.to}`))
     .join(', ');
 }
 
@@ -303,8 +300,8 @@ export function takenPartnerHandles(): string[] {
  * BACKEND: POST /admin/partners PartnerOnboardingInput
  *   → 201 { partner, credential: IssuedCredential } | 409 handle_taken | 422
  *   The temporary password is generated server-side (CSPRNG), stored as a
- *   slow hash, emailed/texted through backend-notification-service when
- *   `dispatch` asks for it, and returned this once so the admin can share it.
+ *   slow hash, emailed over SMTP when `dispatch.email` asks for
+ *   it, and returned this once so the admin can share it.
  *   A partner with an online channel also gets its signing secret, and
  *   online_code its sandbox API key — previews only: the owner generates
  *   usable values under Integrations → Developer credentials.
@@ -417,12 +414,9 @@ export async function addPartnerLogin(
   }
   if (input.name.trim().length < 2) throw new ApiError('Add the person’s name.', 422);
   if (!isValidEmail(input.email)) throw new ApiError('Enter a valid email address.', 422);
-  // The mobile is stored on the login (resets are texted to it), so a typo is rejected even without SMS.
-  if ((input.dispatch.sms || input.phone?.trim()) && !isValidIndianMobile(input.phone ?? '')) {
-    throw new ApiError(
-      input.dispatch.sms ? 'Enter a 10-digit Indian mobile number to send the SMS.' : 'Enter a 10-digit Indian mobile number.',
-      422,
-    );
+  // The mobile is stored on the login, so a typo is rejected.
+  if (input.phone?.trim() && !isValidIndianMobile(input.phone)) {
+    throw new ApiError('Enter a 10-digit Indian mobile number.', 422);
   }
   const outlet =
     input.role === 'cashier'
@@ -462,14 +456,14 @@ export async function addPartnerLogin(
  * everywhere. Also how a lost or expired invite is re-sent.
  *
  * BACKEND: POST /admin/partners/:id/logins/:userId/reset-password
- *   { dispatch: { email, sms } } → { credential: IssuedCredential }
- *   Delivery always goes to the email and mobile stored on the login; the
- *   client never chooses the recipient.
+ *   { dispatch: { email } } → { credential: IssuedCredential }
+ *   The email always goes to the address stored on the login; the client
+ *   never chooses the recipient.
  */
 export async function resetPartnerLoginPassword(
   partnerId: string,
   userId: string,
-  dispatch: { email: boolean; sms: boolean },
+  dispatch: { email: boolean },
   { actor }: AdminActor,
 ): Promise<IssuedCredential> {
   if (backendEnabled()) {
@@ -486,7 +480,6 @@ export async function resetPartnerLoginPassword(
   partnerOr404(state, partnerId);
   const user = userOr404(state, partnerId, userId);
   if (state.credentials[userId]?.status === 'disabled') throw new ApiError('Turn the login back on first.', 409);
-  if (dispatch.sms && !user.phone) throw new ApiError('This login has no mobile number on file. Send it by email instead.', 422);
   const credential = applyTemporaryCredential(state, user, minted, dispatch);
   recordAudit(state, {
     partnerId,

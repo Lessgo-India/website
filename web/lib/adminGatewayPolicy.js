@@ -561,9 +561,8 @@ function enumList(value, allowedValues) {
 function validDispatch(value) {
   return (
     isPlainObject(value) &&
-    exactKeys(value, ["email", "sms"]) &&
-    typeof value.email === "boolean" &&
-    typeof value.sms === "boolean"
+    exactKeys(value, ["email"]) &&
+    typeof value.email === "boolean"
   );
 }
 

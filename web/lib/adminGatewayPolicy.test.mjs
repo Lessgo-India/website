@@ -300,7 +300,7 @@ const onboarding = {
     email: "partnerships@brewbros.example",
     phone: "9876500001",
   },
-  dispatch: { email: true, sms: false },
+  dispatch: { email: true },
 };
 
 test("allows exactly the partner reads the admin console makes", () => {
@@ -385,7 +385,9 @@ test("validates partner POST bodies by shape, leaving business rules to the offe
     { ...onboarding, brandName: 42 },
     { ...onboarding, legalName: "x".repeat(201) },
     { ...onboarding, owner: { ...onboarding.owner, role: "admin" } },
-    { ...onboarding, dispatch: { email: "yes", sms: false } },
+    { ...onboarding, dispatch: { email: "yes" } },
+    // SMS was removed: the old { email, sms } shape no longer passes.
+    { ...onboarding, dispatch: { email: true, sms: false } },
     Object.fromEntries(Object.entries(onboarding).filter(([key]) => key !== "handle")),
   ]) {
     assert.equal(isValidAdminPostBody(["partners"], broken), false);
@@ -398,7 +400,7 @@ test("validates partner POST bodies by shape, leaving business rules to the offe
     phone: "9876500101",
     role: "cashier",
     outletId: "out_brew_hsr",
-    dispatch: { email: true, sms: true },
+    dispatch: { email: true },
   };
   assert.equal(isValidAdminPostBody(logins, cashier), true);
   assert.equal(
@@ -406,7 +408,7 @@ test("validates partner POST bodies by shape, leaving business rules to the offe
       name: "Ira",
       email: "ira@brewbros.example",
       role: "manager",
-      dispatch: { email: true, sms: false },
+      dispatch: { email: false },
     }),
     true,
   );
@@ -415,9 +417,10 @@ test("validates partner POST bodies by shape, leaving business rules to the offe
   assert.equal(isValidAdminPostBody(logins, { ...cashier, password: "hunter2" }), false);
 
   const reset = ["partners", partnerId, "logins", "brewbros.owner", "reset-password"];
-  assert.equal(isValidAdminPostBody(reset, { dispatch: { email: true, sms: false } }), true);
+  assert.equal(isValidAdminPostBody(reset, { dispatch: { email: true } }), true);
+  assert.equal(isValidAdminPostBody(reset, { dispatch: { email: true, sms: true } }), false);
   assert.equal(
-    isValidAdminPostBody(reset, { dispatch: { email: true, sms: false }, to: "x@evil.example" }),
+    isValidAdminPostBody(reset, { dispatch: { email: true }, to: "x@evil.example" }),
     false,
   );
 
