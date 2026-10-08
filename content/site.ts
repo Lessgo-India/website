@@ -224,7 +224,7 @@ export const privacy = {
   everyPermission: [
     { name: 'Contacts', why: 'Invite your people — and catch invites coming your way.' },
     { name: 'Notifications', why: 'Event alerts and reminders so you never miss the buzz.' },
-    { name: 'Location', why: 'Pick your spots and open them right in Maps.' },
+    { name: 'Location', why: 'Find offers near your home area, and open your spots right in Maps.' },
     { name: 'Gallery', why: 'Share pictures and moments with your crew.' },
     { name: 'Files', why: 'Attach tickets & documents — only the ones you pick.' },
   ],

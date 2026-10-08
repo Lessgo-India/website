@@ -6,12 +6,12 @@ import { PageHeader, Prose } from '@ui/PageHeader';
 // NOTE FOR THE TEAM: this policy is drafted to reflect what the product
 // actually does. Have qualified counsel review it, and confirm the Grievance
 // Officer details below, before the public launch.
-const LAST_UPDATED = '12 September 2026';
+const LAST_UPDATED = '8 October 2026';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
   description:
-    'How Lessgo collects, uses and protects your data — including contacts, phone verification and analytics — and the rights you have under India’s DPDP Act 2023.',
+    'How Lessgo collects, uses and protects your data — including contacts, your home area, brand offers, phone verification and analytics — and the rights you have under India’s DPDP Act 2023.',
   alternates: { canonical: '/policy' },
 };
 
@@ -91,8 +91,26 @@ export default function PrivacyPage() {
                 restricted internal reviewer notes. Reports are not shown to the reported user.
               </li>
               <li>
-                <strong>Location,</strong> only when you use it to set a meeting point. We do not
-                track your location in the background.
+                <strong>Your home area,</strong> so we can show you offers near you. When you
+                first sign in, and whenever you refresh it from the Location option in the Vibes
+                menu, the app reads your device&rsquo;s location &mdash; only with your
+                permission, and only while you are using the app &mdash; to work out your state,
+                district, city and PIN code. You can also pick your district yourself. We save
+                these to your profile together with the coordinates of that reading (or the
+                centre of the district you picked), and we attach your state, district and city
+                to Vibes you post. Your home area is visible only to you: other users and brand
+                partners never receive it.
+              </li>
+              <li>
+                <strong>Location for meeting points and Timeline checkpoints,</strong> only when
+                you choose to add one. We do not track your location in the background.
+              </li>
+              <li>
+                <strong>Brand offers you use.</strong> When you claim an offer from a partner
+                brand, we keep the coupon, the event it is attached to and how it was used
+                &mdash; such as the outlet or order, the bill or order value, the discount and
+                the number of people in your group &mdash; so we can apply the discount and share
+                its value fairly in your group&rsquo;s expenses.
               </li>
               <li>
                 <strong>Device and notification tokens,</strong> so we can deliver push alerts
@@ -118,20 +136,26 @@ export default function PrivacyPage() {
               <li>To create and secure your account and verify it is really you.</li>
               <li>To deliver the service — events, RSVPs, groups, expenses and sharing.</li>
               <li>To send notifications you have opted into.</li>
+              <li>
+                To show you offers from partner brands that fit your home area, age group and
+                gender, and to let you claim and redeem them. We match offers on our servers:
+                brands choose who an offer is for, but never learn who it matched.
+              </li>
               <li>To keep Lessgo safe, prevent abuse and debug problems.</li>
               <li>
                 To understand aggregate app usage. You can disable app analytics at any time.
               </li>
             </ul>
             <p>
-              We do not sell your personal data. We do not run advertising, and we do not share
-              your data with advertisers or data brokers.
+              We do not sell your personal data, and we never share it with ad networks or data
+              brokers. Brand partners receive personal data only when you choose to use one of
+              their offers, as described below.
             </p>
 
             <h2>Who we share it with</h2>
             <p>
-              We share data only with service providers who process it on our behalf, under
-              contract, for the purposes above:
+              We share data with service providers who process it on our behalf, under contract,
+              for the purposes above:
             </p>
             <ul>
               <li>
@@ -154,6 +178,17 @@ export default function PrivacyPage() {
               </li>
             </ul>
             <p>
+              <strong>Brand partners.</strong> When you use a brand offer, the partner receives
+              only what it needs to honour it. At an outlet, its staff and its partner dashboard
+              see your first name and last initial (for example, &ldquo;Ananya R.&rdquo;), your
+              group size, and the bill and discount; for an online order placed with your code,
+              its dashboard shows the same summary. When you book through an offer &mdash; for
+              example, cinema tickets or a stay &mdash; we also send the partner your name and
+              phone number so it can issue the booking, and you pay the partner directly on its
+              own checkout page. Partners never receive your home area, age, gender or contacts,
+              and they handle what they receive under their own privacy policies.
+            </p>
+            <p>
               We may also disclose data where we are legally required to, or where it is
               necessary to protect the rights and safety of our users.
             </p>
@@ -174,6 +209,15 @@ export default function PrivacyPage() {
               dispute.
               Launch-update emails are deleted once the launch communication is complete or when
               you ask us to remove them, whichever comes first.
+            </p>
+            <p>
+              Your home area stays on your profile until you change it, and is deleted with your
+              profile; the area attached to a Vibe is deleted with that Vibe. Records of brand
+              offers you claimed or used &mdash; the coupon and, for redemptions, your first name
+              and last initial, group size and amounts &mdash; are kept after you delete your
+              profile because they form part of the partner&rsquo;s sales records. Write to{' '}
+              <a href="mailto:privacy@lessgo.in">privacy@lessgo.in</a> and we will anonymise
+              them.
             </p>
 
             <h2>Your rights</h2>
