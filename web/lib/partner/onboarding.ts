@@ -301,6 +301,7 @@ export type OnboardingField =
   | 'gstin'
   | 'stateCode'
   | 'city'
+  | 'logoUrl'
   | 'logoEmoji'
   | 'brandColor'
   | 'contactName'
@@ -374,6 +375,9 @@ export function validateOnboarding(input: PartnerOnboardingInput, takenHandles: 
   }
   if (!input.stateCode) errors.stateCode = 'Pick the state or union territory.';
   if (!between(input.city, 2, 40)) errors.city = 'Add the city.';
+  if (input.logoUrl?.trim() && !isHttpsWebsite(input.logoUrl)) {
+    errors.logoUrl = 'Use an https image URL for the brand logo.';
+  }
   if (!input.logoEmoji.trim() || input.logoEmoji.length > 8) errors.logoEmoji = 'Pick one emoji.';
   if (!/^#[0-9a-f]{6}$/i.test(input.brandColor)) errors.brandColor = 'Use a hex colour like #8D5524.';
 

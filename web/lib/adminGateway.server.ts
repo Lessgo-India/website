@@ -37,6 +37,7 @@ export async function callGateway(
   options: {
     method?: "GET" | "POST" | "PATCH" | "DELETE";
     body?: unknown;
+    formData?: FormData;
   } = {},
 ): Promise<{ status: number; body: unknown }> {
   const base = gatewayBaseUrl();
@@ -66,7 +67,8 @@ export async function callGateway(
         "x-request-id": randomUUID(),
       },
       body:
-        options.body === undefined ? undefined : JSON.stringify(options.body),
+        options.formData ??
+        (options.body === undefined ? undefined : JSON.stringify(options.body)),
       cache: "no-store",
       signal: AbortSignal.timeout(GATEWAY_TIMEOUT_MS),
     });

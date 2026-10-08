@@ -157,6 +157,7 @@ test('validates the onboarding form', () => {
       contactPhone: '12345',
       handle: 'brewbros',
       brandColor: 'red',
+      logoUrl: 'http://assets.example/logo.png',
       owner: { name: 'Anita Rao', email: 'anita@', phone: '12345' },
     }),
     ['brewbros'],
@@ -167,6 +168,7 @@ test('validates the onboarding form', () => {
     'contactPhone',
     'gstin',
     'handle',
+    'logoUrl',
     'ownerEmail',
     'ownerPhone',
   ]);

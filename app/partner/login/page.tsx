@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import PartnerLogin from '@ui/partner/PartnerLogin';
 
-export const metadata: Metadata = { title: 'Sign in' };
+export const metadata: Metadata = {
+  title: 'Sign in',
+  robots: { index: false, follow: false, nocache: true },
+};
 
 type PageProps = { searchParams: Promise<{ next?: string | string[] }> };
 

@@ -3,6 +3,7 @@ import {
   isAllowedAdminPatch,
   isAllowedAdminPost,
   isAllowedAdminRead,
+  isAdminPartnerLogoUpload,
   isBodylessAdminPost,
   isValidAdminAlertUnsubscribeBody,
   isValidAdminPatchBody,
@@ -17,6 +18,7 @@ export type AdminGatewayRouteContext = {
 interface GatewayCallOptions {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
+  formData?: FormData;
 }
 
 interface AdminGatewayRouteDeps<Session> {
@@ -97,6 +99,73 @@ async function readJsonBody(
   } catch {
     return { response: reply(400, { message: "Invalid admin request." }) };
   }
+}
+
+const PARTNER_LOGO_MAX_BYTES = 10 * 1024 * 1024;
+const PARTNER_LOGO_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
+async function readPartnerLogoBody(
+  request: Request,
+): Promise<{ formData: FormData } | { response: Response }> {
+  if (
+    !(request.headers.get("content-type") ?? "").startsWith(
+      "multipart/form-data;",
+    )
+  ) {
+    return {
+      response: reply(415, {
+        message: "Partner logo uploads require multipart form data.",
+      }),
+    };
+  }
+  const declaredLength = Number(request.headers.get("content-length") ?? 0);
+  if (
+    Number.isFinite(declaredLength) &&
+    declaredLength > PARTNER_LOGO_MAX_BYTES + 64 * 1024
+  ) {
+    return {
+      response: reply(413, { message: "Partner logo must be 10 MB or smaller." }),
+    };
+  }
+
+  let formData: FormData;
+  try {
+    formData = await request.formData();
+  } catch {
+    return {
+      response: reply(400, { message: "Invalid partner logo upload." }),
+    };
+  }
+  const entries = [...formData.entries()];
+  if (
+    entries.length !== 1 ||
+    entries[0][0] !== "file" ||
+    !(entries[0][1] instanceof File)
+  ) {
+    return {
+      response: reply(400, {
+        message: "Upload exactly one partner logo file.",
+      }),
+    };
+  }
+  const file = entries[0][1];
+  if (!PARTNER_LOGO_TYPES.has(file.type.toLowerCase())) {
+    return {
+      response: reply(415, {
+        message: "Partner logo must be a JPG, PNG or WebP image.",
+      }),
+    };
+  }
+  if (file.size <= 0 || file.size > PARTNER_LOGO_MAX_BYTES) {
+    return {
+      response: reply(413, { message: "Partner logo must be 10 MB or smaller." }),
+    };
+  }
+  return { formData };
 }
 
 export function createAdminGatewayHandlers<Session>(
@@ -197,6 +266,18 @@ export function createAdminGatewayHandlers<Session>(
     }
     if (!isSameOriginMutation(request)) {
       return reply(403, { message: "Cross-origin admin mutation denied." });
+    }
+
+    if (isAdminPartnerLogoUpload(parsed.segments)) {
+      const parsedForm = await readPartnerLogoBody(request);
+      if ("response" in parsedForm) return parsedForm.response;
+      const result = await deps.callGateway(
+        parsed.segments.join("/"),
+        "",
+        parsed.session,
+        { method: "POST", formData: parsedForm.formData },
+      );
+      return reply(result.status, result.body);
     }
 
     const isAction = isBodylessAdminPost(parsed.segments);

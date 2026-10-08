@@ -34,7 +34,7 @@ const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_.:-]{1,128}$/;
 /** base64url session tokens (offers service), within RFC 6265 cookie-octets. */
 const SESSION_TOKEN_PATTERN = /^[A-Za-z0-9._~+/=-]{16,1024}$/;
 /** Handled by their own routes; never forwarded through the catch-all. */
-const RESERVED_FIRST_SEGMENTS = new Set(['login', 'logout', 'session']);
+const RESERVED_FIRST_SEGMENTS = new Set(['applications', 'login', 'logout', 'session']);
 const NULL_BODY_STATUSES = new Set([204, 205, 304]);
 
 export type PartnerGatewayMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -431,6 +431,22 @@ export function createPartnerBffHandlers(deps: PartnerBffDeps) {
     return respond(204, null, [cleared()]);
   }
 
+  /** POST /api/partner/applications → CAPTCHA-protected application; no portal session required. */
+  async function applications(request: Request): Promise<Response> {
+    if (!deps.enabled()) return respond(404, NOT_FOUND);
+    if (!isSameOriginMutation(request)) return respond(403, CROSS_ORIGIN);
+    const parsed = await readBody(request, { required: true });
+    if ('response' in parsed) return parsed.response;
+    const result = await deps.callGateway({
+      method: 'POST',
+      path: '/partner-applications',
+      search: '',
+      body: parsed.body,
+      clientIp: clientIpOf(request),
+    });
+    return passThrough(result);
+  }
+
   /** /api/partner/<path> → gateway /partner/<path> with the session from the cookie. */
   async function forward(
     method: PartnerGatewayMethod,
@@ -484,6 +500,7 @@ export function createPartnerBffHandlers(deps: PartnerBffDeps) {
     firstPassword,
     session,
     logout,
+    applications,
     GET: (request: Request, context: PartnerBffRouteContext) => forward('GET', request, context),
     POST: (request: Request, context: PartnerBffRouteContext) => forward('POST', request, context),
     PUT: (request: Request, context: PartnerBffRouteContext) => forward('PUT', request, context),

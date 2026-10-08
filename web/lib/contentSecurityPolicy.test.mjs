@@ -5,7 +5,7 @@ import { contentSecurityPolicyFor, sameContentSecurityPolicy } from './contentSe
 const ASSET_BUCKET = 'https://lessgo-asset.s3.ap-south-1.amazonaws.com';
 const ADMIN_PAGES = ['/admin', '/admin/reports', '/admin/bugs', '/admin/notifications', '/admin/settings'];
 const ADMIN_PARTNER_PAGES = ['/admin/partners', '/admin/partners/new', '/admin/partners/ptr_brew_bros'];
-const PORTAL_PAGES = ['/partner', '/partner/login', '/partner/campaigns/new', '/partner/redeem'];
+const PORTAL_PAGES = ['/partner', '/partner/signup', '/partner/login', '/partner/dashboard', '/partner/campaigns/new', '/partner/redeem'];
 
 /** directive → its sources, for one path. */
 function directives(pathname, options = { nonce: 'bm9uY2U=', development: false }) {
@@ -39,7 +39,6 @@ test('Admin → Partners relaxes only img-src: everything else matches the rest 
     for (const [name, sources] of partners) {
       if (name !== 'img-src') assert.equal(sources, restOfConsole.get(name), `${pathname} ${name}`);
     }
-    assert.equal(partners.get('script-src'), "'self' 'nonce-bm9uY2U='");
     assert.equal(partners.get('connect-src'), "'self'");
     assert.equal(partners.get('frame-src'), "'none'");
     assert.equal(partners.get('frame-ancestors'), "'none'");
@@ -48,12 +47,23 @@ test('Admin → Partners relaxes only img-src: everything else matches the rest 
 });
 
 test('only the partner portal frames OpenStreetMap; eval only in development', () => {
-  assert.equal(directives('/partner/outlets').get('frame-src'), 'https://www.openstreetmap.org');
+  const partner = directives('/partner/outlets');
+  assert.equal(
+    partner.get('frame-src'),
+    'https://www.openstreetmap.org https://challenges.cloudflare.com',
+  );
+  assert.equal(
+    partner.get('connect-src'),
+    "'self' https://challenges.cloudflare.com",
+  );
   assert.equal(
     directives('/admin', { nonce: 'abc', development: true }).get('script-src'),
     "'self' 'nonce-abc' 'unsafe-eval'",
   );
-  assert.equal(directives('/partner', { nonce: 'abc', development: false }).get('script-src'), "'self' 'nonce-abc'");
+  assert.equal(
+    directives('/partner', { nonce: 'abc', development: false }).get('script-src'),
+    "'self' 'nonce-abc' https://challenges.cloudflare.com",
+  );
 });
 
 test('links between pages with different policies must load a new document', () => {

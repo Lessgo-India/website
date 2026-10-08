@@ -635,12 +635,17 @@ export function rolesFor(channels: readonly RedemptionChannel[]): PartnerRole[] 
 }
 
 export function homePathFor(role: PartnerRole): string {
-  return can(role, 'overview') ? '/partner' : '/partner/redeem';
+  return can(role, 'overview') ? '/partner/dashboard' : '/partner/redeem';
 }
 
 /** Only same-portal paths are honoured after sign-in (no open redirects). */
 export function safeNextPath(next: string | null | undefined, role: PartnerRole): string {
-  if (next && /^\/partner(\/[A-Za-z0-9/_-]*)?$/.test(next) && !next.startsWith('/partner/login')) {
+  if (
+    next &&
+    /^\/partner\/[A-Za-z0-9/_-]+$/.test(next) &&
+    !next.startsWith('/partner/login') &&
+    !next.startsWith('/partner/signup')
+  ) {
     return next;
   }
   return homePathFor(role);

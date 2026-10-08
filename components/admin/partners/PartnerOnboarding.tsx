@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { ArrowRight, BadgeCheck, CircleCheck, Loader2, Plus, Send } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { ArrowRight, BadgeCheck, CircleCheck, ImagePlus, Loader2, Plus, Send, Trash2 } from 'lucide-react';
 import { BrandAvatar, ChannelBadge } from '@ui/partner/ui';
 import { usePartnerQuery } from '@ui/partner/usePartnerQuery';
-import { isPartnerHandleAvailable, onboardPartner, takenPartnerHandles } from '@web/lib/adminPartnersApi';
+import { isPartnerHandleAvailable, onboardPartner, takenPartnerHandles, uploadPartnerLogo } from '@web/lib/adminPartnersApi';
 import {
   BOOKING_METHOD_DETAILS,
   BOOKING_PRODUCT_DETAILS,
@@ -50,6 +50,8 @@ import {
 const EMOJI_CHOICES = ['☕', '🍕', '🍔', '🍛', '🌶️', '🍦', '🧋', '🎬', '🎟️', '🎳', '🕹️', '🎶', '🏕️', '🧳', '✈️', '🛍️', '💪'];
 const COLOUR_CHOICES = ['#C0392B', '#E67E22', '#F1C40F', '#27AE60', '#16A085', '#2980B9', '#6C5CE7', '#E84393', '#8D5524', '#2D3436'];
 const PLANS: PartnerPlan[] = ['pilot', 'standard', 'enterprise'];
+const BRAND_LOGO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const BRAND_LOGO_MAX_BYTES = 10 * 1024 * 1024;
 
 interface FormState {
   brandName: string;
@@ -136,6 +138,12 @@ export default function PartnerOnboarding() {
   const actor = useAdminActor();
   const handles = usePartnerQuery(async () => takenPartnerHandles(), 'taken-handles');
   const [form, setForm] = useState<FormState>(EMPTY);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
+  const [uploadedLogoUrl, setUploadedLogoUrl] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const logoInput = useRef<HTMLInputElement>(null);
+  const logoPreviewUrlRef = useRef<string | null>(null);
   const [touched, setTouched] = useState<Set<OnboardingField>>(() => new Set());
   const [attempted, setAttempted] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -145,6 +153,15 @@ export default function PartnerOnboarding() {
   const input = useMemo(() => toInput(form), [form]);
   const check = useMemo(() => validateOnboarding(input, handles.data ?? []), [handles.data, input]);
   const gst = form.gstin.trim().length === 15 ? checkGstin(form.gstin, form.stateCode || undefined) : null;
+
+  useEffect(
+    () => () => {
+      if (logoPreviewUrlRef.current) {
+        URL.revokeObjectURL(logoPreviewUrlRef.current);
+      }
+    },
+    [],
+  );
 
   const update = (patch: Partial<FormState>) => setForm((current) => ({ ...current, ...patch }));
   const touch = (field: OnboardingField) => setTouched((current) => new Set(current).add(field));
@@ -185,6 +202,43 @@ export default function PartnerOnboarding() {
     touch('bookingProducts');
   }
 
+  function removeBrandLogo() {
+    if (logoPreviewUrlRef.current) {
+      URL.revokeObjectURL(logoPreviewUrlRef.current);
+      logoPreviewUrlRef.current = null;
+    }
+    setLogoFile(null);
+    setLogoPreviewUrl(null);
+    setUploadedLogoUrl(null);
+    setLogoError(null);
+    if (logoInput.current) logoInput.current.value = '';
+  }
+
+  function selectBrandLogo(file: File | undefined) {
+    setUploadedLogoUrl(null);
+    if (!file) {
+      removeBrandLogo();
+      return;
+    }
+    if (!BRAND_LOGO_TYPES.has(file.type.toLowerCase())) {
+      removeBrandLogo();
+      setLogoError('Choose a JPG, PNG or WebP image.');
+      return;
+    }
+    if (file.size <= 0 || file.size > BRAND_LOGO_MAX_BYTES) {
+      removeBrandLogo();
+      setLogoError('Brand logo must be 10 MB or smaller.');
+      return;
+    }
+    setLogoError(null);
+    if (logoPreviewUrlRef.current) {
+      URL.revokeObjectURL(logoPreviewUrlRef.current);
+    }
+    logoPreviewUrlRef.current = URL.createObjectURL(file);
+    setLogoPreviewUrl(logoPreviewUrlRef.current);
+    setLogoFile(file);
+  }
+
   const categoryHint = PARTNER_CATEGORY_DETAILS.find((category) => category.name === form.category)?.hint;
   const sellsOnline = form.channels.some((channel) => channel !== 'in_store');
 
@@ -192,7 +246,7 @@ export default function PartnerOnboarding() {
     event.preventDefault();
     setAttempted(true);
     setError(null);
-    if (hasOnboardingErrors(check)) {
+    if (hasOnboardingErrors(check) || logoError) {
       setError('Fix the highlighted fields.');
       return;
     }
@@ -203,7 +257,13 @@ export default function PartnerOnboarding() {
         setBusy(false);
         return;
       }
-      setResult(await onboardPartner(input, { actor }));
+      let logoUrl = uploadedLogoUrl;
+      if (logoFile && !logoUrl) {
+        logoUrl = await uploadPartnerLogo(logoFile);
+        setUploadedLogoUrl(logoUrl);
+      }
+      const submittedInput = logoUrl ? { ...input, logoUrl } : input;
+      setResult(await onboardPartner(submittedInput, { actor }));
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (caught) {
       setError((caught as Error).message);
@@ -364,23 +424,71 @@ export default function PartnerOnboarding() {
           <div className="mt-5 grid gap-5 sm:grid-cols-2">
             <fieldset>
               <legend className={adminLabel}>Logo in the Vibes tray</legend>
-              <div className="flex flex-wrap gap-1.5">
-                {EMOJI_CHOICES.map((emoji) => (
+              <div className="flex items-center gap-3 rounded-md border border-line bg-surface-2 p-3">
+                <BrandAvatar
+                  partner={{
+                    logoUrl: logoPreviewUrl ?? undefined,
+                    logoEmoji: form.logoEmoji,
+                    brandColor: form.brandColor,
+                    brandName: form.brandName,
+                  }}
+                  size={48}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-ink">{logoFile?.name ?? 'Upload the brand logo'}</p>
+                  <p className="text-xs text-ink-muted">JPG, PNG or WebP · max 10 MB · square works best</p>
+                </div>
+                <label htmlFor="brand-logo" className={`${adminSecondaryButton} min-h-9 cursor-pointer px-3`}>
+                  <ImagePlus className="h-4 w-4" aria-hidden="true" />
+                  {logoFile ? 'Replace' : 'Upload'}
+                </label>
+                <input
+                  ref={logoInput}
+                  id="brand-logo"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(event) => selectBrandLogo(event.target.files?.[0])}
+                  className="sr-only"
+                />
+                {logoFile ? (
                   <button
-                    key={emoji}
                     type="button"
-                    aria-pressed={form.logoEmoji === emoji}
-                    onClick={() => update({ logoEmoji: emoji })}
-                    className={`flex h-10 w-10 items-center justify-center rounded-md border text-xl ${
-                      form.logoEmoji === emoji ? 'border-profile bg-profile-tint' : 'border-line hover:bg-surface-2'
-                    }`}
+                    onClick={removeBrandLogo}
+                    aria-label="Remove uploaded brand logo"
+                    className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-md border border-line text-ink-muted hover:bg-surface hover:text-down"
                   >
-                    {emoji}
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
                   </button>
-                ))}
+                ) : null}
               </div>
-              {/* TODO(backend): let admins upload a logo image (file-upload-service) instead of an emoji. */}
-              <p className={adminHint}>Shown in the partner’s story circle and portal.</p>
+              <FieldError id="logoUrl-error" message={logoError ?? undefined} />
+              <div className="my-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+                <span className="h-px flex-1 bg-line" />
+                or choose a premade icon
+                <span className="h-px flex-1 bg-line" />
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {EMOJI_CHOICES.map((emoji) => {
+                  const selected = !logoFile && form.logoEmoji === emoji;
+                  return (
+                    <button
+                      key={emoji}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => {
+                        removeBrandLogo();
+                        update({ logoEmoji: emoji });
+                      }}
+                      className={`flex h-10 w-10 items-center justify-center rounded-md border text-xl ${
+                        selected ? 'border-profile bg-profile-tint' : 'border-line hover:bg-surface-2'
+                      }`}
+                    >
+                      {emoji}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className={adminHint}>The uploaded logo is shown in the partner’s story circle and portal; the icon is its fallback.</p>
             </fieldset>
             <fieldset>
               <legend className={adminLabel}>Brand colour</legend>
@@ -686,7 +794,15 @@ export default function PartnerOnboarding() {
         <div className={`${adminCard} p-5`}>
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Preview</p>
           <div className="mt-3 flex items-center gap-3">
-            <BrandAvatar partner={{ logoEmoji: form.logoEmoji, brandColor: form.brandColor, brandName: form.brandName }} size={48} />
+            <BrandAvatar
+              partner={{
+                logoUrl: logoPreviewUrl ?? undefined,
+                logoEmoji: form.logoEmoji,
+                brandColor: form.brandColor,
+                brandName: form.brandName,
+              }}
+              size={48}
+            />
             <div className="min-w-0">
               <p className="truncate font-display text-lg font-bold text-ink">{form.brandName || 'Brand name'}</p>
               <p className="truncate text-xs text-ink-muted">

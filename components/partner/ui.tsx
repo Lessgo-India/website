@@ -49,13 +49,13 @@ export function BrandAvatar({
   partner,
   size = 40,
 }: {
-  partner: Pick<PartnerAccount, 'logoEmoji' | 'brandColor' | 'brandName'>;
+  partner: Pick<PartnerAccount, 'logoUrl' | 'logoEmoji' | 'brandColor' | 'brandName'>;
   size?: number;
 }) {
   return (
     <span
       aria-hidden="true"
-      className="inline-flex flex-none items-center justify-center rounded-full bg-surface-2"
+      className="relative inline-flex flex-none items-center justify-center overflow-hidden rounded-full bg-surface-2"
       style={{
         width: size,
         height: size,
@@ -64,6 +64,17 @@ export function BrandAvatar({
       }}
     >
       {partner.logoEmoji}
+      {partner.logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={partner.logoUrl}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+          onError={(event) => {
+            event.currentTarget.hidden = true;
+          }}
+        />
+      ) : null}
     </span>
   );
 }

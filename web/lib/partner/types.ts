@@ -255,6 +255,8 @@ export interface PartnerAccount {
   status: PartnerStatus;
   brandName: string;
   legalName: string;
+  /** Uploaded brand mark shown ahead of `logoEmoji` when present. */
+  logoUrl?: string;
   logoEmoji: string;
   brandColor: string;
   category: string;
@@ -353,6 +355,8 @@ export interface PartnerOnboardingInput {
   gstin: string;
   city: string;
   stateCode: string;
+  /** Uploaded brand mark; `logoEmoji` remains the display fallback. */
+  logoUrl?: string;
   logoEmoji: string;
   brandColor: string;
   plan: PartnerPlan;
@@ -363,6 +367,53 @@ export interface PartnerOnboardingInput {
   handle: string;
   owner: { name: string; email: string; phone: string };
   dispatch: { email: boolean };
+}
+
+export type PartnerApplicationStatus = 'pending_review' | 'approved' | 'rejected';
+
+export interface PartnerApplicationInput {
+  brandName: string;
+  legalName: string;
+  category: string;
+  channels: RedemptionChannel[];
+  website: string;
+  bookingProducts: BookingProduct[];
+  bookingMethod: BookingConnectMethod;
+  gstin: string;
+  city: string;
+  stateCode: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  handle: string;
+}
+
+export interface PartnerApplicationSubmission extends PartnerApplicationInput {
+  captchaToken: string;
+}
+
+export interface PartnerApplication extends PartnerApplicationInput {
+  id: string;
+  status: PartnerApplicationStatus;
+  submittedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  approvedPartnerId?: string;
+  rejectionReason?: string;
+}
+
+export interface PartnerApplicationApprovalInput {
+  handle: string;
+  logoEmoji: string;
+  brandColor: string;
+  plan: PartnerPlan;
+  dispatch: { email: boolean };
+}
+
+export interface PartnerApplicationApprovalResult {
+  application: PartnerApplication;
+  partner: PartnerAccount;
+  credential?: IssuedCredential;
 }
 
 export interface NewPartnerLoginInput {
@@ -418,7 +469,7 @@ export interface AdminPartnerSummary {
 
 export type AdminPartnerBadge = Pick<
   PartnerAccount,
-  'id' | 'brandName' | 'logoEmoji' | 'brandColor' | 'plan' | 'status' | 'channels' | 'integration'
+  'id' | 'brandName' | 'logoUrl' | 'logoEmoji' | 'brandColor' | 'plan' | 'status' | 'channels' | 'integration'
 >;
 
 export interface AdminReviewItem {
@@ -436,6 +487,7 @@ export interface AdminGoLiveRequest {
 
 export interface AdminPartnersOverview {
   partners: AdminPartnerSummary[];
+  applicationQueue: PartnerApplication[];
   reviewQueue: AdminReviewItem[];
   goLiveQueue: AdminGoLiveRequest[];
 }

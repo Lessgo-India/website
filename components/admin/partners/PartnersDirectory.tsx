@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { ArrowRight, ChevronRight, ClipboardCheck, Handshake, PlugZap, Plus, RefreshCw, Search, ShieldOff, Sparkles } from 'lucide-react';
+import { ArrowRight, ChevronRight, ClipboardCheck, FileClock, Handshake, PlugZap, Plus, RefreshCw, Search, ShieldOff, Sparkles } from 'lucide-react';
 import IntegrationTestResult from '@ui/partner/IntegrationTestResult';
 import { BrandAvatar, ChannelBadge, DemoTag } from '@ui/partner/ui';
 import { usePartnerQuery } from '@ui/partner/usePartnerQuery';
@@ -14,6 +14,7 @@ import { stateName } from '@web/lib/partner/indiaGeo';
 import { PLAN_DETAILS } from '@web/lib/partner/onboarding';
 import type { AdminGoLiveRequest, AdminPartnerSummary, PartnerStatus, RedemptionChannel } from '@web/lib/partner/types';
 import CampaignReviewCard from './CampaignReviewCard';
+import PartnerApplicationReviewCard from './PartnerApplicationReviewCard';
 import { adminCard, adminInput, adminPrimaryButton, adminSecondaryButton, PartnerStatusBadge, SectionHeading } from './partnerAdminUi';
 
 const FILTERS: { value: 'all' | PartnerStatus; label: string }[] = [
@@ -52,6 +53,7 @@ export default function PartnersDirectory() {
   const count = (status: PartnerStatus) => partners.filter((row) => row.partner.status === status).length;
   const reviewQueue = query.data?.reviewQueue ?? [];
   const goLiveQueue = query.data?.goLiveQueue ?? [];
+  const applicationQueue = query.data?.applicationQueue ?? [];
 
   return (
     <div className="space-y-8">
@@ -64,14 +66,34 @@ export default function PartnersDirectory() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         <Kpi label="Partners" value={partners.length} icon={Handshake} />
+        <Kpi label="Applications" value={applicationQueue.length} icon={FileClock} tone="text-warn" />
         <Kpi label="Active" value={count('active')} icon={Sparkles} tone="text-ok" />
         <Kpi label="Awaiting first sign-in" value={count('invited')} icon={Plus} tone="text-warn" />
         <Kpi label="Suspended" value={count('suspended')} icon={ShieldOff} tone="text-down" />
         <Kpi label="Go-live requests" value={goLiveQueue.length} icon={PlugZap} tone="text-profile" />
         <Kpi label="Campaigns to review" value={reviewQueue.length} icon={ClipboardCheck} tone="text-profile" />
       </div>
+
+      <section aria-labelledby="partner-applications-heading">
+        <SectionHeading>
+          <span id="partner-applications-heading">Partner applications waiting for approval</span>
+        </SectionHeading>
+        {query.loading && !query.data ? (
+          <p className="text-sm text-ink-muted">Loading…</p>
+        ) : applicationQueue.length === 0 ? (
+          <p className={`${adminCard} px-4 py-6 text-center text-sm text-ink-muted`}>
+            No public partner applications are waiting. The Admin Centre onboarding option remains available below.
+          </p>
+        ) : (
+          <div className="grid gap-4 xl:grid-cols-2">
+            {applicationQueue.map((application) => (
+              <PartnerApplicationReviewCard key={application.id} application={application} onReviewed={() => query.reload()} />
+            ))}
+          </div>
+        )}
+      </section>
 
       {goLiveQueue.length > 0 ? (
         <section aria-labelledby="go-live-heading">

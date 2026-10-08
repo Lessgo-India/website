@@ -41,6 +41,7 @@ const URL_SAFE_BASE64 = /^[A-Za-z0-9_-]+={0,2}$/;
 // Admin → Partners (web/lib/adminPartnersApi.ts). Ids as the offers service
 // mints them; user ids and handles as web/lib/partner/onboarding.ts allows.
 const PARTNER_ID = /^ptr_[a-z0-9][a-z0-9_]{0,47}$/;
+const PARTNER_APPLICATION_ID = /^app_[a-f0-9]{24}$/;
 const CAMPAIGN_ID = /^cmp_[A-Za-z0-9_-]{1,64}$/;
 const PARTNER_USER_ID = /^[a-z][a-z0-9]{2,15}\.[a-z][a-z0-9]{1,23}$/;
 const PARTNER_HANDLE = /^[a-z][a-z0-9]{2,15}$/;
@@ -188,7 +189,11 @@ export function isAllowedAdminRead(segments, params) {
 }
 
 export function isAllowedAdminPost(segments) {
-  if (segments[0] === "partners" || segments[0] === "campaigns") {
+  if (
+    segments[0] === "partners" ||
+    segments[0] === "partner-applications" ||
+    segments[0] === "campaigns"
+  ) {
     return partnerPostKind(segments) !== null;
   }
   if (segments[0] !== "notifications") return false;
@@ -213,18 +218,38 @@ export function isAllowedAdminPost(segments) {
   );
 }
 
+export function isAdminPartnerLogoUpload(segments) {
+  return (
+    segments.length === 2 &&
+    segments[0] === "partners" &&
+    segments[1] === "logo"
+  );
+}
+
 /**
  * Admin → Partners POSTs (web/lib/adminPartnersApi.ts), or null:
  *   partners                                          onboard
+ *   partners/logo                                     upload-logo
  *   partners/:id/logins                               login
  *   partners/:id/logins/:userId/reset-password        reset-password
  *   partners/:id/integrations/:channel/approve        approve (no body)
  *   partners/:id/integrations/:channel/rollback       rollback
+ *   partner-applications/:id/approve                   application approval
+ *   partner-applications/:id/reject                    application rejection
  *   campaigns/:id/review                              review
  */
 function partnerPostKind(segments) {
   const [resource, id, child, childId, action] = segments;
   if (segments.length === 1 && resource === "partners") return "onboard";
+  if (
+    segments.length === 3 &&
+    resource === "partner-applications" &&
+    PARTNER_APPLICATION_ID.test(id ?? "") &&
+    (child === "approve" || child === "reject")
+  ) {
+    return `application-${child}`;
+  }
+  if (isAdminPartnerLogoUpload(segments)) return "upload-logo";
   if (
     segments.length === 3 &&
     resource === "campaigns" &&
@@ -277,6 +302,15 @@ export function isValidAdminPostBody(segments, body) {
     return exactKeys(body, ["reason"]) && boundedString(body.reason, 1_000);
   }
   if (partnerPost === "review") return validReviewDecision(body);
+  if (partnerPost === "application-approve") {
+    return validApplicationApproval(body);
+  }
+  if (partnerPost === "application-reject") {
+    return (
+      exactKeys(body, ["reason"]) &&
+      validString(body.reason, 5, 1_000)
+    );
+  }
   if (partnerPost) return false;
   if (
     segments.length === 3 &&
@@ -585,8 +619,9 @@ const ONBOARDING_TEXT_LIMITS = {
 /** PartnerOnboardingInput (POST partners). */
 function validOnboardingInput(body) {
   return (
-    exactKeys(body, [
+    hasAllowedExactKeys(body, [
       ...Object.keys(ONBOARDING_TEXT_LIMITS),
+      "logoUrl",
       "channels",
       "bookingProducts",
       "bookingMethod",
@@ -597,6 +632,7 @@ function validOnboardingInput(body) {
     Object.entries(ONBOARDING_TEXT_LIMITS).every(([key, maximum]) =>
       boundedString(body[key], maximum),
     ) &&
+    (body.logoUrl === undefined || boundedString(body.logoUrl, 2_048)) &&
     enumList(body.channels, REDEMPTION_CHANNELS) &&
     enumList(body.bookingProducts, BOOKING_PRODUCTS) &&
     BOOKING_METHODS.has(body.bookingMethod) &&
@@ -606,6 +642,23 @@ function validOnboardingInput(body) {
     boundedString(body.owner.name, 100) &&
     boundedString(body.owner.email, 254) &&
     boundedString(body.owner.phone, 32) &&
+    validDispatch(body.dispatch)
+  );
+}
+
+function validApplicationApproval(body) {
+  return (
+    exactKeys(body, [
+      "handle",
+      "logoEmoji",
+      "brandColor",
+      "plan",
+      "dispatch",
+    ]) &&
+    boundedString(body.handle, 32) &&
+    boundedString(body.logoEmoji, 16) &&
+    boundedString(body.brandColor, 16) &&
+    PARTNER_PLANS.has(body.plan) &&
     validDispatch(body.dispatch)
   );
 }

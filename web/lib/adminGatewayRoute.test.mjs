@@ -473,6 +473,49 @@ test("forwards exact partner mutations, including bodiless approval as Next deli
   assert.equal(calls.length, 3);
 });
 
+test("validates and forwards one same-origin partner logo file", async () => {
+  const form = new FormData();
+  form.append(
+    "file",
+    new Blob([Buffer.from([0xff, 0xd8, 0xff, 0xe0])], {
+      type: "image/jpeg",
+    }),
+    "brand.jpg",
+  );
+  const uploaded = await route.POST(
+    new Request("http://local/api/admin/gateway/partners/logo", {
+      method: "POST",
+      headers: sameOrigin,
+      body: form,
+    }),
+    context("partners", "logo"),
+  );
+
+  assert.equal(uploaded.status, 200);
+  assert.equal(calls[0][0], "partners/logo");
+  assert.equal(calls[0][3].method, "POST");
+  const forwarded = calls[0][3].formData.get("file");
+  assert.equal(forwarded.name, "brand.jpg");
+  assert.equal(forwarded.type, "image/jpeg");
+
+  const wrongType = new FormData();
+  wrongType.append(
+    "file",
+    new Blob(["logo"], { type: "text/plain" }),
+    "brand.txt",
+  );
+  const rejected = await route.POST(
+    new Request("http://local/api/admin/gateway/partners/logo", {
+      method: "POST",
+      headers: sameOrigin,
+      body: wrongType,
+    }),
+    context("partners", "logo"),
+  );
+  assert.equal(rejected.status, 415);
+  assert.equal(calls.length, 1);
+});
+
 test("existing bodiless admin actions accept the empty stream Next delivers", async () => {
   const id = "66aa11bb22cc33dd44ee55ff";
   const cancelled = await route.POST(

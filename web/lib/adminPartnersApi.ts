@@ -17,7 +17,7 @@
  * The admin BFF allowlists exactly these (web/lib/adminGatewayPolicy.js, with
  * shape checks on every body):
  *   GET   partners, partners/:id, partner-handles/:handle
- *   POST  partners, partners/:id/logins,
+ *   POST  partners, partners/logo (multipart), partners/:id/logins,
  *         partners/:id/logins/:userId/reset-password, campaigns/:id/review,
  *         partners/:id/integrations/:channel/{approve (no body), rollback}
  *   PATCH partners/:id, partners/:id/logins/:userId, partners/:id/channels
@@ -29,7 +29,7 @@
  *     branch below.
  */
 import { ApiError } from './api';
-import { adminRequest } from './adminApi';
+import { adminFormRequest, adminRequest } from './adminApi';
 import {
   CHANNEL_DETAILS,
   channelIsLive,
@@ -76,6 +76,9 @@ import type {
   IssuedCredential,
   NewPartnerLoginInput,
   PartnerAccount,
+  PartnerApplication,
+  PartnerApplicationApprovalInput,
+  PartnerApplicationApprovalResult,
   PartnerCampaign,
   PartnerChannelsInput,
   PartnerLogin,
@@ -104,8 +107,18 @@ function partnerOr404(state: DemoState, partnerId: string): PartnerAccount {
 }
 
 function badgeOf(partner: PartnerAccount): AdminPartnerBadge {
-  const { id, brandName, logoEmoji, brandColor, plan, status, channels, integration } = partner;
-  return { id, brandName, logoEmoji, brandColor, plan, status, channels: [...channels], integration: structuredClone(integration) };
+  const { id, brandName, logoUrl, logoEmoji, brandColor, plan, status, channels, integration } = partner;
+  return {
+    id,
+    brandName,
+    ...(logoUrl ? { logoUrl } : {}),
+    logoEmoji,
+    brandColor,
+    plan,
+    status,
+    channels: [...channels],
+    integration: structuredClone(integration),
+  };
 }
 
 /** Last four characters of a fresh random key, for "lgp_test_••••c4d1"-style previews. */
@@ -251,7 +264,7 @@ export async function getAdminPartnersOverview(): Promise<AdminPartnersOverview>
   }
   goLiveQueue.sort((a, b) => a.requestedAt.localeCompare(b.requestedAt));
 
-  return { partners, reviewQueue, goLiveQueue };
+  return { partners, applicationQueue: [], reviewQueue, goLiveQueue };
 }
 
 /** BACKEND: GET /admin/partners/:id → AdminPartnerDetail */
@@ -294,6 +307,16 @@ export function takenPartnerHandles(): string[] {
 
 // ── Onboarding & logins ─────────────────────────────────────────────────────
 
+export async function uploadPartnerLogo(file: File): Promise<string> {
+  const form = new FormData();
+  form.append('file', file);
+  const uploaded = await adminFormRequest<{ url?: string }>('/gateway/partners/logo', form);
+  if (!uploaded.url) {
+    throw new ApiError('Upload succeeded but no image URL was returned.', 502);
+  }
+  return uploaded.url;
+}
+
 /**
  * Create the partner account and its first owner login.
  *
@@ -333,6 +356,7 @@ export async function onboardPartner(
     status: 'invited',
     brandName: input.brandName.trim(),
     legalName: input.legalName.trim(),
+    ...(input.logoUrl?.trim() ? { logoUrl: input.logoUrl.trim() } : {}),
     logoEmoji: input.logoEmoji.trim(),
     brandColor: input.brandColor.toUpperCase(),
     category: input.category,
@@ -384,6 +408,26 @@ export async function onboardPartner(
   });
   persist(state);
   return { partner, credential };
+}
+
+export async function approvePartnerApplication(
+  applicationId: string,
+  input: PartnerApplicationApprovalInput,
+): Promise<PartnerApplicationApprovalResult> {
+  return adminRequest<PartnerApplicationApprovalResult>(
+    `/gateway/partner-applications/${encodeURIComponent(applicationId)}/approve`,
+    { method: 'POST', body: input },
+  );
+}
+
+export async function rejectPartnerApplication(
+  applicationId: string,
+  reason: string,
+): Promise<PartnerApplication> {
+  return adminRequest<PartnerApplication>(
+    `/gateway/partner-applications/${encodeURIComponent(applicationId)}/reject`,
+    { method: 'POST', body: { reason } },
+  );
 }
 
 /**

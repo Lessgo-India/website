@@ -27,7 +27,7 @@ interface NavItem {
 // areas exist: outlets and the Redeem counter for in-store partners, Orders /
 // Bookings and Integrations for online ones.
 const NAVIGATION: readonly NavItem[] = [
-  { href: '/partner', label: 'Overview', icon: LayoutDashboard, permission: 'overview' },
+  { href: '/partner/dashboard', label: 'Overview', icon: LayoutDashboard, permission: 'overview' },
   { href: '/partner/campaigns', label: 'Campaigns', icon: Megaphone, permission: 'campaigns' },
   { href: '/partner/redeem', label: 'Redeem', icon: ScanLine, permission: 'redeem', feature: 'redeem' },
   { href: '/partner/sales', label: 'Orders', icon: Receipt, permission: 'sales', feature: 'sales' },
@@ -41,7 +41,7 @@ const ROLE_LABEL: Record<PartnerRole, string> = { owner: 'Owner', manager: 'Mana
 const MOBILE_COLUMNS = ['', 'grid-cols-1', 'grid-cols-2', 'grid-cols-3', 'grid-cols-4', 'grid-cols-5', 'grid-cols-6'];
 
 function isActive(pathname: string, href: string): boolean {
-  return href === '/partner' ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export default function PartnerShell({ children }: { children: ReactNode }) {

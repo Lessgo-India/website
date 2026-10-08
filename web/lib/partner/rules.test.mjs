@@ -310,10 +310,12 @@ test('scopes roles and only honours same-portal redirects', () => {
   assert.equal(can('cashier', 'redeem'), true);
 
   assert.equal(safeNextPath('/partner/campaigns/cmp_1', 'owner'), '/partner/campaigns/cmp_1');
-  assert.equal(safeNextPath('https://evil.example', 'owner'), '/partner');
-  assert.equal(safeNextPath('//evil.example', 'owner'), '/partner');
-  assert.equal(safeNextPath('/partner/login', 'owner'), '/partner');
-  assert.equal(safeNextPath('/partnerx', 'owner'), '/partner');
+  assert.equal(safeNextPath('https://evil.example', 'owner'), '/partner/dashboard');
+  assert.equal(safeNextPath('//evil.example', 'owner'), '/partner/dashboard');
+  assert.equal(safeNextPath('/partner', 'owner'), '/partner/dashboard');
+  assert.equal(safeNextPath('/partner/login', 'owner'), '/partner/dashboard');
+  assert.equal(safeNextPath('/partner/signup', 'owner'), '/partner/dashboard');
+  assert.equal(safeNextPath('/partnerx', 'owner'), '/partner/dashboard');
   assert.equal(safeNextPath(null, 'cashier'), '/partner/redeem');
 });
 

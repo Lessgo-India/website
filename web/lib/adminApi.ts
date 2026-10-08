@@ -38,6 +38,33 @@ export async function adminRequest<T>(
     );
   }
 
+  return adminResponse<T>(res, path);
+}
+
+export async function adminFormRequest<T>(
+  path: string,
+  form: FormData,
+): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`/api/admin${path}`, {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      body: form,
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+  } catch {
+    throw new ApiError(
+      "Network error. Check your connection and try again.",
+      0,
+    );
+  }
+
+  return adminResponse<T>(res, path);
+}
+
+async function adminResponse<T>(res: Response, path: string): Promise<T> {
   const body = (await res.json().catch(() => null)) as {
     message?: string | string[];
     code?: unknown;

@@ -202,10 +202,49 @@ test('accepts only plain, shallow catch-all paths', () => {
     ['login'],
     ['session'],
     ['logout'],
+    ['applications'],
     'campaigns',
   ]) {
     assert.equal(partnerPathSegments(bad), null, JSON.stringify(bad));
   }
+});
+
+test('public applications require same-origin JSON but no partner session', async () => {
+  const application = {
+    id: 'app_0123456789abcdef01234567',
+    status: 'pending_review',
+    brandName: 'Brew Bros',
+  };
+  gatewayReply = { status: 201, body: application };
+  const response = await bff.applications(
+    post(
+      'http://local/api/partner/applications',
+      { brandName: 'Brew Bros', captchaToken: 'captcha-token' },
+      { ...JSON_HEADERS, 'x-real-ip': '192.0.2.44' },
+    ),
+  );
+  assert.equal(response.status, 201);
+  assert.deepEqual(await response.json(), application);
+  assert.deepEqual(calls, [
+    {
+      method: 'POST',
+      path: '/partner-applications',
+      search: '',
+      body: { brandName: 'Brew Bros', captchaToken: 'captcha-token' },
+      clientIp: '192.0.2.44',
+    },
+  ]);
+
+  calls.length = 0;
+  const crossOrigin = await bff.applications(
+    post(
+      'http://local/api/partner/applications',
+      { brandName: 'Brew Bros', captchaToken: 'captcha-token' },
+      { 'content-type': 'application/json', origin: 'https://attacker.example' },
+    ),
+  );
+  assert.equal(crossOrigin.status, 403);
+  assert.equal(calls.length, 0);
 });
 
 // ── Sign-in ─────────────────────────────────────────────────────────────────

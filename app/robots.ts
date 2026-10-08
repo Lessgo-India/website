@@ -9,9 +9,24 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        // Signed-in surfaces, private invites, the admin tool, the partner
-        // portal and the API all have nothing to index.
-        disallow: ['/api/', '/me', '/onboarding', '/e/', '/admin', '/partner'],
+        // Signed-in surfaces, private invites, admin tools and mutations have
+        // nothing to index. /partner itself is the public partner launch page.
+        disallow: [
+          '/api/',
+          '/me',
+          '/onboarding',
+          '/e/',
+          '/admin',
+          '/partner/login',
+          '/partner/signup',
+          '/partner/dashboard',
+          '/partner/campaigns',
+          '/partner/integrations',
+          '/partner/outlets',
+          '/partner/redeem',
+          '/partner/sales',
+          '/partner/settings',
+        ],
       },
     ],
     sitemap: `${base}/sitemap.xml`,

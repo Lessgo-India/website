@@ -5,6 +5,7 @@ import {
   isAllowedAdminPatch,
   isAllowedAdminPost,
   isAllowedAdminRead,
+  isAdminPartnerLogoUpload,
   isBodylessAdminPost,
   isValidAdminAlertPreferencesBody,
   isValidAdminAlertUnsubscribeBody,
@@ -277,6 +278,7 @@ test("allows only exact user report review mutations", () => {
 // ── Admin → Partners (web/lib/adminPartnersApi.ts) ──────────────────────────
 
 const partnerId = "ptr_brew_bros";
+const applicationId = "app_0123456789abcdef01234567";
 const onboarding = {
   brandName: "Brew Bros Café",
   legalName: "Brew Brothers Hospitality Pvt Ltd",
@@ -325,11 +327,14 @@ test("allows exactly the partner reads the admin console makes", () => {
 test("allows exactly the partner POSTs, and only approve is bodiless", () => {
   const allowed = [
     ["partners"],
+    ["partners", "logo"],
     ["partners", partnerId, "logins"],
     ["partners", partnerId, "logins", "brewbros.owner", "reset-password"],
     ["partners", partnerId, "logins", "brewbros.hsrlayout2", "reset-password"],
     ["partners", partnerId, "integrations", "online_code", "approve"],
     ["partners", partnerId, "integrations", "api_booking", "rollback"],
+    ["partner-applications", applicationId, "approve"],
+    ["partner-applications", applicationId, "reject"],
     ["campaigns", "cmp_brew_bros_blr", "review"],
     ["campaigns", "cmp_lz3k9q1x8f2a", "review"],
   ];
@@ -340,6 +345,8 @@ test("allows exactly the partner POSTs, and only approve is bodiless", () => {
     allowed.filter((segments) => isBodylessAdminPost(segments)),
     [["partners", partnerId, "integrations", "online_code", "approve"]],
   );
+  assert.equal(isAdminPartnerLogoUpload(["partners", "logo"]), true);
+  assert.equal(isAdminPartnerLogoUpload(["partners", partnerId]), false);
 
   for (const segments of [
     ["partners", partnerId],
@@ -349,6 +356,8 @@ test("allows exactly the partner POSTs, and only approve is bodiless", () => {
     ["partners", partnerId, "integrations", "in_store", "approve"],
     ["partners", partnerId, "integrations", "online_code", "delete"],
     ["partners", partnerId, "integrations", "online_code"],
+    ["partner-applications", "app_bad", "approve"],
+    ["partner-applications", applicationId, "delete"],
     ["campaigns", "66aa11bb22cc33dd44ee55ff", "review"],
     ["campaigns", "cmp_1", "approve"],
     ["campaigns", "cmp_1"],
@@ -366,6 +375,7 @@ test("validates partner POST bodies by shape, leaving business rules to the offe
   assert.equal(
     isValidAdminPostBody(["partners"], {
       ...onboarding,
+      logoUrl: "https://assets.example/brew-bros.png",
       channels: ["online_code", "api_booking"],
       website: "https://showspot.example",
       bookingProducts: ["movie_tickets", "event_tickets"],
@@ -383,6 +393,7 @@ test("validates partner POST bodies by shape, leaving business rules to the offe
     { ...onboarding, bookingMethod: "fax" },
     { ...onboarding, plan: "free" },
     { ...onboarding, brandName: 42 },
+    { ...onboarding, logoUrl: 42 },
     { ...onboarding, legalName: "x".repeat(201) },
     { ...onboarding, owner: { ...onboarding.owner, role: "admin" } },
     { ...onboarding, dispatch: { email: "yes" } },
@@ -440,6 +451,38 @@ test("validates partner POST bodies by shape, leaving business rules to the offe
   assert.equal(isValidAdminPostBody(review, { decision: "approve", note: "x" }), false);
   assert.equal(isValidAdminPostBody(review, { decision: "reject" }), false);
   assert.equal(isValidAdminPostBody(review, { decision: "publish" }), false);
+
+  const approval = ["partner-applications", applicationId, "approve"];
+  assert.equal(
+    isValidAdminPostBody(approval, {
+      handle: "brewbros",
+      logoEmoji: "☕",
+      brandColor: "#8D5524",
+      plan: "pilot",
+      dispatch: { email: true },
+    }),
+    true,
+  );
+  assert.equal(
+    isValidAdminPostBody(approval, {
+      handle: "brewbros",
+      logoEmoji: "☕",
+      brandColor: "#8D5524",
+      plan: "free",
+      dispatch: { email: true },
+    }),
+    false,
+  );
+  const rejection = ["partner-applications", applicationId, "reject"];
+  assert.equal(
+    isValidAdminPostBody(rejection, { reason: "GSTIN could not be verified." }),
+    true,
+  );
+  assert.equal(isValidAdminPostBody(rejection, { reason: "No" }), false);
+  assert.equal(
+    isValidAdminPostBody(rejection, { reason: "Not a fit", status: "rejected" }),
+    false,
+  );
 });
 
 test("allows exactly the partner PATCHes with their bodies", () => {

@@ -30,10 +30,9 @@
 import { BACKEND_API } from '../config';
 
 export const PARTNER_PORTAL_CONFIG = {
-  /** Hidden in production builds until the backend is live. */
+  /** Public by default; set explicitly false only for an emergency shutdown. */
   enabled:
-    process.env.NODE_ENV !== 'production' ||
-    process.env.NEXT_PUBLIC_PARTNER_PORTAL_ENABLED === 'true',
+    process.env.NEXT_PUBLIC_PARTNER_PORTAL_ENABLED !== 'false',
   useDummyData: process.env.NEXT_PUBLIC_PARTNER_PORTAL_BACKEND !== 'true',
   /** Mirrors the admin console's 8-hour session. */
   sessionTtlMs: 8 * 60 * 60 * 1000,

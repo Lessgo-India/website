@@ -8,6 +8,7 @@
  */
 
 const ASSET_BUCKET = 'https://lessgo-asset.s3.ap-south-1.amazonaws.com';
+const TURNSTILE_ORIGIN = 'https://challenges.cloudflare.com';
 
 const isUnder = (pathname: string, root: string) => pathname === root || pathname.startsWith(`${root}/`);
 
@@ -20,17 +21,21 @@ export function contentSecurityPolicyFor(pathname: string, options: { nonce: str
   const campaignCreatives = partnerPortal || isUnder(pathname, '/admin/partners');
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${options.nonce}'${options.development ? " 'unsafe-eval'" : ''}`,
+    `script-src 'self' 'nonce-${options.nonce}'${partnerPortal ? ` ${TURNSTILE_ORIGIN}` : ''}${options.development ? " 'unsafe-eval'" : ''}`,
     "style-src 'self' 'unsafe-inline'",
     campaignCreatives ? "img-src 'self' data: blob: https:" : `img-src 'self' data: blob: ${ASSET_BUCKET}`,
     "font-src 'self' data:",
-    "connect-src 'self'",
+    partnerPortal ? `connect-src 'self' ${TURNSTILE_ORIGIN}` : "connect-src 'self'",
     "worker-src 'self'",
     "manifest-src 'self'",
     "object-src 'none'",
     "media-src 'none'",
-    // Outlets show their map pin in an OpenStreetMap embed.
-    partnerPortal ? 'frame-src https://www.openstreetmap.org' : "frame-src 'none'",
+    // Outlets show their map pin in an OpenStreetMap embed; partner signup
+    // renders Cloudflare Turnstile. Keep both exact origins across /partner
+    // because client-side navigation preserves the document's original CSP.
+    partnerPortal
+      ? `frame-src https://www.openstreetmap.org ${TURNSTILE_ORIGIN}`
+      : "frame-src 'none'",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
