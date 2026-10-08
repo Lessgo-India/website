@@ -477,7 +477,6 @@ function WizardForm({
     };
   }, [targetingKey]);
 
-  const tooNarrow = estimate !== null && estimate < PARTNER_PORTAL_CONFIG.minAudience;
   const stepIndex = steps.findIndex((candidate) => candidate.key === step);
   const label = offerLabel(draft.offer);
 
@@ -488,7 +487,7 @@ function WizardForm({
   }
 
   function goNext() {
-    if (step !== 'review' && (errors[step]?.length || (step === 'audience' && tooNarrow))) {
+    if (step !== 'review' && errors[step]?.length) {
       setShowErrors((current) => new Set(current).add(step));
       return;
     }
@@ -497,7 +496,7 @@ function WizardForm({
 
   async function submit() {
     setShowErrors(new Set(steps.map((candidate) => candidate.key)));
-    if (hasDraftErrors(errors) || tooNarrow || !form.confirmed) return;
+    if (hasDraftErrors(errors) || !form.confirmed) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -567,9 +566,7 @@ function WizardForm({
                 update={update}
                 outlets={outlets}
                 estimate={estimate}
-                tooNarrow={tooNarrow}
                 errors={stepErrors('audience')}
-                showNarrow={showErrors.has('audience')}
               />
             ) : null}
             {step === 'rules' ? (
@@ -583,7 +580,6 @@ function WizardForm({
                 label={label}
                 outlets={outlets}
                 estimate={estimate}
-                tooNarrow={tooNarrow}
                 errors={errors}
                 showConfirmError={showErrors.has('review') && !form.confirmed}
                 onEdit={go}
@@ -635,7 +631,7 @@ function WizardForm({
             channel={form.channel}
             checkoutName={partner.brandName}
           />
-          <ReachBadge estimate={estimate} tooNarrow={tooNarrow} />
+          <ReachBadge estimate={estimate} />
         </aside>
       </div>
     </>
@@ -877,15 +873,11 @@ function AudienceStep({
   update,
   outlets,
   estimate,
-  tooNarrow,
   errors,
-  showNarrow,
 }: StepProps & {
   outlets: PartnerOutlet[];
   estimate: number | null;
-  tooNarrow: boolean;
   errors: string[];
-  showNarrow: boolean;
 }) {
   const targeting = toTargeting(form);
   const issues = validateTargeting(targeting, geoName);
@@ -1000,19 +992,19 @@ function AudienceStep({
         </ul>
       ) : null}
 
-      <div className={`rounded-lg border p-4 ${tooNarrow ? 'border-down bg-down-tint' : 'border-line bg-bg-elev'}`}>
+      <div className="rounded-lg border border-line bg-bg-elev p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Estimated audience</p>
         <p className="mt-1 font-display text-3xl font-extrabold text-ink">
-          {estimate === null ? '…' : tooNarrow ? `Under ${formatCount(PARTNER_PORTAL_CONFIG.minAudience)}` : `≈ ${formatCompact(estimate)}`}
-          <span className="ml-2 text-base font-semibold text-ink-muted">people</span>
+          {estimate === null ? '…' : `≈ ${formatCompact(estimate)}`}
+          <span className="ml-2 text-base font-semibold text-ink-muted">{estimate === 1 ? 'person' : 'people'}</span>
         </p>
         <p className="mt-1 text-sm text-ink-muted">
-          {tooNarrow
-            ? `Audiences need at least ${formatCount(PARTNER_PORTAL_CONFIG.minAudience)} people so no one can be singled out. Widen it to continue.`
-            : 'Rounded estimate of Lessgo users who match today. DUMMY numbers until the offers service is live.'}
+          {estimate === 0
+            ? 'No Lessgo users match today. The offer still goes live and reaches people as they match.'
+            : 'Rounded estimate of Lessgo users who match today. Any audience size can go live.'}
+          {PARTNER_PORTAL_CONFIG.useDummyData ? ' DUMMY numbers until the offers service is live.' : ''}
         </p>
       </div>
-      {showNarrow && tooNarrow ? <Errors list={['Widen the audience to at least 1,000 people.']} /> : null}
       <Errors list={errors} />
     </div>
   );
@@ -1293,7 +1285,6 @@ function ReviewStep({
   label,
   outlets,
   estimate,
-  tooNarrow,
   errors,
   showConfirmError,
   onEdit,
@@ -1303,7 +1294,6 @@ function ReviewStep({
   label: string;
   outlets: PartnerOutlet[];
   estimate: number | null;
-  tooNarrow: boolean;
   errors: DraftErrors;
   showConfirmError: boolean;
   onEdit: (step: StepKey) => void;
@@ -1317,7 +1307,7 @@ function ReviewStep({
     <div className="space-y-5">
       <StepIntro title="Review and submit" body="Lessgo checks the creative and terms, usually within one business day." />
 
-      {blocking.length || tooNarrow ? (
+      {blocking.length ? (
         <div className="rounded-md border border-down bg-down-tint px-4 py-3 text-sm text-ink">
           <p className="font-semibold">Fix these before submitting</p>
           <ul className="mt-2 space-y-1">
@@ -1330,13 +1320,6 @@ function ReviewStep({
                 </li>
               )),
             )}
-            {tooNarrow ? (
-              <li>
-                <button type="button" onClick={() => onEdit('audience')} className="text-left underline-offset-2 hover:underline">
-                  Audience: widen it to at least {formatCount(PARTNER_PORTAL_CONFIG.minAudience)} people.
-                </button>
-              </li>
-            ) : null}
           </ul>
         </div>
       ) : null}
@@ -1368,7 +1351,7 @@ function ReviewStep({
           {exclude.length ? ` · not in ${exclude.join(', ')}` : ''}
         </p>
         <p className="text-ink-muted">
-          {estimate === null ? 'Estimating…' : tooNarrow ? 'Too narrow' : `≈ ${formatCompact(estimate)} people`}
+          {estimate === null ? 'Estimating…' : `≈ ${formatCompact(estimate)} ${estimate === 1 ? 'person' : 'people'}`}
         </p>
       </ReviewBlock>
       <ReviewBlock title={RULES_LABEL[draft.channel]} onEdit={() => onEdit('rules')}>
@@ -1560,11 +1543,15 @@ function Errors({ list }: { list: string[] }) {
   );
 }
 
-function ReachBadge({ estimate, tooNarrow }: { estimate: number | null; tooNarrow: boolean }) {
+function ReachBadge({ estimate }: { estimate: number | null }) {
   return (
-    <p className={`mx-auto mt-4 flex max-w-[300px] items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${tooNarrow ? 'bg-down-tint text-down' : 'bg-surface-2 text-ink'}`}>
+    <p className="mx-auto mt-4 flex max-w-[300px] items-center justify-center gap-2 rounded-full bg-surface-2 px-4 py-2 text-sm font-semibold text-ink">
       <Users className="h-4 w-4" aria-hidden="true" />
-      {estimate === null ? 'Estimating reach…' : tooNarrow ? 'Audience too narrow' : `≈ ${formatCompact(estimate)} people match`}
+      {estimate === null
+        ? 'Estimating reach…'
+        : estimate === 1
+          ? '≈ 1 person matches'
+          : `≈ ${formatCompact(estimate)} people match`}
     </p>
   );
 }
