@@ -4,6 +4,7 @@ export interface AdminAlertPreferences {
   enabled: boolean;
   bugs: boolean;
   campaigns: boolean;
+  partners: boolean;
   serviceHealth: boolean;
 }
 

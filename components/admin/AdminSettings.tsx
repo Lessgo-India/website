@@ -283,11 +283,19 @@ export default function AdminSettings() {
                     onChange={(value) => void changePreference("bugs", value)}
                   />
                   <ToggleRow
-                    label="My campaign outcomes"
+                    label="Partner campaign approvals and my campaign outcomes"
                     checked={capabilities!.preferences.campaigns}
                     disabled={!capabilities!.preferences.enabled}
                     onChange={(value) =>
                       void changePreference("campaigns", value)
+                    }
+                  />
+                  <ToggleRow
+                    label="New partner onboarding requests"
+                    checked={capabilities!.preferences.partners}
+                    disabled={!capabilities!.preferences.enabled}
+                    onChange={(value) =>
+                      void changePreference("partners", value)
                     }
                   />
                   <ToggleRow

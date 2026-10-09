@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import {
@@ -148,10 +149,10 @@ export default function PartnerLogin({ next }: { next: string | null }) {
           </ul>
         </div>
         <p className="relative text-sm text-white/60">
-          Partner access is invite-only. Want your brand on Lessgo?{' '}
-          <a href={`mailto:${PARTNER_SUPPORT_EMAIL}`} className="font-semibold text-white underline-offset-4 hover:underline">
-            {PARTNER_SUPPORT_EMAIL}
-          </a>
+          Partner access starts after approval. New here?{' '}
+          <Link href="/partner/signup" className="font-semibold text-white underline-offset-4 hover:underline">
+            Apply to become a partner
+          </Link>
         </p>
       </aside>
 

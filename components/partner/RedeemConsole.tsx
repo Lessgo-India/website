@@ -56,7 +56,6 @@ export default function RedeemConsole() {
     const since = Date.now() - 24 * 60 * 60 * 1000;
     return rows.filter((row) => Date.parse(row.redeemedAt) >= since);
   }, session.partner.id);
-  const [chosenOutletId, setChosenOutletId] = useState('');
   const [input, setInput] = useState('');
   const [liveCode, setLiveCode] = useState('');
   const [bill, setBill] = useState('');
@@ -70,8 +69,8 @@ export default function RedeemConsole() {
   const [demoVouchers, setDemoVouchers] = useState(() => demoVouchersFor(session));
 
   const outlets = useMemo(() => outletsQuery.data ?? [], [outletsQuery.data]);
-  const activeOutlets = outlets.filter((outlet) => outlet.status === 'active');
-  const outletId = isCashier ? session.user.outletId ?? '' : chosenOutletId || activeOutlets[0]?.id || '';
+  const plannedOutletId = phase.kind === 'input' ? undefined : phase.voucher.outletId;
+  const outletId = isCashier ? session.user.outletId ?? '' : plannedOutletId ?? '';
   const outlet = outlets.find((candidate) => candidate.id === outletId);
   const outletName = (id?: string) => outlets.find((candidate) => candidate.id === id)?.name ?? 'another outlet';
 
@@ -114,7 +113,7 @@ export default function RedeemConsole() {
       setError('Enter the 6-digit live code from the guest’s screen.');
       return;
     }
-    if (!outletId) {
+    if (phase.voucher.outletId && !outletId) {
       setError('Pick the outlet you’re redeeming at.');
       return;
     }
@@ -122,7 +121,7 @@ export default function RedeemConsole() {
     try {
       const request = {
         voucherId: phase.voucher.voucherId,
-        outletId,
+        ...(outletId ? { outletId } : {}),
         billMinor,
         ...(phase.via === 'code' ? { liveCode: liveCode.replace(/\s/g, '') } : {}),
       };
@@ -149,7 +148,9 @@ export default function RedeemConsole() {
     window.setTimeout(() => inputRef.current?.focus(), 0);
   }
 
-  const todaysRows = (historyQuery.data ?? []).filter((row) => row.outletId === outletId);
+  const todaysRows = outletId
+    ? (historyQuery.data ?? []).filter((row) => row.outletId === outletId)
+    : historyQuery.data ?? [];
 
   return (
     <>
@@ -160,31 +161,15 @@ export default function RedeemConsole() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-4">
-          <Card>
-            <label htmlFor="redeem-outlet" className={labelClass}>
-              Redeeming at
-            </label>
-            {isCashier ? (
+          {plannedOutletId ? (
+            <Card>
+              <p className={labelClass}>Redeeming at</p>
               <p className="flex min-h-11 items-center gap-2 rounded-md border border-line bg-bg-elev px-3.5 text-sm font-semibold text-ink">
                 <Store className="h-4 w-4 text-ink-muted" aria-hidden="true" />
-                {outlet?.name ?? 'Your outlet'}
+                {outlet?.name ?? 'Campaign outlet'}
               </p>
-            ) : (
-              <select
-                id="redeem-outlet"
-                value={outletId}
-                onChange={(event) => setChosenOutletId(event.target.value)}
-                className={inputClass}
-                disabled={phase.kind === 'done'}
-              >
-                {activeOutlets.map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {candidate.name}
-                  </option>
-                ))}
-              </select>
-            )}
-          </Card>
+            </Card>
+          ) : null}
 
           {phase.kind === 'input' ? (
             <Card>
@@ -278,9 +263,11 @@ export default function RedeemConsole() {
         </div>
 
         <aside className="space-y-4">
-          <Card title="Last 24 hours here" action={<span className="text-xs text-ink-muted">{todaysRows.length}</span>}>
+          <Card title={outletId ? 'Last 24 hours here' : 'Last 24 hours'} action={<span className="text-xs text-ink-muted">{todaysRows.length}</span>}>
             {todaysRows.length === 0 ? (
-              <p className="text-sm text-ink-muted">No redemptions at this outlet yet today.</p>
+              <p className="text-sm text-ink-muted">
+                {outletId ? 'No redemptions at this outlet yet today.' : 'No redemptions yet today.'}
+              </p>
             ) : (
               <ul className="divide-y divide-line">
                 {todaysRows.slice(0, 6).map((row) => (

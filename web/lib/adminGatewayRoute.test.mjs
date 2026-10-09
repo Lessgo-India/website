@@ -253,6 +253,7 @@ test("forwards exact same-origin browser-alert mutations", async () => {
     enabled: true,
     bugs: true,
     campaigns: true,
+    partners: true,
     serviceHealth: true,
   };
 
@@ -325,6 +326,7 @@ test("rejects cross-origin PATCH and DELETE mutations", async () => {
           enabled: true,
           bugs: true,
           campaigns: true,
+          partners: true,
           serviceHealth: true,
         }),
       },

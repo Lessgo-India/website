@@ -25,6 +25,7 @@ import {
   validateOnboarding,
   type OnboardingField,
 } from '@web/lib/partner/onboarding';
+import { BRAND_LOGO_ACCEPT, brandLogoError } from '@web/lib/partner/brandLogo';
 import type {
   BookingConnectMethod,
   BookingProduct,
@@ -50,9 +51,6 @@ import {
 const EMOJI_CHOICES = ['☕', '🍕', '🍔', '🍛', '🌶️', '🍦', '🧋', '🎬', '🎟️', '🎳', '🕹️', '🎶', '🏕️', '🧳', '✈️', '🛍️', '💪'];
 const COLOUR_CHOICES = ['#C0392B', '#E67E22', '#F1C40F', '#27AE60', '#16A085', '#2980B9', '#6C5CE7', '#E84393', '#8D5524', '#2D3436'];
 const PLANS: PartnerPlan[] = ['pilot', 'standard', 'enterprise'];
-const BRAND_LOGO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
-const BRAND_LOGO_MAX_BYTES = 10 * 1024 * 1024;
-
 interface FormState {
   brandName: string;
   legalName: string;
@@ -220,14 +218,10 @@ export default function PartnerOnboarding() {
       removeBrandLogo();
       return;
     }
-    if (!BRAND_LOGO_TYPES.has(file.type.toLowerCase())) {
+    const validationError = brandLogoError(file);
+    if (validationError) {
       removeBrandLogo();
-      setLogoError('Choose a JPG, PNG or WebP image.');
-      return;
-    }
-    if (file.size <= 0 || file.size > BRAND_LOGO_MAX_BYTES) {
-      removeBrandLogo();
-      setLogoError('Brand logo must be 10 MB or smaller.');
+      setLogoError(validationError);
       return;
     }
     setLogoError(null);
@@ -446,7 +440,7 @@ export default function PartnerOnboarding() {
                   ref={logoInput}
                   id="brand-logo"
                   type="file"
-                  accept="image/jpeg,image/png,image/webp"
+                  accept={BRAND_LOGO_ACCEPT}
                   onChange={(event) => selectBrandLogo(event.target.files?.[0])}
                   className="sr-only"
                 />

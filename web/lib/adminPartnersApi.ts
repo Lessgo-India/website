@@ -22,11 +22,9 @@
  *         partners/:id/integrations/:channel/{approve (no body), rollback}
  *   PATCH partners/:id, partners/:id/logins/:userId, partners/:id/channels
  *
- * TODO(backend), in order:
- *  1. Implement the routes stubbed in
- *     gateway-service/src/modules/admin/admin-partners.controller.ts.
- *  2. Set NEXT_PUBLIC_PARTNER_PORTAL_BACKEND=true and delete every dummy
- *     branch below.
+ * Set NEXT_PUBLIC_PARTNER_PORTAL_BACKEND=true to use the implemented gateway
+ * and offers-service routes, then remove the dummy branches when the demo
+ * mode is no longer needed.
  */
 import { ApiError } from './api';
 import { adminFormRequest, adminRequest } from './adminApi';

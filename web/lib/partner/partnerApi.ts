@@ -929,7 +929,8 @@ export async function lookupVoucher(session: PartnerSession, input: string): Pro
 
 export interface RedeemRequest {
   voucherId: string;
-  outletId: string;
+  /** Required only when the campaign explicitly restricts redemption outlets. */
+  outletId?: string;
   billMinor: number;
   /** The 6-digit live code when the code was typed rather than scanned. */
   liveCode?: string;
@@ -976,12 +977,17 @@ export async function redeemVoucher(
       'not_redeemable',
     );
   }
-  const outletId = session.user.role === 'cashier' ? session.user.outletId ?? '' : request.outletId;
-  if (!state.outlets.some((candidate) => candidate.id === outletId && candidate.partnerId === session.partner.id)) {
-    throw new PartnerApiError('Pick the outlet you’re redeeming at.', 400, 'invalid_input');
-  }
   const campaign = state.campaigns.find((candidate) => candidate.id === voucher.campaignId);
   if (!campaign) throw new PartnerApiError('Campaign not found.', 404, 'not_found');
+  const requestedOutletId = session.user.role === 'cashier' ? session.user.outletId : request.outletId;
+  const outlet = requestedOutletId
+    ? state.outlets.find(
+        (candidate) => candidate.id === requestedOutletId && candidate.partnerId === session.partner.id,
+      )
+    : undefined;
+  if (campaign.outletIds.length > 0 && (!outlet || !campaign.outletIds.includes(outlet.id))) {
+    throw new PartnerApiError('Pick the outlet you’re redeeming at.', 400, 'invalid_input');
+  }
   const quote = computeDiscount(campaign.offer, request.billMinor);
   if (!quote.eligible) throw new PartnerApiError(quote.note ?? 'This bill isn’t eligible.', 400, 'not_eligible');
 
@@ -991,7 +997,7 @@ export async function redeemVoucher(
     maskedCode: maskVoucherCode(voucher.code),
     campaignId: campaign.id,
     channel: 'in_store',
-    outletId,
+    ...(outlet ? { outletId: outlet.id } : {}),
     staffUserId: session.user.userId,
     holderDisplayName: voucher.holderDisplayName,
     groupSize: voucher.acceptedCount,

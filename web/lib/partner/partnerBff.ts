@@ -10,6 +10,7 @@
  *   POST /api/partner/login/first-password  → POST /partner-auth/first-password
  *   GET  /api/partner/session               → GET  /partner-auth/session
  *   POST /api/partner/logout                → POST /partner-auth/logout
+ *   POST /api/partner/applications/logo      → POST /partner-applications/logo
  *   *    /api/partner/<path>?<query>        → *    /partner/<path>?<query>
  *
  * Pure (no Next or server-only imports; dependencies are injected) so node's
@@ -23,6 +24,9 @@ export const PARTNER_SESSION_COOKIE = 'lessgo_partner_session';
 /** Absolute session lifetime; the cookie never outlives the server session. */
 export const PARTNER_SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
 export const PARTNER_BFF_MAX_BODY_BYTES = 64 * 1024;
+export const PARTNER_LOGO_MAX_BYTES = 10 * 1024 * 1024;
+const PARTNER_LOGO_REQUEST_MAX_BYTES = PARTNER_LOGO_MAX_BYTES + 64 * 1024;
+const PARTNER_LOGO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 /** Longer than the gateway's own downstream timeouts, like the admin BFF. */
 export const PARTNER_GATEWAY_TIMEOUT_MS = 20_000;
 
@@ -47,6 +51,8 @@ export interface PartnerGatewayCall {
   search: string;
   /** JSON body; omitted when the browser sent none. */
   body?: Record<string, unknown>;
+  /** Multipart body for the public partner-application logo upload. */
+  formData?: FormData;
   sessionToken?: string;
   idempotencyKey?: string;
   clientIp?: string;
@@ -134,7 +140,7 @@ export function createPartnerGatewayCaller(deps: {
       const response = await deps.fetch(`${baseUrl}${call.path}${call.search}`, {
         method: call.method,
         headers: partnerGatewayHeaders(call, key, deps.requestId()),
-        body: call.body === undefined ? undefined : JSON.stringify(call.body),
+        body: call.formData ?? (call.body === undefined ? undefined : JSON.stringify(call.body)),
         cache: 'no-store',
         // Never follow a redirect: it would carry the portal key to another host.
         redirect: 'manual',
@@ -447,6 +453,50 @@ export function createPartnerBffHandlers(deps: PartnerBffDeps) {
     return passThrough(result);
   }
 
+  /** POST /api/partner/applications/logo → validated public brand-logo upload. */
+  async function applicationLogo(request: Request): Promise<Response> {
+    if (!deps.enabled()) return respond(404, NOT_FOUND);
+    if (!isSameOriginMutation(request)) return respond(403, CROSS_ORIGIN);
+    const declaredLength = Number(request.headers.get('content-length') ?? 0);
+    if (Number.isFinite(declaredLength) && declaredLength > PARTNER_LOGO_REQUEST_MAX_BYTES) {
+      return respond(413, TOO_LARGE);
+    }
+    if (!(request.headers.get('content-type') ?? '').toLowerCase().startsWith('multipart/form-data')) {
+      return respond(415, { message: 'Upload the brand logo as multipart form data.', code: 'invalid_input' });
+    }
+
+    let form: FormData;
+    try {
+      form = await request.formData();
+    } catch {
+      return respond(400, INVALID);
+    }
+    const entries = [...form.entries()];
+    if (
+      entries.length !== 1 ||
+      entries[0][0] !== 'file' ||
+      typeof entries[0][1] === 'string'
+    ) {
+      return respond(400, { message: 'Upload exactly one brand logo.', code: 'invalid_input' });
+    }
+    const file = entries[0][1];
+    if (!PARTNER_LOGO_TYPES.has(file.type.toLowerCase())) {
+      return respond(400, { message: 'Choose a JPG, PNG or WebP image.', code: 'invalid_input' });
+    }
+    if (file.size <= 0 || file.size > PARTNER_LOGO_MAX_BYTES) {
+      return respond(400, { message: 'Brand logo must be 10 MB or smaller.', code: 'invalid_input' });
+    }
+
+    const result = await deps.callGateway({
+      method: 'POST',
+      path: '/partner-applications/logo',
+      search: '',
+      formData: form,
+      clientIp: clientIpOf(request),
+    });
+    return passThrough(result);
+  }
+
   /** /api/partner/<path> → gateway /partner/<path> with the session from the cookie. */
   async function forward(
     method: PartnerGatewayMethod,
@@ -501,6 +551,7 @@ export function createPartnerBffHandlers(deps: PartnerBffDeps) {
     session,
     logout,
     applications,
+    applicationLogo,
     GET: (request: Request, context: PartnerBffRouteContext) => forward('GET', request, context),
     POST: (request: Request, context: PartnerBffRouteContext) => forward('POST', request, context),
     PUT: (request: Request, context: PartnerBffRouteContext) => forward('PUT', request, context),

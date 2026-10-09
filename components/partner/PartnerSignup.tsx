@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { ArrowLeft, BadgeCheck, Building2, Check, Loader2, Mail, MapPin, ShieldCheck } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { ArrowLeft, BadgeCheck, Building2, Check, ImagePlus, Loader2, Mail, MapPin, ShieldCheck, Trash2 } from 'lucide-react';
 import { ThemeToggle } from '@ui/ThemeToggle';
+import { BrandAvatar } from '@ui/partner/ui';
 import {
   BOOKING_PRODUCT_DETAILS,
   BOOKING_PRODUCTS,
@@ -18,7 +19,8 @@ import {
   suggestHandle,
   validateOnboarding,
 } from '@web/lib/partner/onboarding';
-import { submitPartnerApplication } from '@web/lib/partner/partnerApplicationsApi';
+import { BRAND_LOGO_ACCEPT, brandLogoError } from '@web/lib/partner/brandLogo';
+import { submitPartnerApplication, uploadPartnerApplicationLogo } from '@web/lib/partner/partnerApplicationsApi';
 import type {
   BookingConnectMethod,
   BookingProduct,
@@ -65,6 +67,12 @@ function validationInput(form: FormState): PartnerOnboardingInput {
 
 export default function PartnerSignup() {
   const [form, setForm] = useState<FormState>(EMPTY);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
+  const [uploadedLogoUrl, setUploadedLogoUrl] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const logoInput = useRef<HTMLInputElement>(null);
+  const logoPreviewUrlRef = useRef<string | null>(null);
   const [attempted, setAttempted] = useState(false);
   const [captchaToken, setCaptchaToken] = useState('');
   const [captchaReset, setCaptchaReset] = useState(0);
@@ -73,6 +81,13 @@ export default function PartnerSignup() {
   const [result, setResult] = useState<PartnerApplication | null>(null);
   const check = useMemo(() => validateOnboarding(validationInput(form)), [form]);
   const update = (patch: Partial<FormState>) => setForm((current) => ({ ...current, ...patch }));
+
+  useEffect(
+    () => () => {
+      if (logoPreviewUrlRef.current) URL.revokeObjectURL(logoPreviewUrlRef.current);
+    },
+    [],
+  );
 
   function changeBrand(brandName: string) {
     update({ brandName, handle: suggestHandle(brandName) });
@@ -106,11 +121,42 @@ export default function PartnerSignup() {
     });
   }
 
+  function removeBrandLogo() {
+    if (logoPreviewUrlRef.current) {
+      URL.revokeObjectURL(logoPreviewUrlRef.current);
+      logoPreviewUrlRef.current = null;
+    }
+    setLogoFile(null);
+    setLogoPreviewUrl(null);
+    setUploadedLogoUrl(null);
+    setLogoError(null);
+    if (logoInput.current) logoInput.current.value = '';
+  }
+
+  function selectBrandLogo(file: File | undefined) {
+    setUploadedLogoUrl(null);
+    if (!file) {
+      removeBrandLogo();
+      return;
+    }
+    const validationError = brandLogoError(file);
+    if (validationError) {
+      removeBrandLogo();
+      setLogoError(validationError);
+      return;
+    }
+    setLogoError(null);
+    if (logoPreviewUrlRef.current) URL.revokeObjectURL(logoPreviewUrlRef.current);
+    logoPreviewUrlRef.current = URL.createObjectURL(file);
+    setLogoPreviewUrl(logoPreviewUrlRef.current);
+    setLogoFile(file);
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     setAttempted(true);
     setError(null);
-    if (hasOnboardingErrors(check)) {
+    if (hasOnboardingErrors(check) || logoError) {
       setError('Fix the highlighted fields before submitting.');
       return;
     }
@@ -120,6 +166,11 @@ export default function PartnerSignup() {
     }
     setBusy(true);
     try {
+      let logoUrl = uploadedLogoUrl;
+      if (logoFile && !logoUrl) {
+        logoUrl = await uploadPartnerApplicationLogo(logoFile);
+        setUploadedLogoUrl(logoUrl);
+      }
       const input: PartnerApplicationInput = {
         brandName: form.brandName,
         legalName: form.legalName,
@@ -135,6 +186,7 @@ export default function PartnerSignup() {
         contactEmail: form.contactEmail,
         contactPhone: form.contactPhone,
         handle: form.handle,
+        ...(logoUrl ? { logoUrl } : {}),
       };
       setResult(await submitPartnerApplication({ ...input, captchaToken }));
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -217,6 +269,50 @@ export default function PartnerSignup() {
             <Field label={online ? 'Website' : 'Website (optional)'} error={fieldError('website')}>
               <input value={form.website} onChange={(event) => update({ website: event.target.value })} className={inputClass} placeholder="https://yourbusiness.in" inputMode="url" />
             </Field>
+            <div>
+              <span className={labelClass}>Brand logo / image (optional)</span>
+              <div className="flex items-center gap-3 rounded-md border border-line bg-bg-elev p-3">
+                <BrandAvatar
+                  partner={{
+                    logoUrl: logoPreviewUrl ?? undefined,
+                    logoEmoji: '🏷️',
+                    brandColor: '#22D3C5',
+                    brandName: form.brandName,
+                  }}
+                  size={48}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-ink">{logoFile?.name ?? 'Upload your brand logo'}</p>
+                  <p className="text-xs text-ink-muted">JPG, PNG or WebP · max 10 MB · square works best</p>
+                </div>
+                <label htmlFor="partner-application-logo" className={`${secondaryButtonClass} min-h-9 cursor-pointer px-3`}>
+                  <ImagePlus className="h-4 w-4" aria-hidden="true" />
+                  {logoFile ? 'Replace' : 'Upload'}
+                </label>
+                <input
+                  ref={logoInput}
+                  id="partner-application-logo"
+                  type="file"
+                  accept={BRAND_LOGO_ACCEPT}
+                  onChange={(event) => selectBrandLogo(event.target.files?.[0])}
+                  className="sr-only"
+                />
+                {logoFile ? (
+                  <button
+                    type="button"
+                    onClick={removeBrandLogo}
+                    aria-label="Remove uploaded brand logo"
+                    className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-md border border-line text-ink-muted hover:bg-surface hover:text-down"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                ) : null}
+              </div>
+              {logoError ? <ErrorText>{logoError}</ErrorText> : null}
+              <p className="mt-2 text-xs text-ink-muted">
+                We will use this mark in your partner profile and Lessgo offer cards after approval.
+              </p>
+            </div>
           </FormSection>
 
           <FormSection number="2" title="How groups redeem" body="Choose every path your business can support.">

@@ -20,7 +20,7 @@ import {
   adminSecondaryButton,
   FieldError,
 } from './partnerAdminUi';
-import { ChannelBadge } from '@ui/partner/ui';
+import { BrandAvatar, ChannelBadge } from '@ui/partner/ui';
 
 export default function PartnerApplicationReviewCard({
   application,
@@ -119,13 +119,15 @@ export default function PartnerApplicationReviewCard({
   return (
     <article className={`${adminCard} p-5`}>
       <div className="flex flex-wrap items-start gap-3">
-        <span
-          className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-md text-xl"
-          style={{ backgroundColor: `${brandColor}22`, border: `1px solid ${brandColor}66` }}
-          aria-hidden="true"
-        >
-          {logoEmoji || '🏷️'}
-        </span>
+        <BrandAvatar
+          partner={{
+            logoUrl: application.logoUrl,
+            logoEmoji: logoEmoji || '🏷️',
+            brandColor,
+            brandName: application.brandName,
+          }}
+          size={44}
+        />
         <div className="min-w-0 flex-1">
           <h3 className="font-display text-lg font-bold text-ink">{application.brandName}</h3>
           <p className="text-sm text-ink-muted">{application.legalName}</p>

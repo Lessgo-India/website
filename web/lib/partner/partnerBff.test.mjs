@@ -247,6 +247,40 @@ test('public applications require same-origin JSON but no partner session', asyn
   assert.equal(calls.length, 0);
 });
 
+test('public application logos require one same-origin image and forward multipart data', async () => {
+  gatewayReply = {
+    status: 200,
+    body: { url: 'https://assets.example/partner-logos/brew-bros.png' },
+  };
+  const form = new FormData();
+  form.append('file', new Blob(['png'], { type: 'image/png' }), 'brew-bros.png');
+  const response = await bff.applicationLogo(
+    new Request('http://local/api/partner/applications/logo', {
+      method: 'POST',
+      headers: SAME_ORIGIN,
+      body: form,
+    }),
+  );
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), gatewayReply.body);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].path, '/partner-applications/logo');
+  assert.equal(calls[0].formData.get('file').name, 'brew-bros.png');
+
+  calls.length = 0;
+  const invalid = new FormData();
+  invalid.append('file', new Blob(['pdf'], { type: 'application/pdf' }), 'menu.pdf');
+  const invalidResponse = await bff.applicationLogo(
+    new Request('http://local/api/partner/applications/logo', {
+      method: 'POST',
+      headers: SAME_ORIGIN,
+      body: invalid,
+    }),
+  );
+  assert.equal(invalidResponse.status, 400);
+  assert.equal(calls.length, 0);
+});
+
 // ── Sign-in ─────────────────────────────────────────────────────────────────
 
 test('sign-in moves the token into an httpOnly cookie and never returns it', async () => {

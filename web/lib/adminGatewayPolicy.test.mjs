@@ -102,6 +102,7 @@ test("allows only exact admin browser-alert contracts", () => {
     enabled: true,
     bugs: true,
     campaigns: false,
+    partners: true,
     serviceHealth: true,
   };
 
@@ -535,6 +536,7 @@ test("allows exactly the partner PATCHes with their bodies", () => {
       enabled: true,
       bugs: true,
       campaigns: false,
+      partners: true,
       serviceHealth: true,
     }),
     true,

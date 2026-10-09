@@ -761,9 +761,10 @@ export function isValidAdminAlertPreferencesBody(body) {
       "enabled",
       "bugs",
       "campaigns",
+      "partners",
       "serviceHealth",
     ]) &&
-    ["enabled", "bugs", "campaigns", "serviceHealth"].every(
+    ["enabled", "bugs", "campaigns", "partners", "serviceHealth"].every(
       (key) => typeof body[key] === "boolean",
     )
   );

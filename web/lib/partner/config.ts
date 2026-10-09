@@ -15,15 +15,12 @@
  *    allowlists the gateway's /admin/partners routes
  *    (web/lib/adminGatewayPolicy.js).
  *
- * TODO(backend), in order:
- *  1. Implement the gateway's /admin/partners routes (stubbed in
- *     gateway-service/src/modules/admin/admin-partners.controller.ts) and its
- *     /partner-auth/* + /partner/* portal proxy.
- *  2. Set NEXT_PUBLIC_PARTNER_PORTAL_BACKEND=true (build time) with
+ * Backend mode:
+ *  1. Set NEXT_PUBLIC_PARTNER_PORTAL_BACKEND=true (build time) with
  *     PARTNER_GATEWAY_URL / PARTNER_GATEWAY_KEY — partnerApi.ts and
  *     adminPartnersApi.ts then call those routes instead of the dummy store
  *     (see each function's contract).
- *  3. Serve the portal on a partners.* subdomain (rewrite to /partner in
+ *  2. Optionally serve the portal on a partners.* subdomain (rewrite to /partner in
  *     proxy.ts, set NEXT_PUBLIC_PARTNER_LOGIN_URL) and delete demoStore.ts
  *     and dummyData.ts.
  */

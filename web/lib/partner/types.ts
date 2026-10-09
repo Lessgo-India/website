@@ -386,6 +386,8 @@ export interface PartnerApplicationInput {
   contactEmail: string;
   contactPhone: string;
   handle: string;
+  /** Uploaded brand mark retained through review and approval. */
+  logoUrl?: string;
 }
 
 export interface PartnerApplicationSubmission extends PartnerApplicationInput {
