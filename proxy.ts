@@ -3,6 +3,17 @@ import { contentSecurityPolicyFor } from '@web/lib/contentSecurityPolicy';
 
 /** Nonce-based CSP for the admin console and the partner portal (web/lib/contentSecurityPolicy.ts). */
 export function proxy(request: NextRequest) {
+  const forwardedHost = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim();
+  const host = (forwardedHost || request.headers.get('host') || '')
+    .split(':')[0]
+    .toLowerCase();
+
+  if (request.nextUrl.pathname === '/' && host === 'design.lessgo.in') {
+    const designUrl = request.nextUrl.clone();
+    designUrl.pathname = '/design';
+    return NextResponse.rewrite(designUrl);
+  }
+
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
   const contentSecurityPolicy = contentSecurityPolicyFor(request.nextUrl.pathname, {
     nonce,
@@ -19,5 +30,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/partner/:path*'],
+  matcher: ['/', '/admin/:path*', '/partner/:path*'],
 };

@@ -15,6 +15,10 @@ The Lessgo website. It does four jobs:
    the partner's API — issues their logins (user ID + one-time temporary
    password), approves online integrations for production ("go-live"), and
    reviews their campaigns before they reach the app.
+5. **Design system** — the public `/design` catalogue documents the native
+   app's brand, color palettes, typography, iconography, components, layout,
+   motion and voice. A host rewrite serves the same page at
+   `https://design.lessgo.in`.
 4. **Partner portal** (`/partner`, prototype on dummy data) — brands sign in
    with the user ID Lessgo issues them and run offer campaigns for the app's
    Vibes tray (State/District, age and gender targeting). In-store partners
@@ -103,6 +107,16 @@ npm run start   # respects $PORT
 
 `next/font` downloads the Outfit, Inter and Space Mono files at build time, so
 the build step needs network access.
+
+### Design subdomain
+
+The app rewrites only `/` on the `design.lessgo.in` host to `/design`, leaving
+Next.js assets and the main Lessgo routes untouched. To publish the subdomain:
+
+1. Add `design.lessgo.in` as a custom domain on the Railway website service.
+2. Create the CNAME Railway provides in Cloudflare DNS for the `design` host.
+3. Keep Cloudflare SSL/TLS in **Full (strict)** mode and verify
+   `https://design.lessgo.in` after Railway issues the certificate.
 
 For the Bug House workflow, deploy the gateway first, this website second, and
 mobile `0.0.414` or newer last. The website never receives the gateway admin
