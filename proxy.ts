@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { contentSecurityPolicyFor } from '@web/lib/contentSecurityPolicy';
+import {
+  contentSecurityPolicyFor,
+  requiresNonceContentSecurityPolicy,
+} from '@web/lib/contentSecurityPolicy';
 
 /** Nonce-based CSP for the admin console and the partner portal (web/lib/contentSecurityPolicy.ts). */
 export function proxy(request: NextRequest) {
@@ -12,6 +15,10 @@ export function proxy(request: NextRequest) {
     const designUrl = request.nextUrl.clone();
     designUrl.pathname = '/design';
     return NextResponse.rewrite(designUrl);
+  }
+
+  if (!requiresNonceContentSecurityPolicy(request.nextUrl.pathname)) {
+    return NextResponse.next();
   }
 
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');

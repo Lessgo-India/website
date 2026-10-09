@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { contentSecurityPolicyFor, sameContentSecurityPolicy } from './contentSecurityPolicy.ts';
+import {
+  contentSecurityPolicyFor,
+  requiresNonceContentSecurityPolicy,
+  sameContentSecurityPolicy,
+} from './contentSecurityPolicy.ts';
 
 const ASSET_BUCKET = 'https://lessgo-asset.s3.ap-south-1.amazonaws.com';
 const ADMIN_PAGES = ['/admin', '/admin/reports', '/admin/bugs', '/admin/notifications', '/admin/settings'];
@@ -18,6 +22,16 @@ function directives(pathname, options = { nonce: 'bm9uY2U=', development: false 
       }),
   );
 }
+
+test('nonce CSP is limited to the dynamic internal tools', () => {
+  for (const pathname of [...ADMIN_PAGES, ...ADMIN_PARTNER_PAGES, ...PORTAL_PAGES]) {
+    assert.equal(requiresNonceContentSecurityPolicy(pathname), true, pathname);
+  }
+
+  for (const pathname of ['/', '/design', '/features', '/administrator', '/partners']) {
+    assert.equal(requiresNonceContentSecurityPolicy(pathname), false, pathname);
+  }
+});
 
 test('Admin → Partners shows campaign creatives from any https host, like the partner portal', () => {
   for (const pathname of [...ADMIN_PARTNER_PAGES, ...PORTAL_PAGES]) {

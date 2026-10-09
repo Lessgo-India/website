@@ -12,6 +12,10 @@ const TURNSTILE_ORIGIN = 'https://challenges.cloudflare.com';
 
 const isUnder = (pathname: string, root: string) => pathname === root || pathname.startsWith(`${root}/`);
 
+export function requiresNonceContentSecurityPolicy(pathname: string): boolean {
+  return isUnder(pathname, '/admin') || isUnder(pathname, '/partner');
+}
+
 export function contentSecurityPolicyFor(pathname: string, options: { nonce: string; development: boolean }): string {
   const partnerPortal = isUnder(pathname, '/partner');
   // Campaign creatives are whatever https URL the partner pasted into the
