@@ -1,13 +1,24 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { CheckCircle2, KeyRound, Loader2, RotateCcw, Send, Webhook } from 'lucide-react';
+import {
+  CheckCircle2,
+  Download,
+  KeyRound,
+  Loader2,
+  RefreshCw,
+  RotateCcw,
+  Send,
+  Smartphone,
+  Webhook,
+} from 'lucide-react';
 import { PARTNER_PORTAL_CONFIG, PARTNER_SUPPORT_EMAIL } from '@web/lib/partner/config';
 import { formatDate, formatDateTime, formatRelative } from '@web/lib/partner/format';
 import { changePartnerPassword, listPartnerTeam, resetPartnerDemo, sendTestWebhook } from '@web/lib/partner/partnerApi';
 import { CHANNEL_DETAILS } from '@web/lib/partner/channels';
 import { can, newPasswordProblem } from '@web/lib/partner/rules';
 import type { PartnerRole } from '@web/lib/partner/types';
+import { usePartnerPwa } from './PartnerPwaProvider';
 import { useSignedInPartner } from './PartnerSessionProvider';
 import {
   BrandAvatar,
@@ -115,6 +126,8 @@ export default function PartnerSettings() {
           <ChangePassword />
         </Card>
 
+        <MobileApp />
+
         {showTeam ? (
           <Card title="Team logins">
             {team.error ? <ErrorNote message={team.error} onRetry={team.reload} /> : null}
@@ -159,9 +172,83 @@ export default function PartnerSettings() {
   );
 }
 
+function MobileApp() {
+  const pwa = usePartnerPwa();
+  const [installError, setInstallError] = useState<string | null>(null);
+
+  async function install() {
+    setInstallError(null);
+    try {
+      await pwa.install();
+    } catch (caught) {
+      setInstallError(
+        caught instanceof Error ? caught.message : 'The install prompt could not be opened.',
+      );
+    }
+  }
+
+  return (
+    <Card title="Partner app">
+      <div className="flex items-start gap-3">
+        <span className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-md bg-profile-tint text-profile">
+          <Smartphone className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div>
+          <p className="text-sm font-semibold text-ink">
+            {pwa.standalone ? 'Installed on this device' : 'Install for quicker mobile access'}
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-ink-muted">
+            Opens in its own window and keeps an offline reconnect screen available. Partner pages and API data are never saved for offline use.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        {pwa.installAvailable && !pwa.standalone ? (
+          <button type="button" onClick={() => void install()} className={primaryButtonClass}>
+            <Download className="h-4 w-4" aria-hidden="true" />
+            Install partner app
+          </button>
+        ) : null}
+        {pwa.updateAvailable ? (
+          <button type="button" onClick={pwa.activateUpdate} className={secondaryButtonClass}>
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            Load update
+          </button>
+        ) : null}
+      </div>
+
+      {!pwa.standalone && !pwa.installAvailable ? (
+        <p className="mt-4 text-xs text-ink-muted">
+          {pwa.ios
+            ? 'In Safari, tap Share, then Add to Home Screen.'
+            : 'Use your browser menu and choose Install app or Add to Home Screen.'}
+        </p>
+      ) : null}
+      <p className="mt-3 flex items-center gap-2 text-xs text-ink-muted">
+        <span
+          className={`h-2 w-2 rounded-full ${pwa.online ? 'bg-ok' : 'bg-down'}`}
+          aria-hidden="true"
+        />
+        {pwa.online ? 'Connected' : 'Offline'}
+      </p>
+      {pwa.registrationError ? (
+        <p role="alert" className="mt-3 text-xs font-medium text-down">
+          {pwa.registrationError}
+        </p>
+      ) : null}
+      {installError ? (
+        <p role="alert" className="mt-3 text-xs font-medium text-down">
+          {installError}
+        </p>
+      ) : null}
+    </Card>
+  );
+}
+
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3">
+    <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-3 sm:grid-cols-[120px_minmax(0,1fr)]">
       <dt className="text-ink-muted">{label}</dt>
       <dd className="min-w-0 break-words text-ink">{children}</dd>
     </div>

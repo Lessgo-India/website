@@ -105,13 +105,13 @@ export default function PartnerSales() {
       <Card
         title={`Recent ${noun}s`}
         action={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             {channels.length > 1 ? (
               <select
                 aria-label="Channel"
                 value={channel}
                 onChange={(event) => setChannel(event.target.value as 'all' | OnlineChannel)}
-                className={`${inputClass} min-h-10 w-auto py-1.5`}
+                className={`${inputClass} min-h-10 w-full py-1.5 sm:w-auto`}
               >
                 <option value="all">All channels</option>
                 {channels.map((option) => (
@@ -125,7 +125,7 @@ export default function PartnerSales() {
               aria-label="Campaign"
               value={campaignId}
               onChange={(event) => setCampaignId(event.target.value)}
-              className={`${inputClass} min-h-10 w-auto max-w-[16rem] py-1.5`}
+              className={`${inputClass} min-h-10 w-full max-w-full py-1.5 sm:w-auto sm:max-w-[16rem]`}
             >
               <option value="all">All campaigns</option>
               {(query.data?.campaigns ?? []).map((campaign) => (

@@ -3,12 +3,25 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, type ComponentType, type ReactNode } from 'react';
-import { LayoutDashboard, LogOut, Megaphone, PlugZap, Plus, Receipt, ScanLine, Settings, Store } from 'lucide-react';
+import {
+  LayoutDashboard,
+  LogOut,
+  Megaphone,
+  PlugZap,
+  Plus,
+  Receipt,
+  RefreshCw,
+  ScanLine,
+  Settings,
+  Store,
+  WifiOff,
+} from 'lucide-react';
 import { ThemeToggle } from '@ui/ThemeToggle';
 import { PARTNER_PORTAL_CONFIG } from '@web/lib/partner/config';
 import { salesLabel } from '@web/lib/partner/channels';
 import { can, hasFeature, type PartnerFeature, type PartnerPermission } from '@web/lib/partner/rules';
 import type { PartnerRole } from '@web/lib/partner/types';
+import { usePartnerPwa } from './PartnerPwaProvider';
 import { usePartnerSession, useSignedInPartner } from './PartnerSessionProvider';
 import { BrandAvatar, DemoTag, PortalMark } from './ui';
 
@@ -48,6 +61,7 @@ export default function PartnerShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const session = useSignedInPartner();
   const { signOut } = usePartnerSession();
+  const pwa = usePartnerPwa();
   const [signingOut, setSigningOut] = useState(false);
   const channels = session.partner.channels;
   const items = NAVIGATION.filter(
@@ -65,8 +79,8 @@ export default function PartnerShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-bg text-ink lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
-      <aside className="sticky top-0 hidden h-screen flex-col border-r border-line bg-surface lg:flex">
+    <div className="min-h-screen min-h-dvh bg-bg text-ink lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
+      <aside className="sticky top-0 hidden h-screen h-dvh flex-col border-r border-line bg-surface lg:flex">
         <div className="border-b border-line px-5 py-5">
           <PortalMark />
         </div>
@@ -109,6 +123,13 @@ export default function PartnerShell({ children }: { children: ReactNode }) {
           })}
         </nav>
         <div className="mt-auto space-y-3 border-t border-line p-3">
+          <p className="flex items-center gap-2 px-2 text-xs text-ink-muted">
+            <span
+              className={`h-2 w-2 rounded-full ${pwa.online ? 'bg-ok' : 'bg-down'}`}
+              aria-hidden="true"
+            />
+            {pwa.online ? 'Connected' : 'Offline'}
+          </p>
           {PARTNER_PORTAL_CONFIG.useDummyData ? (
             <p className="flex items-center gap-2 px-2 text-xs text-ink-muted">
               <DemoTag /> Nothing reaches real users.
@@ -130,11 +151,14 @@ export default function PartnerShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="min-w-0">
-        <header className="sticky top-0 z-40 flex items-center gap-3 border-b border-line bg-surface/95 px-4 py-3 backdrop-blur lg:hidden">
+        <header className="partner-safe-top sticky top-0 z-40 flex items-center gap-3 border-b border-line bg-surface/95 backdrop-blur lg:hidden">
           <BrandAvatar partner={session.partner} size={34} />
           <div className="min-w-0 flex-1">
             <p className="truncate font-display text-base font-extrabold">{current?.label ?? 'Partners'}</p>
-            <p className="truncate text-xs text-ink-muted">{session.partner.brandName}</p>
+            <p className="truncate text-xs text-ink-muted">
+              {session.partner.brandName}
+              {!pwa.online ? ' · Offline' : ''}
+            </p>
           </div>
           <ThemeToggle className="rounded-md" />
           <Link
@@ -158,12 +182,34 @@ export default function PartnerShell({ children }: { children: ReactNode }) {
           </button>
         </header>
 
-        <main className="mx-auto w-full max-w-container px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-12 lg:pt-8">{children}</main>
+        <div aria-live="polite" aria-atomic="true">
+          {!pwa.online ? (
+            <div className="flex items-center justify-center gap-2 border-b border-warn bg-warn-tint px-4 py-3 text-sm font-semibold text-ink">
+              <WifiOff className="h-4 w-4 text-warn" aria-hidden="true" />
+              Offline. Reconnect to refresh data or complete actions.
+            </div>
+          ) : null}
+          {pwa.updateAvailable ? (
+            <div className="flex flex-wrap items-center justify-center gap-3 border-b border-profile bg-profile-tint px-4 py-3 text-sm text-ink">
+              <span>A new Partner Portal version is ready.</span>
+              <button
+                type="button"
+                onClick={pwa.activateUpdate}
+                className="inline-flex min-h-11 items-center gap-2 rounded-md bg-ink px-4 font-semibold text-bg"
+              >
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                Reload
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        <main className="partner-content mx-auto w-full max-w-container">{children}</main>
       </div>
 
       <nav
         aria-label="Partner portal"
-        className={`fixed inset-x-0 bottom-0 z-50 grid border-t border-line bg-surface/95 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 backdrop-blur lg:hidden ${MOBILE_COLUMNS[tabItems.length]}`}
+        className={`partner-bottom-nav fixed inset-x-0 bottom-0 z-50 grid border-t border-line bg-surface/95 backdrop-blur lg:hidden ${MOBILE_COLUMNS[tabItems.length]}`}
       >
         {tabItems.map((item) => {
           const active = isActive(pathname, item.href);

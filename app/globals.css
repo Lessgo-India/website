@@ -243,15 +243,63 @@ html[data-theme='dark'] {
     padding-right: max(0.5rem, env(safe-area-inset-right));
   }
 
+  .partner-safe-top {
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-bottom: 0.75rem;
+    padding-left: max(1rem, env(safe-area-inset-left));
+  }
+
+  .partner-content {
+    padding-top: 1.5rem;
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+    padding-left: max(1rem, env(safe-area-inset-left));
+  }
+
+  .partner-bottom-nav {
+    padding-top: 0.5rem;
+    padding-right: max(0.5rem, env(safe-area-inset-right));
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+    padding-left: max(0.5rem, env(safe-area-inset-left));
+  }
+
+  .partner-public-header {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .partner-auth-main {
+    padding-top: max(1.5rem, env(safe-area-inset-top));
+    padding-right: max(1.25rem, env(safe-area-inset-right));
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+    padding-left: max(1.25rem, env(safe-area-inset-left));
+  }
+
   @media (min-width: 1024px) {
     .admin-content {
       padding-bottom: 0;
+    }
+
+    .partner-content {
+      padding: 2rem 2.5rem 3rem;
     }
   }
 
   @media (min-width: 768px) {
     .container-page {
       padding-inline: 2rem;
+    }
+  }
+
+  @media (min-width: 640px) and (max-width: 1023px) {
+    .partner-content {
+      padding-right: max(1.5rem, env(safe-area-inset-right));
+      padding-left: max(1.5rem, env(safe-area-inset-left));
+    }
+
+    .partner-auth-main {
+      padding-right: max(2.5rem, env(safe-area-inset-right));
+      padding-left: max(2.5rem, env(safe-area-inset-left));
     }
   }
 
@@ -454,4 +502,3 @@ html[data-theme='dark'] {
     transform: none !important;
   }
 }
-

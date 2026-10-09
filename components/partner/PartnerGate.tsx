@@ -22,7 +22,7 @@ export default function PartnerGate({ children }: { children: ReactNode }) {
 
   if (status !== 'signed_in') {
     return (
-      <div className="flex min-h-screen items-center justify-center gap-2 bg-bg text-sm text-ink-muted" role="status">
+      <div className="flex min-h-screen min-h-dvh items-center justify-center gap-2 bg-bg text-sm text-ink-muted" role="status">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
         {status === 'loading' ? 'Checking your session…' : 'Redirecting to sign in…'}
       </div>

@@ -61,6 +61,24 @@ const nextConfig = {
           },
         ],
       },
+      {
+        source: '/partner-sw.js',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/javascript; charset=utf-8',
+          },
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+          { key: 'Service-Worker-Allowed', value: '/partner' },
+          {
+            key: 'Content-Security-Policy',
+            value: "default-src 'self'; script-src 'self'; object-src 'none'",
+          },
+        ],
+      },
     ];
   },
 };

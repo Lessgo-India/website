@@ -1,5 +1,6 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { notFound } from 'next/navigation';
+import PartnerPwaProvider from '@ui/partner/PartnerPwaProvider';
 import { PartnerSessionProvider } from '@ui/partner/PartnerSessionProvider';
 import { PARTNER_PORTAL_CONFIG } from '@web/lib/partner/config';
 
@@ -16,7 +17,28 @@ export const metadata: Metadata = {
     template: '%s · Lessgo Partners',
   },
   applicationName: 'Lessgo Partners',
+  manifest: '/partner/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Lessgo Partners',
+  },
   formatDetection: { telephone: false, email: false, address: false },
+  icons: {
+    icon: { url: '/partner/icon-192.png', type: 'image/png' },
+    apple: { url: '/partner/apple-touch-icon.png', type: 'image/png' },
+  },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  colorScheme: 'light dark',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#000000' },
+  ],
 };
 
 // Signed-in surface: never prerender partner markup into a static artifact.
@@ -25,8 +47,10 @@ export const dynamic = 'force-dynamic';
 export default function PartnerLayout({ children }: { children: React.ReactNode }) {
   if (!PARTNER_PORTAL_CONFIG.enabled) notFound();
   return (
-    <div id="content" className="min-h-screen bg-bg">
-      <PartnerSessionProvider>{children}</PartnerSessionProvider>
+    <div id="content" className="min-h-screen min-h-dvh bg-bg">
+      <PartnerPwaProvider>
+        <PartnerSessionProvider>{children}</PartnerSessionProvider>
+      </PartnerPwaProvider>
     </div>
   );
 }

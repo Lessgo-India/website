@@ -123,7 +123,21 @@ mobile `0.0.414` or newer last. The website never receives the gateway admin
 key in browser code; its route handler keeps that credential server-side and
 allowlists only the current dashboard and Bug House operations.
 
-## 🤝 Partner portal: backend mode
+## 🤝 Partner portal
+
+### Installable mobile app
+
+Every `/partner` route publishes the Partner Portal manifest and registers a
+service worker scoped to `/partner`. Partners can install it from the browser
+or from **Settings → Partner app**; iPhone and iPad users use Safari's
+**Share → Add to Home Screen** action.
+
+The worker caches only versioned frontend assets, app icons, and the dedicated
+offline reconnect screen. It never caches authenticated partner pages or
+`/api/*` responses, so campaign, redemption, order, and account data still
+requires a live connection.
+
+### Backend mode
 
 The merchant portal (`/partner`) and Admin → Partners run on dummy data kept in
 the browser until the site is built with

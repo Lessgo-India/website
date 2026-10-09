@@ -204,7 +204,7 @@ export default function PartnerSignup() {
   const online = form.channels.some((channel) => channel !== 'in_store');
 
   return (
-    <div className="min-h-screen bg-bg text-ink">
+    <div className="min-h-screen min-h-dvh bg-bg text-ink">
       <SignupHeader />
       <main className="container-page grid gap-12 py-12 lg:grid-cols-[minmax(0,0.72fr)_minmax(620px,1.28fr)] lg:gap-16 lg:py-20">
         <aside className="lg:sticky lg:top-28 lg:self-start">
@@ -271,7 +271,7 @@ export default function PartnerSignup() {
             </Field>
             <div>
               <span className={labelClass}>Brand logo / image (optional)</span>
-              <div className="flex items-center gap-3 rounded-md border border-line bg-bg-elev p-3">
+              <div className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-bg-elev p-3">
                 <BrandAvatar
                   partner={{
                     logoUrl: logoPreviewUrl ?? undefined,
@@ -285,28 +285,30 @@ export default function PartnerSignup() {
                   <p className="truncate text-sm font-semibold text-ink">{logoFile?.name ?? 'Upload your brand logo'}</p>
                   <p className="text-xs text-ink-muted">JPG, PNG or WebP · max 10 MB · square works best</p>
                 </div>
-                <label htmlFor="partner-application-logo" className={`${secondaryButtonClass} min-h-9 cursor-pointer px-3`}>
-                  <ImagePlus className="h-4 w-4" aria-hidden="true" />
-                  {logoFile ? 'Replace' : 'Upload'}
-                </label>
-                <input
-                  ref={logoInput}
-                  id="partner-application-logo"
-                  type="file"
-                  accept={BRAND_LOGO_ACCEPT}
-                  onChange={(event) => selectBrandLogo(event.target.files?.[0])}
-                  className="sr-only"
-                />
-                {logoFile ? (
-                  <button
-                    type="button"
-                    onClick={removeBrandLogo}
-                    aria-label="Remove uploaded brand logo"
-                    className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-md border border-line text-ink-muted hover:bg-surface hover:text-down"
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                ) : null}
+                <div className="flex w-full items-center gap-2 sm:w-auto">
+                  <label htmlFor="partner-application-logo" className={`${secondaryButtonClass} min-h-9 flex-1 cursor-pointer px-3 sm:flex-none`}>
+                    <ImagePlus className="h-4 w-4" aria-hidden="true" />
+                    {logoFile ? 'Replace' : 'Upload'}
+                  </label>
+                  <input
+                    ref={logoInput}
+                    id="partner-application-logo"
+                    type="file"
+                    accept={BRAND_LOGO_ACCEPT}
+                    onChange={(event) => selectBrandLogo(event.target.files?.[0])}
+                    className="sr-only"
+                  />
+                  {logoFile ? (
+                    <button
+                      type="button"
+                      onClick={removeBrandLogo}
+                      aria-label="Remove uploaded brand logo"
+                      className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-md border border-line text-ink-muted hover:bg-surface hover:text-down"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  ) : null}
+                </div>
               </div>
               {logoError ? <ErrorText>{logoError}</ErrorText> : null}
               <p className="mt-2 text-xs text-ink-muted">
@@ -394,7 +396,7 @@ export default function PartnerSignup() {
 
 function SignupHeader() {
   return (
-    <header className="border-b border-line bg-bg">
+    <header className="partner-public-header border-b border-line bg-bg">
       <div className="container-page flex min-h-20 items-center justify-between gap-4">
         <Link href="/partner" className="flex items-center gap-3" aria-label="Back to Lessgo Partners">
           <ArrowLeft className="h-4 w-4 text-ink-muted" aria-hidden="true" />
@@ -403,7 +405,10 @@ function SignupHeader() {
         <div className="flex items-center gap-2">
           <span className="hidden text-sm text-ink-muted sm:inline">Already approved?</span>
           <ThemeToggle className="rounded-md" />
-          <Link href="/partner/login" className={secondaryButtonClass}>Partner login</Link>
+          <Link href="/partner/login" className={`${secondaryButtonClass} px-3 sm:px-5`}>
+            <span className="sm:hidden">Login</span>
+            <span className="hidden sm:inline">Partner login</span>
+          </Link>
         </div>
       </div>
     </header>
@@ -441,9 +446,9 @@ function ErrorText({ children }: { children: ReactNode }) {
 
 function ApplicationSubmitted({ application }: { application: PartnerApplication }) {
   return (
-    <div className="min-h-screen bg-bg text-ink">
+    <div className="min-h-screen min-h-dvh bg-bg text-ink">
       <SignupHeader />
-      <main className="container-page flex min-h-[calc(100vh-5rem)] items-center justify-center py-16">
+      <main className="container-page flex min-h-[calc(100dvh-5rem)] items-center justify-center py-16">
         <section className="w-full max-w-2xl rounded-lg border border-ok bg-surface p-7 text-center shadow-soft sm:p-10">
           <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-ok-tint text-ok">
             <BadgeCheck className="h-7 w-7" aria-hidden="true" />

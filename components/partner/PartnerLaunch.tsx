@@ -28,8 +28,8 @@ const METRICS = [
 
 export default function PartnerLaunch() {
   return (
-    <div className="min-h-screen bg-bg text-ink">
-      <header className="sticky top-0 z-50 border-b border-line bg-bg/90 backdrop-blur-xl">
+    <div className="min-h-screen min-h-dvh bg-bg text-ink">
+      <header className="partner-public-header sticky top-0 z-50 border-b border-line bg-bg/90 backdrop-blur-xl">
         <div className="container-page flex min-h-20 items-center justify-between gap-4">
           <Link href="/partner" aria-label="Lessgo Partners home">
             <PortalMark />

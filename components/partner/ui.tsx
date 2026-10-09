@@ -97,7 +97,7 @@ export function PageHeader({
         <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">{title}</h1>
         {description ? <p className="mt-1 max-w-prose text-sm text-ink-muted">{description}</p> : null}
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">{actions}</div> : null}
     </header>
   );
 }
@@ -116,9 +116,9 @@ export function Card({
   return (
     <section className={`rounded-lg border border-line bg-surface p-5 shadow-soft ${className}`}>
       {title || action ? (
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           {title ? <h2 className="font-display text-base font-bold text-ink">{title}</h2> : <span />}
-          {action}
+          {action ? <div className="max-w-full">{action}</div> : null}
         </div>
       ) : null}
       {children}

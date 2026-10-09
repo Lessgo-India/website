@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import {
   ArrowRight,
+  Download,
   Eye,
   EyeOff,
   KeyRound,
@@ -20,6 +21,7 @@ import { DEMO_ACCOUNTS, DEMO_PASSWORD, DUMMY_USERS } from '@web/lib/partner/dumm
 import { partnerCompleteFirstLogin, partnerSignIn } from '@web/lib/partner/partnerApi';
 import { newPasswordProblem, safeNextPath } from '@web/lib/partner/rules';
 import type { PartnerUser } from '@web/lib/partner/types';
+import { usePartnerPwa } from './PartnerPwaProvider';
 import { usePartnerSession } from './PartnerSessionProvider';
 import { DemoTag, hintClass, inputClass, labelClass, PortalMark, primaryButtonClass } from './ui';
 
@@ -43,6 +45,7 @@ const RESTART_SIGN_IN_CODES = new Set([
 export default function PartnerLogin({ next }: { next: string | null }) {
   const router = useRouter();
   const { status, session, signedIn } = usePartnerSession();
+  const pwa = usePartnerPwa();
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -51,6 +54,7 @@ export default function PartnerLogin({ next }: { next: string | null }) {
   const [firstLogin, setFirstLogin] = useState<{ challenge: string; user: PartnerUser } | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [installError, setInstallError] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'signed_in' && session) router.replace(safeNextPath(next, session.user.role));
@@ -113,9 +117,20 @@ export default function PartnerLogin({ next }: { next: string | null }) {
     setPassword(account.password);
   }
 
+  async function installApp() {
+    setInstallError(null);
+    try {
+      await pwa.install();
+    } catch (caught) {
+      setInstallError(
+        caught instanceof Error ? caught.message : 'The install prompt could not be opened.',
+      );
+    }
+  }
+
   return (
-    <div className="grid min-h-screen bg-bg text-ink lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-      <aside className="relative hidden overflow-hidden bg-brand-night px-12 py-12 text-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:self-start">
+    <div className="grid min-h-screen min-h-dvh bg-bg text-ink lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+      <aside className="relative hidden overflow-hidden bg-brand-night px-12 py-12 text-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:h-dvh lg:flex-col lg:self-start">
         <div aria-hidden="true" className="pointer-events-none absolute inset-0">
           <div className="absolute -left-24 top-10 h-80 w-80 animate-aurora-a rounded-full bg-brand-purple/50 blur-3xl" />
           <div className="absolute -right-10 top-1/3 h-96 w-96 animate-aurora-b rounded-full bg-brand-magenta/35 blur-3xl" />
@@ -156,17 +171,35 @@ export default function PartnerLogin({ next }: { next: string | null }) {
         </p>
       </aside>
 
-      <main className="flex flex-col px-5 py-6 sm:px-10">
+      <main className="partner-auth-main flex min-h-dvh min-w-0 flex-col lg:min-h-0">
         <div className="flex items-center justify-between">
           <span className="lg:invisible">
             <PortalMark />
           </span>
-          <ThemeToggle className="rounded-md" />
+          <div className="flex items-center gap-2">
+            {pwa.installAvailable && !pwa.standalone ? (
+              <button
+                type="button"
+                onClick={() => void installApp()}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line px-3 text-sm font-semibold text-ink hover:bg-surface-2"
+              >
+                <Download className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Install app</span>
+                <span className="sr-only sm:hidden">Install partner app</span>
+              </button>
+            ) : null}
+            <ThemeToggle className="rounded-md" />
+          </div>
         </div>
+        {installError ? (
+          <p role="alert" className="mt-3 text-right text-xs font-medium text-down">
+            {installError}
+          </p>
+        ) : null}
 
         <div className="mx-auto my-auto w-full max-w-md py-10">
           {firstLogin ? (
-            <form onSubmit={submitNewPassword} className="rounded-xl border border-line bg-surface p-7 shadow-lift">
+            <form onSubmit={submitNewPassword} className="rounded-xl border border-line bg-surface p-5 shadow-lift sm:p-7">
               <span className="inline-flex h-11 w-11 items-center justify-center rounded-md bg-profile-tint">
                 <KeyRound className="h-5 w-5 text-profile" aria-hidden="true" />
               </span>
@@ -217,7 +250,7 @@ export default function PartnerLogin({ next }: { next: string | null }) {
               </button>
             </form>
           ) : (
-            <form onSubmit={submitCredentials} className="rounded-xl border border-line bg-surface p-7 shadow-lift">
+            <form onSubmit={submitCredentials} className="rounded-xl border border-line bg-surface p-5 shadow-lift sm:p-7">
               <span className="inline-flex h-11 w-11 items-center justify-center rounded-md bg-profile-tint">
                 <LockKeyhole className="h-5 w-5 text-profile" aria-hidden="true" />
               </span>
