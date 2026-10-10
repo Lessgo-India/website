@@ -430,7 +430,7 @@ export function Funnel({ totals, channel }: { totals: CampaignStats; channel?: R
       {steps.map((step, index) => (
         <li key={step.label}>
           <div className="flex items-baseline justify-between gap-3 text-sm">
-            <span className="text-ink">{step.label}</span>
+            <span className="truncate text-ink">{step.label}</span>
             <span className="font-mono text-xs text-ink-muted">
               {formatCount(step.value)}
               {index > 0 ? ` · ${formatPercent(rate(step.value, steps[index - 1].value))}` : ''}
