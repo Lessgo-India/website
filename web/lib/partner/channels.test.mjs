@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildCheckoutLink,
   channelIsLive,
+  funnelFillPercents,
   funnelSteps,
   isAllowedPartnerUrl,
   normaliseDomain,
@@ -83,4 +84,13 @@ test('derives allowed domains, go-live and labels from the partner’s channels'
   assert.equal(funnelSteps('online_code').at(-1).label, 'Ordered with the code');
   assert.equal(funnelSteps('api_booking').at(-2).key, 'checkouts');
   assert.equal(funnelSteps('in_store').some((step) => step.key === 'checkouts'), false);
+});
+
+test('keeps funnel fills within the track when the first step is zero', () => {
+  const fills = funnelFillPercents([0, 37, 5, 4, 2, 0]);
+
+  assert.equal(fills[0], 1.5);
+  assert.equal(fills[1], 100);
+  assert.equal(fills[2], (5 / 37) * 100);
+  assert.ok(fills.every((fill) => fill >= 0 && fill <= 100));
 });

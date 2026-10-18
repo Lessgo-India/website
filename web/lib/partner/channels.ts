@@ -143,6 +143,11 @@ export function funnelSteps(channel: RedemptionChannel): { key: keyof CampaignSt
   return [...top, { key: 'redeemed', label: 'Redeemed with you' }];
 }
 
+export function funnelFillPercents(values: readonly number[]): number[] {
+  const scale = Math.max(1, ...values);
+  return values.map((value) => Math.min(100, Math.max(1.5, (value / scale) * 100)));
+}
+
 // ── Partner domains ─────────────────────────────────────────────────────────
 
 const LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;

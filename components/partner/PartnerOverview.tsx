@@ -29,6 +29,7 @@ import { describeDistrict } from '@web/lib/partner/indiaGeo';
 import { getPartnerOverview, listPartnerCampaigns, listPartnerOutlets } from '@web/lib/partner/partnerApi';
 import {
   CHANNEL_DETAILS,
+  funnelFillPercents,
   funnelSteps,
   integrationStatus,
   isOnlineChannel,
@@ -424,7 +425,7 @@ export function Funnel({ totals, channel }: { totals: CampaignStats; channel?: R
     label: !channel && index === all.length - 1 ? 'Redeemed, ordered or booked' : step.label,
     value: totals[step.key],
   }));
-  const top = Math.max(1, steps[0].value);
+  const fillPercents = funnelFillPercents(steps.map((step) => step.value));
   return (
     <ol className="space-y-3">
       {steps.map((step, index) => (
@@ -437,7 +438,7 @@ export function Funnel({ totals, channel }: { totals: CampaignStats; channel?: R
             </span>
           </div>
           <div className="mt-1 h-2 rounded-full bg-surface-2">
-            <div className="gradient-brand h-2 rounded-full" style={{ width: `${Math.max(1.5, (step.value / top) * 100)}%` }} />
+            <div className="gradient-brand h-2 rounded-full" style={{ width: `${fillPercents[index]}%` }} />
           </div>
         </li>
       ))}
