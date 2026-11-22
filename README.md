@@ -98,6 +98,33 @@ in Next 16.
 
 4. Open `http://localhost:3000`
 
+## Account deletion
+
+The consumer `/delete-account` page uses the same durable gateway workflow as
+the mobile app:
+
+1. `POST /users/:userId/account-deletion` authenticates the verified Firebase
+   account and sends `{ jobId }` with `Idempotency-Key: jobId`.
+2. The browser saves the returned job ID and scoped recovery token before
+   `POST /account-deletions/:jobId/start`. Starting sends the same idempotency
+   key and `x-account-deletion-token`, without Firebase authentication.
+3. `GET /account-deletions/:jobId` polls every two seconds using only the recovery
+   token. Success requires `completed` and confirmed cleanup of every component.
+
+Recovery progress is kept in localStorage under
+`lessgo.account-deletion-recovery.v1`. Reloading or returning to the page in the
+same browser resumes the job, even after Firebase access is removed. Blocked or
+failed storage prevents destructive submission; do not clear site data while
+deletion is pending. The completed phase retains the original Firebase UID
+until identity-safe local sign-out and storage cleanup finish, so a newer
+signed-in account is not signed out by the old deletion.
+
+The gateway must have its durable account-deletion storage enabled. No legacy
+`DELETE /users/:userId/account` call is used by the website.
+
+Run the focused workflow and deletion-route analytics tests with
+`npm run test:delete-account` (Node 22.6+ for `--experimental-strip-types`).
+
 ## 📦 Building for production
 
 ```bash

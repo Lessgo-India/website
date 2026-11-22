@@ -9,13 +9,24 @@ import {
   ShieldCheck,
   Trash2,
 } from 'lucide-react';
-import { ApiError, deleteUserAccount } from '@web/lib/api';
+import { ApiError, accountDeletionApi } from '@web/lib/api';
+import {
+  clearAccountDeletionMarker,
+  readAccountDeletionMarker,
+  saveAccountDeletionMarker,
+  type AccountDeletionMarker,
+} from '@web/lib/accountDeletion';
 import { AuthIdentityChangedError, useAuth } from '@web/lib/auth';
+import { getFirebaseAuth } from '@web/lib/firebase';
+import { newIdempotencyKey } from '@web/lib/partner/idempotency';
 import OtpAuth from '@web/components/OtpAuth';
 
 type Phase =
+  | 'restoring'
   | 'confirm'
+  | 'preparing'
   | 'deleting'
+  | 'awaiting-verification'
   | 'reauthenticating'
   | 'signing-out'
   | 'error'
@@ -33,11 +44,14 @@ export default function DeleteAccountFlow() {
   const { configured, getToken, ready, signOut, signOutConfirmed, user, userId } = useAuth();
   const [acknowledged, setAcknowledged] = useState(false);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
-  const [cleanupComplete, setCleanupComplete] = useState(true);
-  const [phase, setPhase] = useState<Phase>('confirm');
-  const deletedUidRef = useRef<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [progressMessage, setProgressMessage] = useState('');
+  const [recoveryMarker, setRecoveryMarker] = useState<AccountDeletionMarker | null>(null);
+  const [phase, setPhase] = useState<Phase>('restoring');
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const inFlightRef = useRef(false);
+  const inFlightRef = useRef<AbortController | null>(null);
+  const busy = phase === 'preparing' || phase === 'deleting' ||
+    phase === 'reauthenticating' || phase === 'signing-out';
 
   useEffect(() => {
     if (!ready) return;
@@ -46,52 +60,152 @@ export default function DeleteAccountFlow() {
 
   const handleDifferentNumber = useCallback(async () => {
     setAcknowledged(false);
-    setAuthNotice(null);
+    setAuthNotice(recoveryMarker ? 'Verify the original account to resume your saved deletion.' : null);
+    setProgressMessage('Resetting your verification...');
     setPhase('signing-out');
     await signOut();
-    setPhase('confirm');
-  }, [signOut]);
+    setPhase(recoveryMarker ? 'awaiting-verification' : 'confirm');
+  }, [recoveryMarker, signOut]);
 
-  const finishLocalSignOut = useCallback(async (expectedUid: string) => {
-    try {
-      await signOutConfirmed(expectedUid);
-      setPhase('success');
-    } catch (error) {
-      setPhase(error instanceof AuthIdentityChangedError ? 'identity-changed' : 'signout-error');
-    }
-  }, [signOutConfirmed]);
-
-  const deleteAccount = useCallback(async () => {
-    if (inFlightRef.current || !acknowledged || !user || !userId) return;
-
-    const initiatingUid = user.uid;
-    inFlightRef.current = true;
-    setPhase('deleting');
+  const resumeDeletion = useCallback(async (saved: AccountDeletionMarker) => {
+    if (inFlightRef.current) return;
+    const controller = new AbortController();
+    inFlightRef.current = controller;
+    let currentMarker = saved;
+    setErrorMessage(null);
 
     try {
-      const result = await deleteUserAccount(userId, getToken);
-      deletedUidRef.current = initiatingUid;
-      setCleanupComplete(result.cleanupComplete);
-      setAcknowledged(false);
+      const completed = await accountDeletionApi.resume(saved, {
+        signal: controller.signal,
+        getToken: async (forceRefresh = false) => {
+          if (getFirebaseAuth().currentUser?.uid !== saved.firebaseUid) {
+            throw new AuthIdentityChangedError();
+          }
+          const token = await getToken(forceRefresh);
+          if (getFirebaseAuth().currentUser?.uid !== saved.firebaseUid) {
+            throw new AuthIdentityChangedError();
+          }
+          if (!token) throw new ApiError('Your verified session expired. Verify your phone again.', 401);
+          return token;
+        },
+        onProgress: (marker, receipt) => {
+          currentMarker = marker;
+          setRecoveryMarker(marker);
+          setPhase(marker.phase === 'cleanup' ? 'signing-out' : marker.phase);
+          setProgressMessage(
+            marker.phase === 'preparing'
+              ? 'Preparing secure account deletion.'
+              : marker.phase === 'cleanup'
+                ? 'Account deleted. Clearing this browser and signing out.'
+                : receipt?.state === 'retrying'
+                  ? 'A service is temporarily unavailable. Lessgo will retry account cleanup automatically.'
+                  : 'Deleting your account and confirming all cleanup steps.',
+          );
+        },
+      });
+      controller.signal.throwIfAborted();
+      let identityChanged = false;
+      try {
+        await signOutConfirmed(completed.firebaseUid);
+      } catch (error) {
+        if (!(error instanceof AuthIdentityChangedError)) throw error;
+        identityChanged = true;
+      }
+      controller.signal.throwIfAborted();
+      clearAccountDeletionMarker(completed);
+      setRecoveryMarker(null);
       setAuthNotice(null);
-      await finishLocalSignOut(initiatingUid);
+      setAcknowledged(false);
+      setPhase(identityChanged ? 'identity-changed' : 'success');
     } catch (error) {
-      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
-        setAcknowledged(false);
+      if (controller.signal.aborted) return;
+      setRecoveryMarker(currentMarker);
+      if (
+        currentMarker.phase === 'preparing' &&
+        (error instanceof AuthIdentityChangedError ||
+          (error instanceof ApiError && (error.status === 401 || error.status === 403)))
+      ) {
         setAuthNotice(
-          'Your verified session expired or did not match this account. Verify your phone again before retrying.',
+          'Your saved deletion needs the original verified account. Verify that phone number to resume.',
         );
-        setPhase('reauthenticating');
-        await signOut();
-        setPhase('confirm');
+        if (error instanceof ApiError) {
+          setProgressMessage('Resetting your verification...');
+          setPhase('reauthenticating');
+          await signOut();
+          if (controller.signal.aborted) return;
+        }
+        setPhase('awaiting-verification');
         return;
       }
-
-      setPhase('error');
+      setErrorMessage(error instanceof Error ? error.message : 'Account deletion could not be confirmed. Please retry.');
+      setPhase(currentMarker.phase === 'cleanup' ? 'signout-error' : 'error');
     } finally {
-      inFlightRef.current = false;
+      if (inFlightRef.current === controller) inFlightRef.current = null;
     }
-  }, [acknowledged, finishLocalSignOut, getToken, signOut, user, userId]);
+  }, [getToken, signOut, signOutConfirmed]);
+
+  const restoreRecovery = useCallback(() => {
+    try {
+      const marker = readAccountDeletionMarker();
+      setRecoveryMarker(marker);
+      setErrorMessage(null);
+      setPhase(marker ? 'restoring' : 'confirm');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Saved deletion progress could not be read.');
+      setPhase('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    restoreRecovery();
+    return () => {
+      inFlightRef.current?.abort();
+      inFlightRef.current = null;
+    };
+  }, [restoreRecovery]);
+
+  useEffect(() => {
+    if (!ready || !recoveryMarker || (phase !== 'restoring' && phase !== 'awaiting-verification')) return;
+    if (
+      recoveryMarker.phase === 'preparing' &&
+      (user?.uid !== recoveryMarker.firebaseUid || userId !== recoveryMarker.userId)
+    ) {
+      setAuthNotice('Verify the original account to resume your saved deletion.');
+      setPhase('awaiting-verification');
+      return;
+    }
+    void resumeDeletion(recoveryMarker);
+  }, [phase, ready, recoveryMarker, resumeDeletion, user, userId]);
+
+  useEffect(() => {
+    const onOnline = () => {
+      if (phase === 'error' && recoveryMarker) void resumeDeletion(recoveryMarker);
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [phase, recoveryMarker, resumeDeletion]);
+
+  const deleteAccount = useCallback(() => {
+    if (inFlightRef.current || !acknowledged || !user || !userId) return;
+    try {
+      const existing = readAccountDeletionMarker();
+      const marker: AccountDeletionMarker = existing ?? {
+        version: 1,
+        phase: 'preparing',
+        jobId: newIdempotencyKey(),
+        userId,
+        firebaseUid: user.uid,
+      };
+      if (!existing) saveAccountDeletionMarker(marker);
+      setRecoveryMarker(marker);
+      setAcknowledged(false);
+      setAuthNotice(null);
+      void resumeDeletion(marker);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Deletion progress could not be saved.');
+      setPhase('error');
+    }
+  }, [acknowledged, resumeDeletion, user, userId]);
 
   if (phase === 'success') {
     return (
@@ -108,24 +222,10 @@ export default function DeleteAccountFlow() {
           Your Lessgo account has been deleted
         </h2>
         <p className="mt-3 max-w-xl leading-relaxed text-ink-muted">
-          Lessgo confirmed deletion of your core account and Firebase access, and this browser
+          Lessgo confirmed all account cleanup steps and deletion of Firebase access, and this browser
           has been signed out. Shared or retained records are handled as described in our Privacy
           Policy. You can close this page now.
         </p>
-        {!cleanupComplete ? (
-          <p className="mt-4 border-l-2 border-gold pl-4 text-sm leading-relaxed text-ink-muted">
-            Your account access and core profile were deleted, but some related cleanup, including
-            stopping notifications, could not be confirmed. Notifications may continue until we
-            review it. Email{' '}
-            <a
-              href={`mailto:${PRIVACY_EMAIL}`}
-              className="font-semibold text-ink underline underline-offset-4"
-            >
-              {PRIVACY_EMAIL}
-            </a>{' '}
-            so we can review it.
-          </p>
-        ) : null}
         <Link
           href="/"
           className="mt-6 inline-flex min-h-[48px] items-center justify-center rounded-full border border-line-strong bg-surface-2 px-6 text-sm font-semibold text-ink transition-transform duration-200 ease-spring hover:-translate-y-px active:scale-[0.97]"
@@ -163,18 +263,6 @@ export default function DeleteAccountFlow() {
           A different Firebase account became active in this browser while deletion was running.
           Lessgo left that newer session signed in and did not use it for the deletion request.
         </p>
-        {!cleanupComplete ? (
-          <p className="mt-4 text-sm leading-relaxed text-ink-muted">
-            Some related cleanup could not be confirmed. Email{' '}
-            <a
-              href={`mailto:${PRIVACY_EMAIL}`}
-              className="font-semibold text-ink underline underline-offset-4"
-            >
-              {PRIVACY_EMAIL}
-            </a>{' '}
-            so we can review it.
-          </p>
-        ) : null}
       </div>
     );
   }
@@ -188,27 +276,89 @@ export default function DeleteAccountFlow() {
           tabIndex={-1}
           className="mt-4 font-display text-2xl font-bold text-ink outline-none"
         >
-          Account deleted, but local sign-out needs attention
+          Account deleted, but browser cleanup needs attention
         </h2>
         <p className="mt-3 max-w-xl leading-relaxed text-ink-muted">
-          Lessgo confirmed the account deletion, but this browser could not confirm that its local
-          Firebase session was cleared. Retry local sign-out before closing the page.
+          Lessgo confirmed account deletion, but local sign-out or removal of saved recovery
+          progress could not be confirmed. Retry browser cleanup before clearing site data.
         </p>
+        {errorMessage ? <p className="mt-3 text-sm text-ink-muted">{errorMessage}</p> : null}
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <button
             type="button"
             onClick={() => {
-              const deletedUid = deletedUidRef.current;
-              if (deletedUid) void finishLocalSignOut(deletedUid);
+              if (recoveryMarker) void resumeDeletion(recoveryMarker);
             }}
             className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-line-strong bg-surface-2 px-6 text-sm font-semibold text-ink transition-transform duration-200 ease-spring hover:-translate-y-px active:scale-[0.97]"
           >
-            Retry local sign-out
+            Retry browser cleanup
           </button>
           <a
             href={`mailto:${PRIVACY_EMAIL}`}
             className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-line-strong bg-surface-2 px-6 text-sm font-semibold text-ink transition-transform duration-200 ease-spring hover:-translate-y-px active:scale-[0.97]"
           >
+            Contact privacy support
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'restoring') {
+    return (
+      <div className="flex min-h-48 items-center justify-center gap-3 rounded-xl border border-line bg-surface p-6 text-ink-muted" role="status">
+        <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+        Checking saved deletion progress...
+      </div>
+    );
+  }
+
+  if (busy) {
+    return (
+      <div className="rounded-xl border border-line bg-surface p-6 shadow-lift sm:p-8" role="status">
+        <Loader2 className="h-9 w-9 animate-spin text-profile" aria-hidden="true" />
+        <h2 ref={headingRef} tabIndex={-1} className="mt-4 font-display text-2xl font-bold text-ink outline-none">
+          {phase === 'preparing'
+            ? 'Preparing account deletion'
+            : phase === 'deleting'
+              ? 'Deleting your account'
+              : 'Completing browser sign-out'}
+        </h2>
+        <p className="mt-3 max-w-xl leading-relaxed text-ink-muted">{progressMessage}</p>
+        {recoveryMarker ? (
+          <p className="mt-4 max-w-xl text-sm leading-relaxed text-ink-muted">
+            Your progress is saved in this browser. If interrupted, return to this page in the same
+            browser to resume. Do not clear site data until deletion and browser cleanup finish.
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (phase === 'error') {
+    return (
+      <div className="rounded-xl border border-line bg-surface p-6 shadow-lift sm:p-8" role="alert">
+        <AlertTriangle className="h-9 w-9 text-vibes" aria-hidden="true" />
+        <h2 ref={headingRef} tabIndex={-1} className="mt-4 font-display text-2xl font-bold text-ink outline-none">
+          We could not confirm the deletion
+        </h2>
+        <p className="mt-3 max-w-xl leading-relaxed text-ink-muted">{errorMessage}</p>
+        {recoveryMarker ? (
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-ink-muted">
+            Your progress is saved. Lessgo may still be completing account cleanup. Retrying resumes
+            the same deletion; it does not delete a different account.
+          </p>
+        ) : null}
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={() => recoveryMarker ? void resumeDeletion(recoveryMarker) : restoreRecovery()}
+            className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-vibes px-6 text-sm font-semibold text-white transition-transform duration-200 ease-spring hover:-translate-y-px active:scale-[0.97]"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            {recoveryMarker ? 'Retry deletion' : 'Retry reading saved progress'}
+          </button>
+          <a href={`mailto:${PRIVACY_EMAIL}`} className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-line-strong bg-surface-2 px-6 text-sm font-semibold text-ink transition-transform duration-200 ease-spring hover:-translate-y-px active:scale-[0.97]">
             Contact privacy support
           </a>
         </div>
@@ -260,6 +410,27 @@ export default function DeleteAccountFlow() {
     );
   }
 
+  if (
+    recoveryMarker?.phase === 'preparing' &&
+    (user.uid !== recoveryMarker.firebaseUid || userId !== recoveryMarker.userId)
+  ) {
+    return (
+      <div className="rounded-xl border border-line bg-surface p-6 shadow-lift sm:p-8" role="status">
+        <ShieldCheck className="h-9 w-9 text-profile" aria-hidden="true" />
+        <h2 ref={headingRef} tabIndex={-1} className="mt-4 font-display text-2xl font-bold text-ink outline-none">
+          Verify the original account to resume
+        </h2>
+        <p className="mt-3 max-w-xl leading-relaxed text-ink-muted">
+          A deletion was saved for {maskedPhone(recoveryMarker.userId)}. The currently signed-in
+          account is different and will not be used for that deletion.
+        </p>
+        <button type="button" onClick={() => void handleDifferentNumber()} className="mt-6 inline-flex min-h-[48px] items-center justify-center rounded-full border border-line-strong bg-surface-2 px-6 text-sm font-semibold text-ink transition-transform duration-200 ease-spring hover:-translate-y-px active:scale-[0.97]">
+          Verify the original number
+        </button>
+      </div>
+    );
+  }
+
   if (!userId) {
     return (
       <div className="rounded-xl border border-line bg-surface p-6 sm:p-8">
@@ -286,45 +457,8 @@ export default function DeleteAccountFlow() {
     );
   }
 
-  const busy =
-    phase === 'deleting' || phase === 'reauthenticating' || phase === 'signing-out';
-
   return (
     <div className="rounded-xl border border-line bg-surface p-6 shadow-lift sm:p-8">
-      {phase === 'error' ? (
-        <div role="alert">
-          <AlertTriangle className="h-9 w-9 text-vibes" aria-hidden="true" />
-          <h2
-            ref={headingRef}
-            tabIndex={-1}
-            className="mt-4 font-display text-2xl font-bold text-ink outline-none"
-          >
-            We could not confirm the deletion
-          </h2>
-          <p className="mt-3 max-w-xl leading-relaxed text-ink-muted">
-            The account may already be deleted if the connection dropped after the request
-            reached Lessgo. It is safe to retry: already-removed account records are treated as a
-            successful deletion.
-          </p>
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <button
-              type="button"
-              onClick={() => void deleteAccount()}
-              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-vibes px-6 text-sm font-semibold text-white transition-transform duration-200 ease-spring hover:-translate-y-px active:scale-[0.97]"
-            >
-              <Trash2 className="h-4 w-4" aria-hidden="true" />
-              Retry deletion
-            </button>
-            <a
-              href={`mailto:${PRIVACY_EMAIL}`}
-              className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-line-strong bg-surface-2 px-6 text-sm font-semibold text-ink transition-transform duration-200 ease-spring hover:-translate-y-px active:scale-[0.97]"
-            >
-              Contact privacy support
-            </a>
-          </div>
-        </div>
-      ) : (
-        <>
           <div className="flex items-start gap-4">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-profile-tint">
               <ShieldCheck className="h-5 w-5 text-profile" aria-hidden="true" />
@@ -347,8 +481,8 @@ export default function DeleteAccountFlow() {
             Confirm permanent deletion
           </h2>
           <p className="mt-3 max-w-xl leading-relaxed text-ink-muted">
-            This permanently removes your core Lessgo profile and account access, and requests
-            deactivation of notification tokens plus cleanup of personal profile uploads and
+            This permanently removes your core Lessgo profile and account access, deactivates
+            notification tokens, and cleans up personal profile uploads and
             active membership data. This action cannot be undone.
           </p>
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-ink-muted">
@@ -380,11 +514,7 @@ export default function DeleteAccountFlow() {
               ) : (
                 <Trash2 className="h-4 w-4" aria-hidden="true" />
               )}
-              {phase === 'reauthenticating' || phase === 'signing-out'
-                ? 'Resetting verification…'
-                : busy
-                  ? 'Deleting…'
-                  : 'Delete my account'}
+              {busy ? 'Deleting…' : 'Delete my account'}
             </button>
             <button
               type="button"
@@ -395,8 +525,6 @@ export default function DeleteAccountFlow() {
               Use a different number
             </button>
           </div>
-        </>
-      )}
     </div>
   );
 }

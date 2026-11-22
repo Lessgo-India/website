@@ -1,4 +1,5 @@
 import { BACKEND_API } from './config';
+import { createAccountDeletionWorkflow } from './accountDeletion';
 import type { EventDetail, EventPreview, Muo, Profile } from './types';
 
 const PROFILE_AVATAR_BASE_URL =
@@ -23,10 +24,13 @@ export function randomProfileAvatarUrl(): string {
  */
 export type TokenProvider = (forceRefresh?: boolean) => Promise<string | null>;
 
-type RequestOptions = {
+export type RequestOptions = {
   method?: string;
   body?: unknown;
   auth?: TokenProvider;
+  headers?: Record<string, string>;
+  signal?: AbortSignal;
+  timeoutMs?: number;
 };
 
 export class ApiError extends Error {
@@ -63,40 +67,55 @@ async function request<T>(
 ): Promise<T> {
   if (!BACKEND_API) throw new ApiError('The Lessgo backend is not configured.', 0);
   const { method = 'GET', body, auth } = options;
+  const controller = options.timeoutMs === undefined ? undefined : new AbortController();
+  const forwardAbort = () => controller?.abort(options.signal?.reason);
+  if (options.signal?.aborted) forwardAbort();
+  else options.signal?.addEventListener('abort', forwardAbort, { once: true });
+  const timeout = controller
+    ? setTimeout(() => controller.abort(), options.timeoutMs)
+    : undefined;
+  const signal = controller?.signal ?? options.signal;
 
   const call = async (token: string | null): Promise<Response> => {
-    const headers: Record<string, string> = { Accept: 'application/json' };
+    const headers: Record<string, string> = { Accept: 'application/json', ...options.headers };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (token) headers.Authorization = `Bearer ${token}`;
-    return fetch(`${BACKEND_API}${path}`, {
-      method,
-      headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-      cache: 'no-store',
-    });
+    try {
+      return await fetch(`${BACKEND_API}${path}`, {
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        cache: 'no-store',
+        signal,
+      });
+    } catch {
+      throw new ApiError('Network error. Check your connection and try again.', 0);
+    }
   };
 
-  let res: Response;
   try {
-    res = await call(auth ? await auth() : null);
-  } catch {
-    throw new ApiError('Network error. Check your connection and try again.', 0);
-  }
+    let res = await call(auth ? await auth() : null);
 
-  if (res.status === 401 && auth) {
-    const fresh = await auth(true);
-    if (fresh) {
-      try {
-        res = await call(fresh);
-      } catch {
-        throw new ApiError('Network error. Check your connection and try again.', 0);
-      }
+    if (res.status === 401 && auth) {
+      const fresh = await auth(true);
+      if (fresh) res = await call(fresh);
     }
-  }
 
-  if (!res.ok) throw await errorFrom(res);
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+    if (!res.ok) throw await errorFrom(res);
+    if (res.status === 204) return undefined as T;
+    try {
+      return (await res.json()) as T;
+    } catch {
+      throw new ApiError('The Lessgo response could not be read. Please retry.', 502);
+    }
+  } catch (error) {
+    if (options.signal?.aborted) throw options.signal.reason;
+    if (controller?.signal.aborted) throw new ApiError('Request timed out. Please retry.', 0);
+    throw error;
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+    options.signal?.removeEventListener('abort', forwardAbort);
+  }
 }
 
 // --- Public (no auth): shareable deep-link preview + OG metadata ---
@@ -113,34 +132,7 @@ export function getMuo(userId: string, auth: TokenProvider): Promise<Muo> {
   return request<Muo>(`/users/getMUO/${encodeURIComponent(userId)}`, { auth });
 }
 
-type DeleteAccountResponse = {
-  success?: boolean;
-  report?: Record<string, string>;
-};
-
-export type DeleteAccountResult = {
-  cleanupComplete: boolean;
-};
-
-export async function deleteUserAccount(
-  userId: string,
-  getToken: TokenProvider,
-): Promise<DeleteAccountResult> {
-  const response = await request<DeleteAccountResponse>(
-    `/users/${encodeURIComponent(userId)}/account`,
-    { method: 'DELETE', auth: getToken },
-  );
-
-  if (response.success !== true) {
-    throw new ApiError('Account deletion could not be confirmed.', 502);
-  }
-
-  return {
-    cleanupComplete:
-      response.report !== undefined &&
-      Object.values(response.report).every((result) => !result.startsWith('failed:')),
-  };
-}
+export const accountDeletionApi = createAccountDeletionWorkflow(request);
 
 /** `null` means "no Lessgo account yet" — the signal that onboarding is needed. */
 export async function getProfileOrNull(

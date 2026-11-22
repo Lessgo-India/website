@@ -30,7 +30,7 @@ const STEPS = [
   {
     icon: Trash2,
     title: 'Confirm permanent deletion',
-    body: 'Select the acknowledgement and choose “Delete my account”. The page signs out after Lessgo confirms completion.',
+    body: 'Select the acknowledgement and choose “Delete my account”. Progress is saved in this browser, and the page signs out after Lessgo confirms all cleanup steps. If interrupted, return here in the same browser to resume without clearing site data.',
   },
 ] as const;
 
@@ -95,8 +95,8 @@ export default function DeleteAccountPage() {
                   What happens to your data
                 </h2>
                 <p className="mt-3 text-sm leading-relaxed text-ink-muted">
-                  The deletion process removes your core profile and account access, requests
-                  deactivation of notification tokens, and cleans up personal profile uploads and
+                  The deletion process removes your core profile and account access, deactivates
+                  notification tokens, and cleans up personal profile uploads and
                   active membership data. Shared event, message, and transaction records may be
                   retained or de-identified where other participants rely on them or where legal,
                   fraud-prevention, accounting, or dispute-handling obligations apply. Read the
