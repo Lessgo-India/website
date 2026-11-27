@@ -277,7 +277,8 @@ export type AdminReportedContentType =
   | "poll"
   | "checkpoint"
   | "media"
-  | "document";
+  | "document"
+  | "message";
 
 export interface AdminReportProfileSummary {
   userId: string | null;
