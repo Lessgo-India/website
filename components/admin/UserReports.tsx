@@ -64,6 +64,7 @@ const CONTENT_TYPE_LABELS: Record<AdminReportedContentType, string> = {
   checkpoint: "Timeline checkpoint",
   media: "Gallery media",
   document: "Document",
+  message: "Chat message",
 };
 
 function formatDate(value: string | null): string {
